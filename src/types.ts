@@ -1,0 +1,52 @@
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+export type Content = string | JsonValue[] | { [key: string]: JsonValue };
+
+export interface NoulQuestion {
+  type: 'noul';
+  instructions: Content;
+  criteria?: { true?: Content; false?: Content };
+}
+
+export interface ChoiceQuestion {
+  type: 'choice';
+  instructions: Content;
+  criteria: Record<string, Content | null>;
+}
+
+export interface ScoreQuestion {
+  type: 'score';
+  instructions: Content;
+  criteria: Content[];
+}
+
+export type Question = NoulQuestion | ChoiceQuestion | ScoreQuestion;
+export type Questions = Record<string, Question>;
+
+export interface NoulAnswer { type: 'noul'; noul: number }
+export interface ChoiceAnswer { type: 'choice'; choice: string; probabilities: Record<string, number>; confidence: number }
+export interface ScoreAnswer { type: 'score'; score: number; legend: Record<string, string>; probabilities: Record<string, number>; confidence: number }
+export type Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer;
+
+export type Answers<Q extends Questions> = {
+  [K in keyof Q]: Q[K] extends ChoiceQuestion ? ChoiceAnswer :
+    Q[K] extends ScoreQuestion ? ScoreAnswer : NoulAnswer;
+};
+
+export interface DecisionRequest<Q extends Questions = Questions> {
+  state: Content;
+  questions: Q;
+}
+
+export interface DecisionResult<Q extends Questions = Questions> {
+  model: string;
+  answers: Answers<Q>;
+  usage: { input_tokens: number; output_tokens: number; [key: string]: unknown };
+}
+
+export interface SystemOneCredentials {
+  url?: string;
+  model?: string | null;
+  token?: string;
+  responseFormat?: 'direct' | 'cloudflare';
+  timeoutMs?: number;
+}

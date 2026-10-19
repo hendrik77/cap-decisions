@@ -1,0 +1,45 @@
+{
+  "name": "cap-jev",
+  "version": "0.1.0",
+  "description": "Internal System One decision service for SAP CAP",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "cds-plugin.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "peerDependencies": {
+    "@sap/cds": "^10.0.0"
+  },
+  "devDependencies": {
+    "@cap-js/cds-types": "^0.20.0",
+    "@sap/cds": "^10.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc -p examples/cap-app/tsconfig.json",
+    "build": "tsc",
+    "test": "npm run build && node --test tests/*.test.cjs",
+    "prepack": "npm run build"
+  },
+  "cds": {
+    "requires": {
+      "system-one": {
+        "impl": "cap-jev",
+        "credentials": {
+          "url": "https://api.typesafe.ai/v1/systemone",
+          "model": "jev-latest",
+          "responseFormat": "direct",
+          "timeoutMs": 10000
+        }
+      }
+    }
+  }
+}
