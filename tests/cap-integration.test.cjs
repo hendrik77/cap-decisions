@@ -24,7 +24,7 @@ test('installed package registers an internal CAP service with decide()', async 
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(fixture, 'package.json')));
-    pkg.cds.requires['system-one'].credentials.url = `http://127.0.0.1:${server.address().port}/v1/systemone`;
+    pkg.cds.requires['systemone'].credentials.url = `http://127.0.0.1:${server.address().port}/v1/systemone`;
     pkg.dependencies['@sap/cds'] = `file:${path.join(root, 'node_modules/@sap/cds')}`;
     fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(pkg));
     const pack = spawnSync('npm', ['pack', '--ignore-scripts', '--pack-destination', temp], { cwd: root, encoding: 'utf8' });
@@ -38,7 +38,7 @@ test('installed package registers an internal CAP service with decide()', async 
       const cds = require('@sap/cds');
       (async () => {
         await cds.plugins;
-        const service = await cds.connect.to('system-one');
+        const service = await cds.connect.to('systemone');
         if (!(service instanceof cds.Service)) throw new Error('Not a CAP Service');
         const result = await service.decide({ state: 'refund', questions: { answer: { type: 'noul', instructions: 'Refund?' } } });
         if (result.answers.answer.noul !== 0.8) throw new Error('Wrong result');

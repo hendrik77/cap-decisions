@@ -4,7 +4,7 @@ import type { SystemOneService } from 'cap-jev';
 export default class DecisionService extends cds.ApplicationService {
   async init(): Promise<void> {
     this.on('classify', async request => {
-      const systemOne = await cds.connect.to('system-one') as SystemOneService;
+      const systemOne = await cds.connect.to('systemone') as SystemOneService;
       const result = await systemOne.decide({
         state: request.data.message as string,
         questions: {

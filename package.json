@@ -31,7 +31,7 @@
   },
   "cds": {
     "requires": {
-      "system-one": {
+      "systemone": {
         "impl": "cap-jev",
         "credentials": {
           "url": "https://api.typesafe.ai/v1/systemone",
