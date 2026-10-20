@@ -4,14 +4,13 @@
 
 ## Install and use
 
-The package is not yet published to npm. Download a tarball from [GitHub releases](https://github.com/hendrik77/cap-jev/releases), or build one from this repository and install it in your CAP application:
+The package is not yet published to npm. Install a release archive from [GitHub releases](https://github.com/hendrik77/cap-jev/releases) in your CAP application:
 
 ```sh
-npm install
-npm pack
-# In your CAP application:
-npm install /path/to/cap-jev/cap-jev-0.4.2.tgz
+npm install https://github.com/hendrik77/cap-jev/releases/download/v0.4.3/cap-jev-0.4.3.tgz
 ```
+
+To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-jev-<version>.tgz` file.
 
 After npm publication, use `npm install cap-jev`.
 
@@ -34,12 +33,23 @@ const result = await systemOne.decide({
     refund: { type: 'noul', instructions: 'Does the customer request a refund?' },
   },
 });
-console.log(result.answers.department.choice, result.answers.refund.noul);
+console.log(result.answers.department.choice, result.answers.urgency.score, result.answers.refund.noul);
 ```
+
+Each answer has the `type` of its question:
+
+| Type | Fields |
+| --- | --- |
+| `choice` | `choice`: the selected criteria key; `probabilities`: one value per key; `confidence` |
+| `score` | `score`: a number from 0 to the last criteria index; `legend`: the criteria text by index (`'0'`, `'1'`, …); `probabilities` by index; `confidence` |
+| `noul` | `noul`: the probability, from 0 to 1, that the answer is true |
+
+Probabilities and confidence values are numbers from 0 to 1, and each probability map sums to 1.
 
 Choice labels are inferred from the criteria keys: `result.answers.department.choice` is typed as `'billing' | 'technical'`, and its probability map has those same keys. TypeScript rejects unknown labels and can check that a handler map covers every choice:
 
 ```ts
+// Continues the example above.
 const handlers = {
   billing: () => 'Send to accounts',
   technical: () => 'Send to support',
@@ -59,8 +69,8 @@ const questions = {
   },
   refund: { type: 'noul', instructions: 'Does the customer request a refund?' },
 } satisfies Questions;
-const result = await systemOne.decide({ state: 'Please refund me', questions });
-// result.answers.department.choice: 'billing' | 'technical'
+const decision = await systemOne.decide({ state: 'Please refund me', questions });
+// decision.answers.department.choice: 'billing' | 'technical'
 ```
 
 To annotate an answer explicitly, use `ChoiceAnswer<'billing' | 'technical'>`. The default `ChoiceAnswer` and questions with dynamic `Record<string, ...>` criteria keep `choice: string`. Numeric criteria keys infer their string forms, matching the JSON response. Maps explicitly typed as `Questions` keep the broad `Answer` union; once the keys have been widened, the answer type cannot recover their original labels.
@@ -69,7 +79,7 @@ Optional criteria keys, such as `technical?: string`, remain valid choices, but 
 
 Request state, instructions, and criteria must contain plain JSON data: strings, arrays, and plain objects (including null-prototype objects), with JSON primitive values inside them. Circular references and objects such as `Map`, `Set`, `Date`, or class instances are rejected with `INVALID_REQUEST`. Shared references are allowed when they do not form a cycle. Dynamically built maps typed as `Questions` return the `Answer` union, which can be narrowed using `answer.type`.
 
-The [example CAP application](examples/cap-app) shows a TypeScript action handler. Its CDS action belongs to the application; the plugin registers no annotations or handlers for application actions.
+The [example CAP application](examples/cap-app) shows a TypeScript action handler with exhaustive label handling and error mapping, and explains how to run it. Its CDS action belongs to the application; the plugin registers no annotations or handlers for application actions.
 
 `decide()` sends an internal CAP `decide` event. Applications can register `before` and `after` handlers on the connected service. Configuration is checked when `cds.connect.to('systemone')` runs; an invalid endpoint rejects that connection with `INVALID_CONFIG`. Pass `{ signal }` as the second argument to cancel a call. Successful calls emit a `systemone` debug log with latency, attempt count, model and input/output token counts.
 
@@ -123,7 +133,22 @@ On SAP BTP, you can set `credentials.destination` to the name of a Destination s
 { "cds": { "requires": { "systemone": { "kind": "systemone", "credentials": { "destination": "systemone-api" } } } } }
 ```
 
-Responses must include a model identifier, one correctly typed answer per question, and usage counts. Invalid input, malformed responses, HTTP errors, and timeouts throw `SystemOneError` with `code` and, for HTTP errors, `status`. A safe machine-readable provider error code, when available, is exposed as `providerCode`. Network and parse errors retain their original `cause`; HTTP errors omit the response object. HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, an HTTP failure is returned immediately as `HTTP_ERROR` with its status and provider code. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. Both the service and `SystemOneTransport.decide()` accept `{ signal }` as the second argument; caller cancellation throws `ABORTED`. Request state and credentials are never logged by this package.
+Responses must include a model identifier, one correctly typed answer per question, and usage counts. Failures throw `SystemOneError` with a `code` of type `SystemOneErrorCode`:
+
+| Code | Cause |
+| --- | --- |
+| `INVALID_CONFIG` | Invalid settings, reported by `cds.connect.to('systemone')` or the transport constructor, or a destination that cannot be resolved for a call |
+| `INVALID_REQUEST` | The request does not match the question schema or the provider's limits; nothing is sent |
+| `INVALID_RESPONSE` | The response is malformed JSON or does not match the questions |
+| `HTTP_ERROR` | The endpoint returned an error status; `status` and, when available, `providerCode` are set |
+| `PROVIDER_ERROR` | Cloudflare returned `success: false` |
+| `NETWORK_ERROR` | The connection or response body failed after all retries |
+| `TIMEOUT` | The call exceeded `timeoutMs` |
+| `ABORTED` | The caller's `signal` cancelled the call |
+
+`providerCode` is a safe machine-readable provider error code. Network and parse errors retain their original `cause`; HTTP errors omit the response object.
+
+HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, an HTTP failure is returned immediately as `HTTP_ERROR` with its status and provider code. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. Both the service and `SystemOneTransport.decide()` accept `{ signal }` as the second argument (type `DecisionOptions` for the transport); caller cancellation throws `ABORTED`. Request state and credentials are never logged by this package.
 
 ## Development
 

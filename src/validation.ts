@@ -26,12 +26,22 @@ function json(value: unknown, ancestors = new Set<object>()): boolean {
   }
 }
 
+export type SystemOneErrorCode =
+  | 'INVALID_CONFIG'
+  | 'INVALID_REQUEST'
+  | 'INVALID_RESPONSE'
+  | 'HTTP_ERROR'
+  | 'PROVIDER_ERROR'
+  | 'NETWORK_ERROR'
+  | 'TIMEOUT'
+  | 'ABORTED';
+
 export class SystemOneError extends Error {
   readonly status?: number;
   readonly providerCode?: string | number;
 
   constructor(
-    public readonly code: string,
+    public readonly code: SystemOneErrorCode,
     message: string,
     options: { status?: number; providerCode?: string | number; cause?: unknown } = {},
   ) {

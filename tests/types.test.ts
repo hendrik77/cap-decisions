@@ -2,16 +2,28 @@ import type {
   Answer,
   Answers,
   ChoiceAnswer,
+  DecisionOptions,
   DecisionRequest,
   NoulAnswer,
   Questions,
   ScoreAnswer,
+  SystemOneError,
+  SystemOneErrorCode,
   SystemOneService,
   SystemOneTransport,
 } from '../src';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Assert<T extends true> = T;
+
+export type ErrorCode = Assert<Equal<SystemOneError['code'], SystemOneErrorCode>>;
+export type TransportOptions = Assert<Equal<Parameters<SystemOneTransport['decide']>[1], DecisionOptions | undefined>>;
+
+export function errorStatus(code: SystemOneErrorCode): number {
+  // @ts-expect-error Error codes are limited to the documented values.
+  if (code === 'UNKNOWN') return 0;
+  return code === 'INVALID_REQUEST' ? 400 : 502;
+}
 
 export type BroadAnswer = Assert<Equal<Answers<Questions>[string], Answer>>;
 
