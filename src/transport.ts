@@ -149,6 +149,12 @@ export class SystemOneTransport {
       throw new SystemOneError('INVALID_CONFIG', 'Invalid provider or model setting');
     }
     const credentials = settings.credentials ?? {};
+    if ('model' in credentials || 'timeoutMs' in credentials || 'responseFormat' in credentials) {
+      throw new SystemOneError(
+        'INVALID_CONFIG',
+        'Move model and timeoutMs to service settings and select a provider kind',
+      );
+    }
     if (['typesafe', 'cloudflare'].includes(this.provider) && !credentials.token && !credentials.destination) {
       throw new SystemOneError('INVALID_CONFIG', 'This provider requires a token');
     }

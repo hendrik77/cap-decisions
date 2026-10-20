@@ -93,11 +93,46 @@ test('rejects missing, mismatched, and unknown choice answers', async () => {
   }
 });
 
+test('rejects score answers outside range and with incorrect legends', async () => {
+  for (const answer of [
+    { ...result.answers.urgency, score: 2 },
+    { ...result.answers.urgency, legend: { 0: 'Low', 2: 'High' } },
+  ]) {
+    handler = (_req, res) => res.end(JSON.stringify({ ...result, answers: { ...result.answers, urgency: answer } }));
+    await assert.rejects(decide(), (error) => error.code === 'INVALID_RESPONSE');
+  }
+});
+
 test('rejects invalid input before sending', async () => {
   await assert.rejects(
     decide({}, { state: 'x', questions: { bad: { type: 'choice', instructions: 'x', criteria: {} } } }),
     (error) => error.code === 'INVALID_REQUEST',
   );
+});
+
+test('rejects invalid noul criteria before sending', async () => {
+  for (const criteria of [{ maybe: 'yes' }, { true: 42, false: undefined }]) {
+    await assert.rejects(
+      decide({}, { state: 'x', questions: { answer: { type: 'noul', instructions: 'Yes?', criteria } } }),
+      (error) => error.code === 'INVALID_REQUEST',
+    );
+  }
+});
+
+test('rejects invalid endpoint, timeout, provider and legacy response format settings', () => {
+  for (const settings of [
+    { timeoutMs: 1000, credentials: { url: 'not a URL' } },
+    { timeoutMs: 0, credentials: { url: 'https://example.com' } },
+    { timeoutMs: 1.5, credentials: { url: 'https://example.com' } },
+    { timeoutMs: 1000, provider: 'unknown', credentials: { url: 'https://example.com' } },
+    { timeoutMs: 1000, responseFormat: 'cloudflare', credentials: { url: 'https://example.com' } },
+    { timeoutMs: 1000, credentials: { url: 'https://example.com', responseFormat: 'cloudflare' } },
+  ]) {
+    assert.throws(
+      () => new SystemOneTransport(settings),
+      (error) => error.code === 'INVALID_CONFIG',
+    );
+  }
 });
 
 test('reports authentication errors without leaking response body', async () => {
@@ -178,6 +213,24 @@ test('retries 503 after cancelling its response body', async () => {
   assert.deepEqual(await decide(), result);
   assert.equal(calls, 2);
   assert.equal(closed, true);
+});
+
+test('repeated retriable failures release their response streams', async () => {
+  let calls = 0;
+  let closed = 0;
+  handler = (_req, res) => {
+    calls++;
+    if (calls % 3) {
+      res.writeHead(503, { 'retry-after': '0' });
+      res.write('retry');
+      res.on('close', () => {
+        closed++;
+      });
+    } else res.end(JSON.stringify(result));
+  };
+  for (let i = 0; i < 8; i++) assert.deepEqual(await decide(), result);
+  assert.equal(calls, 24);
+  assert.equal(closed, 16);
 });
 
 test('honours Retry-After and caps it at the overall deadline', async () => {
