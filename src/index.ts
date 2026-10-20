@@ -61,8 +61,8 @@ export type {
   Answers,
   DecisionRequest,
   DecisionResult,
+  ProviderLimits,
   SystemOneCredentials,
-  SystemOneProvider,
   SystemOneSettings,
 } from './types';
 

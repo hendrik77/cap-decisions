@@ -5,11 +5,13 @@ import type {
   DecisionOptions,
   DecisionRequest,
   NoulAnswer,
+  ProviderLimits,
   Questions,
   ScoreAnswer,
   SystemOneError,
   SystemOneErrorCode,
   SystemOneService,
+  SystemOneSettings,
   SystemOneTransport,
 } from '../src';
 
@@ -73,3 +75,16 @@ export async function inference(
   void satisfies.answers.choice.score;
   void checks;
 }
+
+export const settings: SystemOneSettings = {
+  modelId: 'jev-latest',
+  requiresToken: true,
+  timeoutMs: 1000,
+  limits: { questions: 64, choiceOptions: 255, scoreCriteria: { min: 2, max: 10 } },
+  credentials: { url: 'https://example.test', token: 'secret' },
+};
+export const limits: ProviderLimits = { scoreCriteria: { max: 10 } };
+// @ts-expect-error The provider setting was replaced by kinds.
+export const withProvider: SystemOneSettings = { provider: 'laya' };
+// @ts-expect-error The model setting was renamed to modelId.
+export const withModel: SystemOneSettings = { model: 'jev-latest' };

@@ -1,4 +1,6 @@
-import type { DecisionRequest, DecisionResult, Questions, SystemOneProvider } from './types';
+import type { DecisionRequest, DecisionResult, ProviderLimits, Questions } from './types';
+
+export const MAX_TIMEOUT_MS = 2_147_483_647;
 
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -52,15 +54,12 @@ export class SystemOneError extends Error {
   }
 }
 
-export function validateRequest(
-  input: unknown,
-  provider: SystemOneProvider = 'generic',
-): asserts input is DecisionRequest {
+export function validateRequest(input: unknown, limits: ProviderLimits = {}): asserts input is DecisionRequest {
   if (!record(input) || !content(input.state) || !record(input.questions) || !Object.keys(input.questions).length) {
     throw new SystemOneError('INVALID_REQUEST', 'state and a non-empty questions map are required');
   }
-  if (provider === 'cloudflare' && Object.keys(input.questions).length > 64) {
-    throw new SystemOneError('INVALID_REQUEST', 'Cloudflare supports at most 64 questions');
+  if (limits.questions !== undefined && Object.keys(input.questions).length > limits.questions) {
+    throw new SystemOneError('INVALID_REQUEST', `At most ${limits.questions} questions are supported`);
   }
   for (const [id, raw] of Object.entries(input.questions)) {
     if (!id || !record(raw) || !content(raw.instructions)) {
@@ -74,8 +73,7 @@ export function validateRequest(
       if (
         !record(question.criteria) ||
         !Object.keys(question.criteria).length ||
-        (provider === 'typesafe' && Object.keys(question.criteria).length > 255) ||
-        (provider === 'laya' && Object.keys(question.criteria).length > 100) ||
+        (limits.choiceOptions !== undefined && Object.keys(question.criteria).length > limits.choiceOptions) ||
         Object.entries(question.criteria).some(([label, value]) => !label || (value !== null && !content(value)))
       ) {
         throw new SystemOneError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
@@ -83,8 +81,8 @@ export function validateRequest(
     } else if (question.type === 'score') {
       if (
         !Array.isArray(question.criteria) ||
-        question.criteria.length < (provider === 'typesafe' ? 2 : 1) ||
-        (provider === 'typesafe' && question.criteria.length > 10) ||
+        question.criteria.length < Math.max(1, limits.scoreCriteria?.min ?? 1) ||
+        (limits.scoreCriteria?.max !== undefined && question.criteria.length > limits.scoreCriteria.max) ||
         !question.criteria.every(content)
       ) {
         throw new SystemOneError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
@@ -101,6 +99,74 @@ export function validateRequest(
       throw new SystemOneError('INVALID_REQUEST', `Unknown question type for ${id}`);
     }
   }
+}
+
+// Keys CAP puts on a connected service's options. Verified on CAP 10.1.1 and 9.9.3: only kind and impl, which are
+// known keys anyway; the rest are CAP's documented per-service options that are valid on any service.
+export const CAP_SETTINGS_KEYS: readonly string[] = ['service', 'queued', 'outboxed', 'outbox', 'binding', 'vcap'];
+const SETTINGS_KEYS = ['kind', 'impl', 'modelId', 'timeoutMs', 'requiresToken', 'limits', 'credentials'];
+const CREDENTIAL_KEYS = ['url', 'token', 'accountId', 'destination'];
+
+const plain = (value: unknown): value is Record<string, unknown> =>
+  record(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value));
+const positive = (value: unknown, max = Number.MAX_SAFE_INTEGER): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= max;
+const invalidConfig = (message: string) => new SystemOneError('INVALID_CONFIG', message);
+
+function validateLimits(limits: unknown): void {
+  if (!plain(limits)) throw invalidConfig('limits must be an object');
+  for (const [key, value] of Object.entries(limits)) {
+    if (key === 'scoreCriteria') {
+      if (!plain(value)) throw invalidConfig('limits.scoreCriteria must be an object');
+      for (const [bound, count] of Object.entries(value)) {
+        if (!['min', 'max'].includes(bound)) throw invalidConfig(`Unknown setting "limits.scoreCriteria.${bound}"`);
+        if (!positive(count)) throw invalidConfig(`limits.scoreCriteria.${bound} must be a positive integer`);
+      }
+      if (value.min !== undefined && value.max !== undefined && (value.min as number) > (value.max as number)) {
+        throw invalidConfig('limits.scoreCriteria.min must not exceed max');
+      }
+    } else if (['questions', 'choiceOptions'].includes(key)) {
+      if (!positive(value)) throw invalidConfig(`limits.${key} must be a positive integer`);
+    } else {
+      throw invalidConfig(`Unknown setting "limits.${key}"`);
+    }
+  }
+}
+
+export function validateSettings(settings: unknown, extraKeys: readonly string[] = []): string[] {
+  const values = settings === undefined ? {} : settings;
+  if (!plain(values)) throw invalidConfig('cds.requires.systemone must be an object');
+  if (Object.hasOwn(values, 'model')) {
+    throw invalidConfig('The model setting was renamed to modelId; CAP reads model as the CDS model of a service');
+  }
+  for (const key of CREDENTIAL_KEYS) {
+    if (Object.hasOwn(values, key)) throw invalidConfig(`Move ${key} under credentials`);
+  }
+  if (values.credentials !== undefined) {
+    const credentials = values.credentials;
+    if (!plain(credentials)) throw invalidConfig('credentials must be an object');
+    for (const [key, value] of Object.entries(credentials)) {
+      if (!CREDENTIAL_KEYS.includes(key)) throw invalidConfig(`Unknown credentials setting "${key}"`);
+      if (value !== undefined && typeof value !== 'string') throw invalidConfig(`credentials.${key} must be a string`);
+    }
+    if (credentials.destination !== undefined && !(credentials.destination as string).trim()) {
+      throw invalidConfig('destination must be a non-empty name');
+    }
+  }
+  if (values.modelId !== undefined && (typeof values.modelId !== 'string' || !values.modelId)) {
+    throw invalidConfig('modelId must be a non-empty string');
+  }
+  if (values.requiresToken !== undefined && typeof values.requiresToken !== 'boolean') {
+    throw invalidConfig('requiresToken must be a boolean');
+  }
+  if (values.timeoutMs !== undefined && !positive(values.timeoutMs, MAX_TIMEOUT_MS)) {
+    throw invalidConfig(`timeoutMs must be a positive integer at most ${MAX_TIMEOUT_MS}`);
+  }
+  if (values.limits !== undefined) validateLimits(values.limits);
+  const known = new Set([...SETTINGS_KEYS, ...CAP_SETTINGS_KEYS, ...extraKeys]);
+  return Object.keys(values)
+    .filter((key) => !known.has(key))
+    .map((key) => `Unknown setting "${key}" for cds.requires.systemone is ignored`);
 }
 
 function distribution(raw: unknown, labels: string[]): raw is Record<string, number> {

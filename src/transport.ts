@@ -1,12 +1,21 @@
 import { createRequire } from 'node:module';
-import type { DecisionRequest, DecisionResult, Questions, SystemOneProvider, SystemOneSettings } from './types';
-import { SystemOneError, validateRequest, validateResult } from './validation';
+import type { DecisionRequest, DecisionResult, ProviderLimits, Questions, SystemOneSettings } from './types';
+import { MAX_TIMEOUT_MS, SystemOneError, validateRequest, validateResult } from './validation';
 
 const MAX_RETRIES = 2;
-const MAX_TIMEOUT_MS = 2_147_483_647;
 const RETRY_STATUSES = new Set([429, 502, 503, 504, 529]);
 const MAX_ERROR_BYTES = 8192;
 const optionalRequire = createRequire(__filename);
+
+// Temporary until T3: the provider and model settings are replaced by kind data (limits, modelId).
+type LegacyProvider = 'generic' | 'typesafe' | 'cloudflare' | 'laya';
+type LegacySettings = SystemOneSettings & { provider?: LegacyProvider; model?: string | null };
+const LEGACY_LIMITS: Record<LegacyProvider, ProviderLimits> = {
+  typesafe: { choiceOptions: 255, scoreCriteria: { min: 2, max: 10 } },
+  laya: { choiceOptions: 100 },
+  cloudflare: { questions: 64 },
+  generic: {},
+};
 
 export interface ResolvedDestination {
   url?: string;
@@ -149,13 +158,13 @@ export class SystemOneTransport {
   private readonly url?: URL;
   private readonly timeoutMs: number;
   private readonly responseFormat: 'direct' | 'cloudflare';
-  private readonly provider: SystemOneProvider;
+  private readonly provider: LegacyProvider;
   private readonly token?: string;
   private readonly destination?: string;
   private readonly model?: string;
 
   constructor(
-    settings: SystemOneSettings,
+    settings: LegacySettings,
     private readonly destinationResolver?: DestinationResolver,
   ) {
     this.provider = settings.provider ?? 'generic';
@@ -198,7 +207,7 @@ export class SystemOneTransport {
       throw new SystemOneError('INVALID_CONFIG', `timeoutMs must be a positive integer at most ${MAX_TIMEOUT_MS}`);
     this.token = credentials.token;
     this.destination = credentials.destination;
-    this.model = settings.model;
+    this.model = settings.model ?? undefined;
     this.responseFormat = this.provider === 'cloudflare' ? 'cloudflare' : 'direct';
   }
 
@@ -253,7 +262,7 @@ export class SystemOneTransport {
     const deadlineAt = Date.now() + this.timeoutMs;
     const deadline = AbortSignal.timeout(this.timeoutMs);
     const signal = options.signal ? AbortSignal.any([deadline, options.signal]) : deadline;
-    validateRequest(request, this.provider);
+    validateRequest(request, LEGACY_LIMITS[this.provider]);
     const model = this.model;
     const body = JSON.stringify({ ...request, ...(model ? { model } : {}) });
     if (signal.aborted) throw interruption(signal, options.signal);

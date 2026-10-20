@@ -26,7 +26,9 @@ test('temporary apps resolve the local cap-jev and a single @sap/cds', async () 
     assert.equal(typeof result.kind, 'string');
     assert.equal(fs.realpathSync(result.resolved), path.join(fs.realpathSync(root), 'dist/index.js'));
     assert.equal(
-      path.dirname(fs.realpathSync(result.cdsPath)).startsWith(fs.realpathSync(path.join(root, 'node_modules/@sap/cds'))),
+      path
+        .dirname(fs.realpathSync(result.cdsPath))
+        .startsWith(fs.realpathSync(path.join(root, 'node_modules/@sap/cds'))),
       true,
     );
   } finally {
