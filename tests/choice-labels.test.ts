@@ -32,6 +32,9 @@ type NumericQuestions = {
 type UnionCriteria = {
   department: { type: 'choice'; instructions: string; criteria: { billing: string } | { technical: string } };
 };
+type OptionalCriteria = {
+  department: { type: 'choice'; instructions: string; criteria: { billing: string; technical?: string } };
+};
 type DynamicCriteria = {
   department: { type: 'choice'; instructions: string; criteria: Record<string, Content | null> };
 };
@@ -47,6 +50,12 @@ export type ReadonlyAnswer = Assert<
 export type NumericAnswer = Assert<Equal<Answers<NumericQuestions>['rating'], ChoiceAnswer<'0' | '1'>>>;
 export type UnionAnswer = Assert<
   Equal<Answers<UnionCriteria>['department'], ChoiceAnswer<'billing'> | ChoiceAnswer<'technical'>>
+>;
+export type OptionalAnswer = Assert<
+  Equal<Answers<OptionalCriteria>['department'], ChoiceAnswer<'billing' | 'technical', 'technical'>>
+>;
+export type OptionalProbability = Assert<
+  Equal<Answers<OptionalCriteria>['department']['probabilities']['technical'], number | undefined>
 >;
 export type DynamicAnswer = Assert<Equal<Answers<DynamicCriteria>['department'], ChoiceAnswer>>;
 export type BroadChoiceAnswer = Assert<Equal<Answers<Record<string, ChoiceQuestion>>[string], ChoiceAnswer>>;
@@ -71,6 +80,15 @@ export function narrowUnionCriteria(answer: Answers<UnionCriteria>['department']
   void answer.probabilities.billing;
   if (answer.choice === 'billing') return answer.probabilities.billing;
   return answer.probabilities.technical;
+}
+
+export function optionalCriteria(answer: Answers<OptionalCriteria>['department']): ChoiceAnswer {
+  const billing: number = answer.probabilities.billing;
+  // @ts-expect-error An optional criteria key may be absent from the probabilities.
+  const technical: number = answer.probabilities.technical;
+  void billing;
+  void technical;
+  return answer;
 }
 
 export async function inference(service: SystemOneService, transport: SystemOneTransport): Promise<void> {

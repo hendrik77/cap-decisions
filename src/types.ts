@@ -26,10 +26,12 @@ export interface NoulAnswer {
   type: 'noul';
   noul: number;
 }
-export interface ChoiceAnswer<Label extends string = string> {
+export interface ChoiceAnswer<Label extends string = string, OptionalLabel extends Label = never> {
   type: 'choice';
   choice: Label;
-  probabilities: Record<Label, number>;
+  probabilities: [OptionalLabel] extends [never]
+    ? Record<Label, number>
+    : Record<Exclude<Label, OptionalLabel>, number> & Partial<Record<OptionalLabel, number>>;
   confidence: number;
 }
 export interface ScoreAnswer {
@@ -41,8 +43,20 @@ export interface ScoreAnswer {
 }
 export type Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer;
 
+type Label<Key> = `${Extract<Key, string | number>}`;
+// Literal keys that may be absent; index signatures are not treated as optional.
+type OptionalKeys<T> = {
+  [K in keyof T]-?: string extends K
+    ? never
+    : number extends K
+      ? never
+      : Record<never, never> extends Pick<T, K>
+        ? K
+        : never;
+}[keyof T];
+
 type ChoiceAnswerFor<Criteria> = Criteria extends unknown
-  ? ChoiceAnswer<`${Extract<keyof Criteria, string | number>}`>
+  ? ChoiceAnswer<Label<keyof Criteria>, Label<OptionalKeys<Criteria>>>
   : never;
 
 type AnswerFor<T> = T extends ChoiceQuestion

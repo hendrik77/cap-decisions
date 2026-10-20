@@ -10,7 +10,7 @@ The package is not yet published to npm. Download a tarball from [GitHub release
 npm install
 npm pack
 # In your CAP application:
-npm install /path/to/cap-jev/cap-jev-0.4.0.tgz
+npm install /path/to/cap-jev/cap-jev-0.4.1.tgz
 ```
 
 After npm publication, use `npm install cap-jev`.
@@ -64,6 +64,8 @@ const result = await systemOne.decide({ state: 'Please refund me', questions });
 ```
 
 To annotate an answer explicitly, use `ChoiceAnswer<'billing' | 'technical'>`. The default `ChoiceAnswer` and questions with dynamic `Record<string, ...>` criteria keep `choice: string`. Numeric criteria keys infer their string forms, matching the JSON response. Maps explicitly typed as `Questions` keep the broad `Answer` union; once the keys have been widened, the answer type cannot recover their original labels.
+
+Optional criteria keys, such as `technical?: string`, remain valid choices, but their probabilities are typed as `number | undefined` because an omitted key is not sent to the provider; `ChoiceAnswer<'billing' | 'technical', 'technical'>` names that shape explicitly. Responses are validated against the criteria keys present at runtime, so a criteria object with more keys than its declared type, for example a variable assigned to a narrower annotation, can return a label outside the inferred union. Declare criteria inline or with `satisfies` to keep the types and the runtime keys aligned.
 
 Request state, instructions, and criteria must contain plain JSON data: strings, arrays, and plain objects (including null-prototype objects), with JSON primitive values inside them. Circular references and objects such as `Map`, `Set`, `Date`, or class instances are rejected with `INVALID_REQUEST`. Shared references are allowed when they do not form a cycle. Dynamically built maps typed as `Questions` return the `Answer` union, which can be narrowed using `answer.type`.
 

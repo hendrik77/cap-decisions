@@ -1,6 +1,20 @@
 # Changelog
 
+## 0.4.1
+
+### Fixed
+
+- Optional criteria keys no longer claim a guaranteed probability: for `criteria: { billing: string; technical?: string }`, `answer.probabilities.technical` is `number | undefined`. `ChoiceAnswer` takes an optional second type parameter naming the optional labels.
+
+### Documentation
+
+- 0.4.0 notes now list its compile-time breaking changes, and the README explains that runtime validation uses the criteria keys actually sent.
+
 ## 0.4.0
+
+### Breaking changes
+
+- Compile-time only: code that compares `answer.choice` with, assigns, or reads probabilities for labels not declared in the question's criteria no longer type-checks. Runtime behaviour is unchanged. Annotate with the default `ChoiceAnswer` or type the question map as `Questions` to keep `string` labels.
 
 ### Added
 
