@@ -12,7 +12,10 @@ test('installed package registers an internal CAP service with decide()', { time
   const root = path.resolve(__dirname, '..');
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-integration-'));
   const fixture = path.join(temp, 'cap-app');
-  fs.cpSync(path.join(root, 'examples/cap-app'), fixture, { recursive: true });
+  fs.cpSync(path.join(root, 'examples/cap-app'), fixture, {
+    recursive: true,
+    filter: (source) => path.basename(source) !== 'node_modules',
+  });
   const received = [];
   const server = http.createServer(async (request, response) => {
     const chunks = [];
@@ -141,12 +144,15 @@ test('installed package registers an internal CAP service with decide()', { time
         cds.model = cds.linked(await cds.load('*'));
         const service = await cds.serve('DecisionService').from(cds.model);
         if (service.constructor.name !== 'DecisionService') throw new Error('Example handler was not loaded');
-        const queue = await service.send('classify', { message: 'The API returns errors' });
+        const classify = (message) => service.tx({ user: new cds.User({ id: 'alice' }) }, (tx) => tx.send('classify', { message }));
+        const queue = await classify('The API returns errors');
         if (queue !== 'support') throw new Error('Wrong queue: ' + queue);
         for (const [message, status] of [[' ', 400], ['provider failure', 502]]) {
-          try { await service.send('classify', { message }); throw new Error('Expected rejection'); }
+          try { await classify(message); throw new Error('Expected rejection'); }
           catch (error) { if (error.code !== status) throw error; }
         }
+        try { await service.send('classify', { message: 'The API returns errors' }); throw new Error('Expected anonymous rejection'); }
+        catch (error) { if (error.code !== 401) throw error; }
         process.stdout.write('ok');
       })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
     `;

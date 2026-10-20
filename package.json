@@ -1,6 +1,6 @@
 {
   "name": "cap-jev",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "Internal System One decision service for SAP CAP",
   "license": "MIT",
   "main": "dist/index.js",
@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./providers/cloudflare": {
+      "types": "./dist/providers/cloudflare.d.ts",
+      "default": "./dist/providers/cloudflare.js"
     },
     "./package.json": "./package.json",
     "./cds-plugin": "./cds-plugin.js",
@@ -36,8 +40,13 @@
   "engines": {
     "node": ">=22"
   },
+  "workspaces": [
+    ".",
+    "examples/cap-app",
+    "examples/provider-package"
+  ],
   "peerDependencies": {
-    "@sap/cds": "^10.0.0",
+    "@sap/cds": ">=9",
     "@sap-cloud-sdk/connectivity": "^4.9.1"
   },
   "peerDependenciesMeta": {
@@ -46,6 +55,7 @@
     }
   },
   "devDependencies": {
+    "@cap-js/cds-test": "^1.0.2",
     "@cap-js/cds-types": "^0.20.0",
     "@sap/cds": "^10.0.0",
     "@types/node": "^22.0.0",
@@ -65,30 +75,45 @@
   "cds": {
     "requires": {
       "systemone": {
-        "kind": "systemone"
+        "kind": "systemone-generic"
       },
       "kinds": {
-        "systemone": {
+        "systemone-defaults": {
           "impl": "cap-jev",
-          "provider": "generic",
           "timeoutMs": 10000
         },
+        "systemone-generic": {
+          "kind": "systemone-defaults"
+        },
         "systemone-typesafe": {
-          "kind": "systemone",
-          "provider": "typesafe",
-          "model": "jev-latest",
+          "kind": "systemone-defaults",
+          "modelId": "jev-latest",
+          "requiresToken": true,
+          "limits": {
+            "choiceOptions": 255,
+            "scoreCriteria": {
+              "min": 2,
+              "max": 10
+            }
+          },
           "credentials": {
             "url": "https://api.typesafe.ai/v1/systemone"
           }
         },
         "systemone-cloudflare": {
-          "kind": "systemone",
-          "provider": "cloudflare",
-          "model": "clef"
+          "kind": "systemone-defaults",
+          "impl": "cap-jev/providers/cloudflare",
+          "modelId": "clef",
+          "requiresToken": true,
+          "limits": {
+            "questions": 64
+          }
         },
         "systemone-laya": {
-          "kind": "systemone",
-          "provider": "laya",
+          "kind": "systemone-defaults",
+          "limits": {
+            "choiceOptions": 100
+          },
           "credentials": {
             "url": "http://127.0.0.1:8000/v1/systemone"
           }

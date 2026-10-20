@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { SystemOneTransport } = require('../dist');
+const { SystemOneTransport } = require('../dist/transport');
 
 const request = { state: 'x', questions: { answer: { type: 'noul', instructions: 'Yes?' } } };
 const result = {
@@ -24,17 +24,17 @@ test('destination supplies URL and URL.headers.Authorization without local cachi
   };
   try {
     const settings = {
-      provider: 'typesafe',
-      model: 'jev-latest',
+      modelId: 'jev-latest',
+      requiresToken: true,
       timeoutMs: 1000,
       credentials: { destination: 'test-destination' },
     };
-    const transport = new SystemOneTransport(settings, resolver);
+    const transport = new SystemOneTransport(settings, { destinationResolver: resolver });
     delete settings.credentials.destination;
     settings.credentials.token = 'changed-token';
     await transport.validateDestination();
-    assert.deepEqual(await transport.decide(request), result);
-    assert.deepEqual(await transport.decide(request), result);
+    assert.deepEqual(await transport.post(request), { payload: result, attempts: 1 });
+    assert.deepEqual((await transport.post(request)).payload, result);
     assert.equal(resolutions, 3);
     assert.deepEqual(seen, [
       { url: 'https://example.com/2', authorization: 'Bearer destination-token' },
@@ -56,7 +56,12 @@ test('missing optional SDK reports an install hint', async () => {
 test('destination token cannot be sent to non-loopback HTTP', async () => {
   const transport = new SystemOneTransport(
     { timeoutMs: 1000, credentials: { destination: 'test-destination' } },
-    async () => ({ url: 'http://example.com/post', headers: { Authorization: 'Bearer secret' } }),
+    {
+      destinationResolver: async () => ({
+        url: 'http://example.com/post',
+        headers: { Authorization: 'Bearer secret' },
+      }),
+    },
   );
   await assert.rejects(transport.validateDestination(), (error) => error.code === 'INVALID_CONFIG');
 });
@@ -64,13 +69,85 @@ test('destination token cannot be sent to non-loopback HTTP', async () => {
 test('destination resolution and caller cancellation obey the call deadline', async () => {
   const resolver = async () =>
     new Promise((resolve) => globalThis.setTimeout(() => resolve({ url: 'https://example.com/post' }), 100));
-  const transport = new SystemOneTransport({ timeoutMs: 20, credentials: { destination: 'slow' } }, resolver);
-  await assert.rejects(transport.decide(request), (error) => error.code === 'TIMEOUT');
-  const controller = new globalThis.AbortController();
-  const cancelled = new SystemOneTransport({ timeoutMs: 1000, credentials: { destination: 'slow' } }, resolver).decide(
-    request,
-    { signal: controller.signal },
+  const transport = new SystemOneTransport(
+    { timeoutMs: 20, credentials: { destination: 'slow' } },
+    { destinationResolver: resolver },
   );
+  await assert.rejects(transport.post(request), (error) => error.code === 'TIMEOUT');
+  const controller = new globalThis.AbortController();
+  const cancelled = new SystemOneTransport(
+    { timeoutMs: 1000, credentials: { destination: 'slow' } },
+    { destinationResolver: resolver },
+  ).post(request, { signal: controller.signal });
   controller.abort();
   await assert.rejects(cancelled, (error) => error.code === 'ABORTED');
+});
+
+test('requiresToken is satisfied by a destination Authorization header', async () => {
+  const settings = { timeoutMs: 1000, requiresToken: true, credentials: { destination: 'with-auth' } };
+  const transport = new SystemOneTransport(settings, {
+    destinationResolver: async () => ({ url: 'https://example.com/post', headers: { Authorization: 'Bearer d' } }),
+  });
+  await assert.doesNotReject(transport.validateDestination());
+});
+
+test('requiresToken fails with INVALID_CONFIG when the destination has no Authorization header', async () => {
+  const settings = { timeoutMs: 1000, requiresToken: true, credentials: { destination: 'no-auth' } };
+  for (const headers of [undefined, {}, { 'X-Other': 'x' }]) {
+    const transport = new SystemOneTransport(settings, {
+      destinationResolver: async () => ({ url: 'https://example.com/post', headers }),
+    });
+    await assert.rejects(
+      transport.validateDestination(),
+      (error) => error.code === 'INVALID_CONFIG' && /requires a token/.test(error.message),
+    );
+  }
+});
+
+test('requiresToken is satisfied by a configured token together with a destination', async () => {
+  const settings = { timeoutMs: 1000, requiresToken: true, credentials: { destination: 'd', token: 't' } };
+  const transport = new SystemOneTransport(settings, {
+    destinationResolver: async () => ({ url: 'https://example.com/post' }),
+  });
+  await assert.doesNotReject(transport.validateDestination());
+});
+
+test('without requiresToken a destination needs no Authorization header', async () => {
+  const transport = new SystemOneTransport(
+    { timeoutMs: 1000, credentials: { destination: 'open' } },
+    { destinationResolver: async () => ({ url: 'https://example.com/post' }) },
+  );
+  await assert.doesNotReject(transport.validateDestination());
+});
+
+test('destination resolution failures and missing destinations are INVALID_CONFIG', async () => {
+  const failing = new SystemOneTransport(
+    { timeoutMs: 1000, credentials: { destination: 'x' } },
+    {
+      destinationResolver: async () => {
+        throw new Error('down');
+      },
+    },
+  );
+  await assert.rejects(failing.validateDestination(), (error) => error.code === 'INVALID_CONFIG' && !!error.cause);
+  const missing = new SystemOneTransport(
+    { timeoutMs: 1000, credentials: { destination: 'x' } },
+    { destinationResolver: async () => null },
+  );
+  await assert.rejects(missing.validateDestination(), (error) => error.code === 'INVALID_CONFIG');
+});
+
+test('the endpoint hook is not used when a destination is configured', async () => {
+  const transport = new SystemOneTransport(
+    { timeoutMs: 1000, credentials: { destination: 'x' } },
+    {
+      hooks: {
+        endpoint: () => {
+          throw new Error('unexpected endpoint hook');
+        },
+      },
+      destinationResolver: async () => ({ url: 'https://example.com/post' }),
+    },
+  );
+  await assert.doesNotReject(transport.validateDestination());
 });

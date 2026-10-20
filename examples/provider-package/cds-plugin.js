@@ -1,0 +1,1 @@
+// CAP discovers this package through this file. The systemone-acme kind comes from the cds section of package.json.

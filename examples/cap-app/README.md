@@ -14,7 +14,7 @@ The app uses the `systemone-laya` kind, which calls a Jev-compatible server at `
 
 ```sh
 cd examples/cap-app
-npm install https://github.com/hendrik77/cap-jev/releases/download/v0.4.3/cap-jev-0.4.3.tgz
+npm install https://github.com/hendrik77/cap-jev/releases/download/v0.5.0/cap-jev-0.5.0.tgz
 npm install
 ```
 
@@ -24,12 +24,18 @@ CAP loads TypeScript handlers when `CDS_TYPESCRIPT` is set. Node.js 22.18 or new
 CDS_TYPESCRIPT=true npm start
 ```
 
-Call the action:
+Call the action as the mocked development user `alice` (empty password):
 
 ```sh
-curl -X POST http://localhost:4004/odata/v4/decision/classify \
+curl -u alice: -X POST http://localhost:4004/odata/v4/decision/classify \
   -H 'content-type: application/json' \
   -d '{"message":"I was billed twice"}'
 ```
 
-The repository's integration test packs the plugin, installs it in a copy of this app, and calls `classify` against a local fake server, so the example is checked on every CI run.
+## Authentication
+
+`classify` calls a provider that can cost money, so [`srv/decision-service.cds`](srv/decision-service.cds) restricts the service with `@requires: 'authenticated-user'`. `cap-jev` serves no services itself; the application must protect every action that calls a provider. Without credentials the call gets 401.
+
+In development CAP's mocked users apply, such as `alice` with an empty password (`curl -u alice: ...`). In production, configure a real authentication strategy, such as XSUAA or IAS, and add `@requires` roles or `@restrict` rules where only some users may spend the quota.
+
+The repository checks this app in two tests: `tests/example-app.test.cjs` runs it with `cds.test` against a local fake server, and `tests/cap-integration.test.cjs` packs the plugin, installs it in a copy of this app and calls `classify`. Both run on every CI run.

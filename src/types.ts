@@ -86,11 +86,16 @@ export interface SystemOneCredentials {
   destination?: string;
 }
 
-export type SystemOneProvider = 'generic' | 'typesafe' | 'cloudflare' | 'laya';
+export interface ProviderLimits {
+  questions?: number;
+  choiceOptions?: number;
+  scoreCriteria?: { min?: number; max?: number };
+}
 
 export interface SystemOneSettings {
-  provider?: SystemOneProvider;
-  model?: string;
+  modelId?: string;
   timeoutMs?: number;
+  requiresToken?: boolean;
+  limits?: ProviderLimits;
   credentials?: SystemOneCredentials;
 }

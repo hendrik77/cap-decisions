@@ -1,9 +1,8 @@
 import { createRequire } from 'node:module';
-import type { DecisionRequest, DecisionResult, Questions, SystemOneProvider, SystemOneSettings } from './types';
-import { SystemOneError, validateRequest, validateResult } from './validation';
+import type { DecisionRequest, SystemOneCredentials, SystemOneSettings } from './types';
+import { MAX_TIMEOUT_MS, SystemOneError, machineCode } from './validation';
 
 const MAX_RETRIES = 2;
-const MAX_TIMEOUT_MS = 2_147_483_647;
 const RETRY_STATUSES = new Set([429, 502, 503, 504, 529]);
 const MAX_ERROR_BYTES = 8192;
 const optionalRequire = createRequire(__filename);
@@ -14,9 +13,15 @@ export interface ResolvedDestination {
 }
 export type DestinationResolver = (name: string) => Promise<ResolvedDestination | null>;
 
-export interface DecisionOptions {
-  signal?: AbortSignal;
-  onComplete?: (attempts: number, result: DecisionResult) => void;
+export interface TransportHooks {
+  endpoint(credentials: SystemOneCredentials): string | undefined;
+  unwrap(payload: unknown): unknown;
+  errorCode(payload: unknown): string | number | undefined;
+}
+
+export interface TransportOptions {
+  hooks?: Partial<TransportHooks>;
+  destinationResolver?: DestinationResolver;
 }
 
 function interruption(signal: AbortSignal, caller?: AbortSignal, cause?: unknown): SystemOneError {
@@ -100,12 +105,8 @@ async function retryNetworkFailure(
     throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
   }
   await pause(Math.min(retryDelay(attempt, null), Math.max(0, deadlineAt - Date.now())), signal, caller);
-}
-
-function machineCode(raw: unknown): string | number | undefined {
-  if (typeof raw === 'number' && Number.isSafeInteger(raw)) return raw;
-  if (typeof raw === 'string' && /^[\w.:-]{1,100}$/.test(raw)) return raw;
-  return undefined;
+  // The pause can end just before the deadline signal fires; never start an attempt after the deadline.
+  if (signal.aborted || Date.now() >= deadlineAt) throw interruption(signal, caller, error);
 }
 
 async function errorPayload(response: Response): Promise<unknown> {
@@ -132,52 +133,29 @@ async function errorPayload(response: Response): Promise<unknown> {
   }
 }
 
-function providerCode(payload: unknown, format: 'direct' | 'cloudflare'): string | number | undefined {
+function errorType(payload: unknown): string | number | undefined {
   if (typeof payload !== 'object' || payload === null) return undefined;
-  const data = payload as Record<string, unknown>;
-  if (format === 'cloudflare') {
-    const first = Array.isArray(data.errors) ? data.errors[0] : undefined;
-    return typeof first === 'object' && first !== null
-      ? machineCode((first as Record<string, unknown>).code)
-      : undefined;
-  }
-  const error = data.error;
+  const error = (payload as Record<string, unknown>).error;
   return typeof error === 'object' && error !== null ? machineCode((error as Record<string, unknown>).type) : undefined;
 }
 
 export class SystemOneTransport {
   private readonly url?: URL;
   private readonly timeoutMs: number;
-  private readonly responseFormat: 'direct' | 'cloudflare';
-  private readonly provider: SystemOneProvider;
   private readonly token?: string;
   private readonly destination?: string;
-  private readonly model?: string;
+  private readonly modelId?: string;
+  private readonly requiresToken: boolean;
+  private readonly hooks: Partial<TransportHooks>;
+  private readonly destinationResolver?: DestinationResolver;
 
-  constructor(
-    settings: SystemOneSettings,
-    private readonly destinationResolver?: DestinationResolver,
-  ) {
-    this.provider = settings.provider ?? 'generic';
-    if (
-      !['generic', 'typesafe', 'cloudflare', 'laya'].includes(this.provider) ||
-      'responseFormat' in settings ||
-      settings.model === null
-    ) {
-      throw new SystemOneError('INVALID_CONFIG', 'Invalid provider or model setting');
-    }
+  constructor(settings: SystemOneSettings, options: TransportOptions = {}) {
+    this.hooks = options.hooks ?? {};
+    this.destinationResolver = options.destinationResolver;
     const credentials = settings.credentials ?? {};
-    if ('model' in credentials || 'timeoutMs' in credentials || 'responseFormat' in credentials) {
-      throw new SystemOneError(
-        'INVALID_CONFIG',
-        'Move model and timeoutMs to service settings and select a provider kind',
-      );
-    }
-    if (['typesafe', 'cloudflare'].includes(this.provider) && !credentials.token && !credentials.destination) {
+    this.requiresToken = settings.requiresToken === true;
+    if (this.requiresToken && !credentials.token && !credentials.destination) {
       throw new SystemOneError('INVALID_CONFIG', 'This provider requires a token');
-    }
-    if (this.provider === 'cloudflare' && !credentials.accountId && !credentials.destination) {
-      throw new SystemOneError('INVALID_CONFIG', 'Cloudflare requires accountId');
     }
     if (
       credentials.destination !== undefined &&
@@ -186,20 +164,14 @@ export class SystemOneTransport {
       throw new SystemOneError('INVALID_CONFIG', 'destination must be a non-empty name');
     }
     if (!credentials.destination) {
-      const url =
-        this.provider === 'cloudflare'
-          ? (credentials.url ??
-            `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(credentials.accountId ?? '')}/ai/run/@cf/cloudflare/clef`)
-          : credentials.url;
-      this.url = endpoint(url, !!credentials.token);
+      this.url = endpoint(this.hooks.endpoint?.(credentials) ?? credentials.url, !!credentials.token);
     }
     this.timeoutMs = settings.timeoutMs as number;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs <= 0 || this.timeoutMs > MAX_TIMEOUT_MS)
       throw new SystemOneError('INVALID_CONFIG', `timeoutMs must be a positive integer at most ${MAX_TIMEOUT_MS}`);
     this.token = credentials.token;
     this.destination = credentials.destination;
-    this.model = settings.model;
-    this.responseFormat = this.provider === 'cloudflare' ? 'cloudflare' : 'direct';
+    this.modelId = settings.modelId;
   }
 
   private async target(): Promise<{ url: URL; headers: Record<string, string> }> {
@@ -236,7 +208,7 @@ export class SystemOneTransport {
     }
     const authorized = !!(headers.authorization || this.token);
     const url = endpoint(destination.url, authorized);
-    if (['typesafe', 'cloudflare'].includes(this.provider) && !authorized) {
+    if (this.requiresToken && !authorized) {
       throw new SystemOneError('INVALID_CONFIG', 'This provider requires a token');
     }
     return { url, headers };
@@ -246,16 +218,14 @@ export class SystemOneTransport {
     if (this.destination) await this.target();
   }
 
-  async decide<Q extends Questions>(
-    request: DecisionRequest<Q>,
-    options: DecisionOptions = {},
-  ): Promise<DecisionResult<Q>> {
+  async post(
+    request: DecisionRequest,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<{ payload: unknown; attempts: number }> {
     const deadlineAt = Date.now() + this.timeoutMs;
     const deadline = AbortSignal.timeout(this.timeoutMs);
     const signal = options.signal ? AbortSignal.any([deadline, options.signal]) : deadline;
-    validateRequest(request, this.provider);
-    const model = this.model;
-    const body = JSON.stringify({ ...request, ...(model ? { model } : {}) });
+    const body = JSON.stringify({ ...request, ...(this.modelId ? { model: this.modelId } : {}) });
     if (signal.aborted) throw interruption(signal, options.signal);
     const target = await untilAbort(this.target(), signal, options.signal);
     const headers: Record<string, string> = { ...target.headers, 'content-type': 'application/json' };
@@ -286,7 +256,7 @@ export class SystemOneTransport {
         }
         throw new SystemOneError('HTTP_ERROR', `System One returned HTTP ${response.status}`, {
           status: response.status,
-          providerCode: providerCode(payload, this.responseFormat),
+          providerCode: this.providerCode(payload),
         });
       }
       let text: string;
@@ -304,25 +274,13 @@ export class SystemOneTransport {
         if (signal.aborted) throw interruption(signal, options.signal, error);
         throw new SystemOneError('INVALID_RESPONSE', 'System One returned invalid JSON', { cause: error });
       }
-      if (this.responseFormat === 'cloudflare') {
-        if (typeof payload !== 'object' || payload === null) {
-          throw new SystemOneError('INVALID_RESPONSE', 'Cloudflare response is invalid');
-        }
-        const envelope = payload as Record<string, unknown>;
-        if (envelope.success !== true) {
-          throw new SystemOneError('PROVIDER_ERROR', 'Cloudflare reported a failed request', {
-            providerCode: providerCode(payload, 'cloudflare'),
-          });
-        }
-        if (!('result' in envelope)) {
-          throw new SystemOneError('INVALID_RESPONSE', 'Cloudflare response is missing result');
-        }
-        payload = envelope.result;
-      }
-      validateResult(payload, request.questions);
-      options.onComplete?.(attempt + 1, payload as DecisionResult);
-      return payload as DecisionResult<Q>;
+      return { payload: this.hooks.unwrap?.(payload) ?? payload, attempts: attempt + 1 };
     }
     throw new SystemOneError('NETWORK_ERROR', 'System One retries exhausted');
+  }
+
+  private providerCode(payload: unknown): string | number | undefined {
+    const hooked = payload === undefined ? undefined : this.hooks.errorCode?.(payload);
+    return hooked === undefined || hooked === null ? errorType(payload) : machineCode(hooked);
   }
 }
