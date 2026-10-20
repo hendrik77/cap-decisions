@@ -12,7 +12,9 @@
   "cds": {
     "requires": {
       "systemone": {
-        "kind": "systemone-laya"
+        "[production]": {
+          "kind": "systemone-laya"
+        }
       }
     }
   }

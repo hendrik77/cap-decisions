@@ -8,35 +8,45 @@ A CAP application with one action, `classify`, that asks System One which team s
 
 ## Run
 
-The app uses the `systemone-laya` kind, which calls a Jev-compatible server at `http://127.0.0.1:8000/v1/systemone` without a token. Start such a server, for example [Laya](https://github.com/WhoIsMrSentry/laya-system-one#self-hosting-http-server-jev-compatible), or point the app at another endpoint with `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_URL`.
-
-In this repository, the app is an npm workspace and uses the local `cap-jev`. Install and build from the repository root:
+In this repository, the app is an npm workspace and uses the local `cap-jev`. Install and build from the repository root, then start the app:
 
 ```sh
-npm install
-npm run build
+npm install && npm run build
 cd examples/cap-app
-```
-
-For a copy of the app outside this repository, install `cap-jev` from a release archive as described in the [main README](../../README.md#install-and-use), for example:
-
-```sh
-curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.5.1/cap-jev-0.5.1.tgz
-npm install ./cap-jev-0.5.1.tgz
-```
-
-CAP loads TypeScript handlers when `CDS_TYPESCRIPT` is set. Node.js 22.18 or newer runs them without a separate compiler:
-
-```sh
 CDS_TYPESCRIPT=true npm start
 ```
+
+CAP loads TypeScript handlers when `CDS_TYPESCRIPT` is set. Node.js 22.18 or newer runs them without a separate compiler.
+
+The app needs no provider server, token or network. In development `cap-jev` answers with its mock provider (`systemone-mock`), so the answers are simulated but deterministic: the same message always gets the same queue. Keywords in the message are matched against the criteria, and the rule in [`test/data/systemone.json`](test/data/systemone.json) routes refund messages to `billing`, so they end up in the `accounts` queue.
 
 Call the action as the mocked development user `alice` (empty password):
 
 ```sh
 curl -u alice: -X POST http://localhost:4004/odata/v4/decision/classify \
   -H 'content-type: application/json' \
-  -d '{"message":"I was billed twice"}'
+  -d '{"message":"I want a refund"}'
+```
+
+### Use a real Jev server
+
+An explicit `kind` always wins over the mock. To try a real server in development, select the kind from the environment, with Laya (or another Jev-compatible server) running at `http://127.0.0.1:8000`:
+
+```sh
+CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya CDS_TYPESCRIPT=true npm start
+```
+
+Start such a server, for example [Laya](https://github.com/WhoIsMrSentry/laya-system-one#self-hosting-http-server-jev-compatible), or point the app at another endpoint with `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_URL`.
+
+In production (`CDS_TYPESCRIPT=true npm start -- --production`), [`package.json`](package.json) selects `systemone-laya`, which needs a Jev-compatible server and a real authentication strategy (see below). The mock refuses to run in production.
+
+### Outside this repository
+
+For a copy of the app outside this repository, install `cap-jev` from a release archive as described in the [main README](../../README.md#install-and-use), for example:
+
+```sh
+curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.6.0/cap-jev-0.6.0.tgz
+npm install ./cap-jev-0.6.0.tgz
 ```
 
 ## Authentication
@@ -45,4 +55,8 @@ curl -u alice: -X POST http://localhost:4004/odata/v4/decision/classify \
 
 In development CAP's mocked users apply, such as `alice` with an empty password (`curl -u alice: ...`). In production, configure a real authentication strategy, such as XSUAA or IAS, and add `@requires` roles or `@restrict` rules where only some users may spend the quota.
 
-The repository checks this app in two tests: `tests/example-app.test.cjs` runs it with `cds.test` against a local fake server, and `tests/cap-integration.test.cjs` packs the plugin, installs it in a copy of this app and calls `classify`. Both run on every CI run.
+The repository checks this app in three tests, which run on every CI run:
+
+- `tests/example-app.test.cjs` runs it with `cds.test` in development on the mock provider, including the fixture rule and the authentication check.
+- `tests/example-app-failure.test.cjs` simulates a provider failure (`CDS_REQUIRES_SYSTEMONE_FAIL=NETWORK_ERROR`) and checks the 502 response.
+- `tests/cap-integration.test.cjs` packs the plugin, installs it in a copy of this app and calls `classify` in the production profile against a local fake server, plus once in development on the mock.
