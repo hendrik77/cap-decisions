@@ -10,7 +10,7 @@ The package is not yet published to npm. Download a tarball from [GitHub release
 npm install
 npm pack
 # In your CAP application:
-npm install /path/to/cap-jev/cap-jev-0.4.1.tgz
+npm install /path/to/cap-jev/cap-jev-0.4.2.tgz
 ```
 
 After npm publication, use `npm install cap-jev`.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2
+
+### Removed
+
+- Removed the completed review and implementation plan documents (`REVIEW.md`, `PLAN.md`) from the repository. Their findings are resolved and recorded in the 0.3.0 to 0.4.1 entries; the files remain in Git history. The published package contents are unchanged.
+
 ## 0.4.1
 
 ### Fixed
