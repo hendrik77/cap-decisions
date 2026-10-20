@@ -10,6 +10,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./providers/cloudflare": {
+      "types": "./dist/providers/cloudflare.d.ts",
+      "default": "./dist/providers/cloudflare.js"
+    },
     "./package.json": "./package.json",
     "./cds-plugin": "./cds-plugin.js",
     "./cds-plugin.js": "./cds-plugin.js"
@@ -70,30 +74,45 @@
   "cds": {
     "requires": {
       "systemone": {
-        "kind": "systemone"
+        "kind": "systemone-generic"
       },
       "kinds": {
-        "systemone": {
+        "systemone-defaults": {
           "impl": "cap-jev",
-          "provider": "generic",
           "timeoutMs": 10000
         },
+        "systemone-generic": {
+          "kind": "systemone-defaults"
+        },
         "systemone-typesafe": {
-          "kind": "systemone",
-          "provider": "typesafe",
-          "model": "jev-latest",
+          "kind": "systemone-defaults",
+          "modelId": "jev-latest",
+          "requiresToken": true,
+          "limits": {
+            "choiceOptions": 255,
+            "scoreCriteria": {
+              "min": 2,
+              "max": 10
+            }
+          },
           "credentials": {
             "url": "https://api.typesafe.ai/v1/systemone"
           }
         },
         "systemone-cloudflare": {
-          "kind": "systemone",
-          "provider": "cloudflare",
-          "model": "clef"
+          "kind": "systemone-defaults",
+          "impl": "cap-jev/providers/cloudflare",
+          "modelId": "clef",
+          "requiresToken": true,
+          "limits": {
+            "questions": 64
+          }
         },
         "systemone-laya": {
-          "kind": "systemone",
-          "provider": "laya",
+          "kind": "systemone-defaults",
+          "limits": {
+            "choiceOptions": 100
+          },
           "credentials": {
             "url": "http://127.0.0.1:8000/v1/systemone"
           }

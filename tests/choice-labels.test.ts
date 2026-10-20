@@ -1,13 +1,4 @@
-import type {
-  Answers,
-  ChoiceAnswer,
-  ChoiceQuestion,
-  Content,
-  NoulAnswer,
-  Questions,
-  SystemOneService,
-  SystemOneTransport,
-} from '../src';
+import type { Answers, ChoiceAnswer, ChoiceQuestion, Content, NoulAnswer, Questions, SystemOneService } from '../src';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Assert<T extends true> = T;
@@ -91,38 +82,30 @@ export function optionalCriteria(answer: Answers<OptionalCriteria>['department']
   return answer;
 }
 
-export async function inference(service: SystemOneService, transport: SystemOneTransport): Promise<void> {
+export async function inference(service: SystemOneService): Promise<void> {
   const serviceInline = await service.decide({
     state: 'Refund me',
     questions: {
       department: { type: 'choice', instructions: 'Which team?', criteria: { billing: 'Payments', technical: 'Bugs' } },
     },
   });
-  const transportInline = await transport.decide({
-    state: 'Refund me',
-    questions: {
-      department: { type: 'choice', instructions: 'Which team?', criteria: { billing: 'Payments', technical: 'Bugs' } },
-    },
-  });
   const serviceVariable = await service.decide({ state: 'Refund me', questions });
-  const transportVariable = await transport.decide({ state: 'Refund me', questions });
+  const otherVariable = await service.decide({ state: 'Refund me', questions }, { signal: AbortSignal.timeout(1000) });
   const readonly = await service.decide({ state: 'Refund me', questions: readonlyQuestions });
   exhaustiveDepartment(serviceInline.answers.department);
-  exhaustiveDepartment(transportInline.answers.department);
   exhaustiveDepartment(readonly.answers.department);
   const checks: [
     Assert<Equal<typeof serviceInline.answers.department.choice, 'billing' | 'technical'>>,
-    Assert<Equal<typeof transportInline.answers.department.choice, 'billing' | 'technical'>>,
     Assert<Equal<typeof serviceVariable.answers.department.choice, 'billing' | 'technical'>>,
-    Assert<Equal<typeof transportVariable.answers.department.choice, 'billing' | 'technical'>>,
+    Assert<Equal<typeof otherVariable.answers.department.choice, 'billing' | 'technical'>>,
     Assert<Equal<typeof serviceVariable.answers.department.probabilities, Record<'billing' | 'technical', number>>>,
-  ] = [true, true, true, true, true];
+  ] = [true, true, true, true];
   const department = serviceVariable.answers.department;
   const probability: number = department.probabilities[department.choice];
   // @ts-expect-error Only labels declared in the criteria are valid choices.
   department.choice = 'sales';
   // @ts-expect-error Another question's labels are not department labels.
-  department.choice = transportVariable.answers.priority.choice;
+  department.choice = otherVariable.answers.priority.choice;
   // @ts-expect-error Probability keys must be declared in this question's criteria.
   void department.probabilities.sales;
   const incomplete = { billing: 1 };

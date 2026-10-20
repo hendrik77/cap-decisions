@@ -54,6 +54,12 @@ export class SystemOneError extends Error {
   }
 }
 
+export function machineCode(raw: unknown): string | number | undefined {
+  if (typeof raw === 'number' && Number.isSafeInteger(raw)) return raw;
+  if (typeof raw === 'string' && /^[\w.:-]{1,100}$/.test(raw)) return raw;
+  return undefined;
+}
+
 export function validateRequest(input: unknown, limits: ProviderLimits = {}): asserts input is DecisionRequest {
   if (!record(input) || !content(input.state) || !record(input.questions) || !Object.keys(input.questions).length) {
     throw new SystemOneError('INVALID_REQUEST', 'state and a non-empty questions map are required');

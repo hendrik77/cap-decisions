@@ -1,6 +1,12 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { SystemOneError, validateRequest, validateSettings, CAP_SETTINGS_KEYS } = require('../dist/validation');
+const {
+  SystemOneError,
+  validateRequest,
+  validateResult,
+  validateSettings,
+  CAP_SETTINGS_KEYS,
+} = require('../dist/validation');
 const { createApp, runInApp, removeApp } = require('./helpers/app.cjs');
 
 const choice = (count) => ({
@@ -171,12 +177,138 @@ describe('validateSettings warnings', () => {
           console.log(JSON.stringify(srv.options));
         })();`,
       );
-      // Temporary until T3: the kinds still carry provider and model.
-      delete options.provider;
-      delete options.model;
       assert.deepEqual(validateSettings(options), []);
     } finally {
       removeApp(dir);
+    }
+  });
+});
+
+describe('validateResult', () => {
+  const questions = {
+    team: { type: 'choice', instructions: 'Which team?', criteria: { billing: 'Payments', technical: 'Bugs' } },
+    urgency: { type: 'score', instructions: 'How urgent?', criteria: ['Low', 'High'] },
+    refund: { type: 'noul', instructions: 'Refund requested?' },
+  };
+  const result = {
+    model: 'jev-1.13.0',
+    answers: {
+      team: { type: 'choice', choice: 'billing', probabilities: { billing: 0.8, technical: 0.2 }, confidence: 0.6 },
+      urgency: {
+        type: 'score',
+        score: 0.9,
+        legend: { 0: 'Low', 1: 'High' },
+        probabilities: { 0: 0.1, 1: 0.9 },
+        confidence: 0.5,
+      },
+      refund: { type: 'noul', noul: 0.95 },
+    },
+    usage: { input_tokens: 12, output_tokens: 3 },
+  };
+  const invalidResponse = { name: 'SystemOneError', code: 'INVALID_RESPONSE' };
+
+  test('accepts a valid result for all three question types', () => {
+    validateResult(result, questions);
+  });
+
+  test('rejects missing, mismatched, and unknown choice answers', () => {
+    for (const invalid of [
+      { ...result, answers: { ...result.answers, refund: undefined } },
+      { ...result, answers: { ...result.answers, refund: { type: 'score', score: 1 } } },
+      { ...result, answers: { ...result.answers, team: { ...result.answers.team, choice: 'invented' } } },
+      {
+        ...result,
+        answers: {
+          ...result.answers,
+          team: { ...result.answers.team, probabilities: { billing: 0.8, technical: 0.8 } },
+        },
+      },
+    ]) {
+      assert.throws(() => validateResult(invalid, questions), invalidResponse);
+    }
+  });
+
+  test('rejects score answers outside range and with incorrect legends', () => {
+    for (const answer of [
+      { ...result.answers.urgency, score: 2 },
+      { ...result.answers.urgency, legend: { 0: 'Low', 2: 'High' } },
+    ]) {
+      const invalid = { ...result, answers: { ...result.answers, urgency: answer } };
+      assert.throws(() => validateResult(invalid, questions), invalidResponse);
+    }
+  });
+
+  test('rejects invalid metadata and a different number of answers', () => {
+    assert.throws(() => validateResult({ ...result, model: '' }, questions), invalidResponse);
+    assert.throws(
+      () => validateResult({ ...result, usage: { input_tokens: -1, output_tokens: 1 } }, questions),
+      invalidResponse,
+    );
+    assert.throws(() => validateResult({ ...result, answers: {} }, questions), invalidResponse);
+    assert.throws(() => validateResult(null, questions), invalidResponse);
+  });
+});
+
+describe('validateRequest content', () => {
+  const questions = { answer: { type: 'noul', instructions: 'Yes?' } };
+
+  test('rejects invalid input', () => {
+    assert.throws(
+      () => validateRequest(request({ bad: { type: 'choice', instructions: 'x', criteria: {} } })),
+      invalidRequest,
+    );
+  });
+
+  test('rejects circular and unsupported request content', () => {
+    const circular = {};
+    circular.self = circular;
+    const array = [];
+    array.push(array);
+    class Criteria {
+      constructor() {
+        this.label = 'High';
+      }
+    }
+    const invalid = [
+      [{ state: circular, questions }, /circular/],
+      [{ state: { items: array }, questions }, /circular/],
+      [
+        { state: 'x', questions: { answer: { type: 'choice', instructions: 'Choose', criteria: { a: circular } } } },
+        /circular/,
+      ],
+      [{ state: 'x', questions: { answer: { type: 'noul', instructions: circular } } }, /circular/],
+    ];
+    for (const value of [new Map([['a', 1]]), new Set(['a']), new Criteria(), new Date()]) {
+      invalid.push(
+        [{ state: { items: value }, questions }, /unsupported object/],
+        [{ state: 'x', questions: { answer: { type: 'noul', instructions: value } } }, /unsupported object/],
+        [
+          { state: 'x', questions: { answer: { type: 'score', instructions: 'Rate', criteria: [value] } } },
+          /unsupported object/,
+        ],
+        [
+          { state: 'x', questions: { answer: { type: 'noul', instructions: 'Yes?', criteria: value } } },
+          /unsupported object/,
+        ],
+      );
+    }
+    for (const [input, message] of invalid) {
+      assert.throws(() => validateRequest(input), { ...invalidRequest, message });
+    }
+  });
+
+  test('accepts shared references and null-prototype request content', () => {
+    const shared = { label: 'Refund', values: [null, true, 1] };
+    const state = Object.assign(Object.create(null), { first: shared, second: shared });
+    validateRequest({ state, questions });
+  });
+
+  test('rejects invalid noul criteria', () => {
+    for (const criteria of [{ maybe: 'yes' }, { true: 42, false: undefined }]) {
+      assert.throws(
+        () => validateRequest(request({ answer: { type: 'noul', instructions: 'Yes?', criteria } })),
+        invalidRequest,
+      );
     }
   });
 });

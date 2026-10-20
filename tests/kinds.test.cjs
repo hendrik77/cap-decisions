@@ -1,141 +1,122 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const cds = require('@sap/cds');
-const { SystemOneTransport } = require('../dist');
+const { createApp, runInApp, removeApp } = require('./helpers/app.cjs');
 
-const kinds = cds.env.requires.kinds;
-const question = { answer: { type: 'noul', instructions: 'Yes?' } };
-const direct = {
-  model: 'model-1',
-  answers: { answer: { type: 'noul', noul: 0.8 } },
-  usage: { input_tokens: 2, output_tokens: 1 },
+const pick = `(s) => ({ impl: s.impl, modelId: s.modelId, requiresToken: s.requiresToken, limits: s.limits, url: s.credentials && s.credentials.url, timeoutMs: s.timeoutMs })`;
+const resolveScript = `const cds = require('@sap/cds');
+  cds.plugins.then(() => console.log(JSON.stringify((${pick})(cds.env.requires.systemone))));`;
+
+async function resolveSettings(systemone, env = {}) {
+  const dir = createApp({ name: 'kinds-app', private: true, cds: systemone ? { requires: { systemone } } : {} });
+  try {
+    return await runInApp(dir, resolveScript, { env });
+  } finally {
+    removeApp(dir);
+  }
+}
+
+const typesafeLimits = { choiceOptions: 255, scoreCriteria: { min: 2, max: 10 } };
+// CAP replaces `kind` with the last kind of the chain (systemone-defaults), so the selected kind is checked through
+// its settings instead.
+const expected = {
+  'systemone-generic': { impl: 'cap-jev', timeoutMs: 10000 },
+  'systemone-typesafe': {
+    impl: 'cap-jev',
+    timeoutMs: 10000,
+    modelId: 'jev-latest',
+    requiresToken: true,
+    limits: typesafeLimits,
+    url: 'https://api.typesafe.ai/v1/systemone',
+  },
+  'systemone-cloudflare': {
+    impl: 'cap-jev/providers/cloudflare',
+    timeoutMs: 10000,
+    modelId: 'clef',
+    requiresToken: true,
+    limits: { questions: 64 },
+  },
+  'systemone-laya': {
+    impl: 'cap-jev',
+    timeoutMs: 10000,
+    limits: { choiceOptions: 100 },
+    url: 'http://127.0.0.1:8000/v1/systemone',
+  },
 };
 
-test('CAP links the base and provider kinds', () => {
-  for (const name of ['systemone', 'systemone-typesafe', 'systemone-cloudflare', 'systemone-laya']) {
-    assert.equal(kinds[name].impl, 'cap-jev');
-    assert.equal(kinds[name].timeoutMs, 10000);
-  }
-  assert.equal(kinds['systemone-typesafe'].provider, 'typesafe');
-  assert.equal(kinds['systemone-cloudflare'].provider, 'cloudflare');
-  assert.equal(kinds['systemone-laya'].provider, 'laya');
+for (const [kind, settings] of Object.entries(expected)) {
+  test(`${kind} resolves its provider settings`, async () => {
+    assert.deepEqual(await resolveSettings({ kind }), settings);
+  });
+}
+
+test('an application without a systemone entry resolves the generic kind', async () => {
+  const settings = await resolveSettings(undefined);
+  assert.equal(settings.impl, 'cap-jev');
+  assert.equal(settings.url, undefined);
 });
 
-test('CAP connection rejects unsupported timeout values during initialization', async () => {
-  for (const timeoutMs of [2 ** 31, 2 ** 32]) {
-    await assert.rejects(
-      cds.connect.to('systemone', {
-        ...kinds.systemone,
-        impl: require.resolve('../dist'),
-        timeoutMs,
-        credentials: { url: 'http://127.0.0.1:9999/custom' },
-      }),
-      (error) => error.code === 'INVALID_CONFIG',
-    );
-  }
+test('profiles switch the kind and production keeps the base kind', async () => {
+  const systemone = { kind: 'systemone-typesafe', '[development]': { kind: 'systemone-laya' } };
+  const development = await resolveSettings(systemone, { CDS_ENV: 'development' });
+  assert.deepEqual(development, expected['systemone-laya']);
+  const production = await resolveSettings(systemone, { CDS_ENV: 'production' });
+  assert.deepEqual(production, expected['systemone-typesafe']);
 });
 
-test('each kind sends its endpoint, model and auth settings', async () => {
-  const original = globalThis.fetch;
-  const seen = [];
-  globalThis.fetch = async (url, options) => {
-    seen.push({ url: String(url), headers: options.headers, body: JSON.parse(options.body) });
-    const payload = seen.length === 2 ? { success: true, result: direct } : direct;
-    return new globalThis.Response(JSON.stringify(payload), { status: 200 });
-  };
+test('application settings deep-merge over the kind settings', async () => {
+  const settings = await resolveSettings({ kind: 'systemone-typesafe', limits: { choiceOptions: 300 } });
+  assert.deepEqual(settings.limits, { choiceOptions: 300, scoreCriteria: { min: 2, max: 10 } });
+  assert.equal(settings.modelId, 'jev-latest');
+});
+
+test('cds.connect.to resolves TypeSafe with its own settings', async () => {
+  const dir = createApp({
+    name: 'typesafe-app',
+    private: true,
+    cds: { requires: { systemone: { kind: 'systemone-typesafe', credentials: { token: 't' } } } },
+  });
   try {
-    const typeSafe = new SystemOneTransport({
-      ...kinds['systemone-typesafe'],
-      credentials: { ...kinds['systemone-typesafe'].credentials, token: 'test-token' },
-    });
-    const cloudflare = new SystemOneTransport({
-      ...kinds['systemone-cloudflare'],
-      credentials: { accountId: 'test-account', token: 'test-token' },
-    });
-    const laya = new SystemOneTransport(kinds['systemone-laya']);
-    const generic = new SystemOneTransport({
-      ...kinds.systemone,
-      credentials: { url: 'http://127.0.0.1:9999/custom' },
-    });
-    for (const transport of [typeSafe, cloudflare, laya, generic])
-      assert.deepEqual(await transport.decide({ state: 'x', questions: question }), direct);
-    assert.equal(seen[0].url, 'https://api.typesafe.ai/v1/systemone');
-    assert.equal(seen[0].body.model, 'jev-latest');
-    assert.equal(seen[0].headers.authorization, 'Bearer test-token');
-    assert.equal(seen[1].url, 'https://api.cloudflare.com/client/v4/accounts/test-account/ai/run/@cf/cloudflare/clef');
-    assert.equal(seen[1].body.model, 'clef');
-    assert.equal(seen[1].headers.authorization, 'Bearer test-token');
-    assert.equal(seen[2].url, 'http://127.0.0.1:8000/v1/systemone');
-    assert.equal(seen[2].body.model, undefined);
-    assert.equal(seen[2].headers.authorization, undefined);
-    assert.equal(seen[3].url, 'http://127.0.0.1:9999/custom');
-    assert.equal(seen[3].body.model, undefined);
+    const result = await runInApp(
+      dir,
+      `const cds = require('@sap/cds');
+       (async () => {
+         await cds.plugins;
+         const srv = await cds.connect.to('systemone');
+         console.log(JSON.stringify({
+           modelId: srv.options.modelId,
+           instance: srv instanceof require('cap-jev').SystemOneService,
+           name: srv.constructor.name,
+         }));
+       })().catch((e) => console.log(JSON.stringify({ error: e.code || e.name, message: e.message })));`,
+    );
+    assert.deepEqual(result, { modelId: 'jev-latest', instance: true, name: 'SystemOneService' });
   } finally {
-    globalThis.fetch = original;
+    removeApp(dir);
   }
 });
 
-test('provider kinds require their secrets and enforce their limits before fetch', async () => {
-  assert.throws(
-    () => new SystemOneTransport(kinds.systemone),
-    (error) => error.code === 'INVALID_CONFIG',
-  );
-  assert.throws(
-    () => new SystemOneTransport(kinds['systemone-typesafe']),
-    (error) => error.code === 'INVALID_CONFIG',
-  );
-  assert.throws(
-    () => new SystemOneTransport({ ...kinds['systemone-cloudflare'], credentials: { token: 'test-token' } }),
-    (error) => error.code === 'INVALID_CONFIG',
-  );
-  const original = globalThis.fetch;
-  let calls = 0;
-  globalThis.fetch = async () => {
-    calls++;
-    return new globalThis.Response('{}');
-  };
+test('cds.connect.to resolves Cloudflare with its subclass', async () => {
+  const dir = createApp({
+    name: 'cloudflare-app',
+    private: true,
+    cds: { requires: { systemone: { kind: 'systemone-cloudflare', credentials: { token: 't', accountId: 'a' } } } },
+  });
   try {
-    const typeSafe = new SystemOneTransport({
-      ...kinds['systemone-typesafe'],
-      credentials: { ...kinds['systemone-typesafe'].credentials, token: 'test-token' },
-    });
-    const laya = new SystemOneTransport(kinds['systemone-laya']);
-    const cloudflare = new SystemOneTransport({
-      ...kinds['systemone-cloudflare'],
-      credentials: { accountId: 'test-account', token: 'test-token' },
-    });
-    const choice = (count) => ({
-      state: 'x',
-      questions: {
-        answer: {
-          type: 'choice',
-          instructions: 'Choose',
-          criteria: Object.fromEntries(Array.from({ length: count }, (_, i) => [`option${i}`, 'x'])),
-        },
-      },
-    });
-    const score = (count) => ({
-      state: 'x',
-      questions: { answer: { type: 'score', instructions: 'Rate', criteria: Array(count).fill('x') } },
-    });
-    for (const request of [choice(256), score(1), score(11)])
-      await assert.rejects(typeSafe.decide(request), (error) => error.code === 'INVALID_REQUEST');
-    await assert.rejects(laya.decide(choice(101)), (error) => error.code === 'INVALID_REQUEST');
-    await assert.rejects(
-      cloudflare.decide({
-        state: 'x',
-        questions: Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`q${i}`, question.answer])),
-      }),
-      (error) => error.code === 'INVALID_REQUEST',
+    const result = await runInApp(
+      dir,
+      `const cds = require('@sap/cds');
+       (async () => {
+         await cds.plugins;
+         const srv = await cds.connect.to('systemone');
+         console.log(JSON.stringify({
+           modelId: srv.options.modelId,
+           instance: srv instanceof require('cap-jev').SystemOneService,
+           name: srv.constructor.name,
+         }));
+       })().catch((e) => console.log(JSON.stringify({ error: e.code || e.name, message: e.message })));`,
     );
-    assert.equal(calls, 0);
-    const generic = new SystemOneTransport({
-      ...kinds.systemone,
-      credentials: { url: 'http://127.0.0.1:9999/custom' },
-    });
-    await assert.rejects(generic.decide(choice(256)), (error) => error.code === 'INVALID_RESPONSE');
-    assert.equal(calls, 1);
+    assert.deepEqual(result, { modelId: 'clef', instance: true, name: 'CloudflareService' });
   } finally {
-    globalThis.fetch = original;
+    removeApp(dir);
   }
 });
