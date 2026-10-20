@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- Choice answers infer exact labels from each question's criteria: `answer.choice` is now a literal union such as `'billing' | 'technical'`, and `answer.probabilities` uses the same keys. This supports exhaustive handling and catches misspelled labels at compile time.
+- Exported `ChoiceAnswer<Label>` allows explicit label unions; its default remains `string` for existing annotations and dynamically built question maps. Numeric criteria keys become string labels to match the JSON protocol.
+- Compile-time coverage checks inference through the CAP service and transport, inline and `satisfies Questions` maps, readonly criteria, dynamic maps, numeric keys, and union criteria.
+
 ## 0.3.0
 
 ### Breaking changes

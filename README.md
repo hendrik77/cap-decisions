@@ -4,13 +4,13 @@
 
 ## Install and use
 
-The package is not yet published to npm. Until publication, build a tarball from this repository and install it in your CAP application:
+The package is not yet published to npm. Download a tarball from [GitHub releases](https://github.com/hendrik77/cap-jev/releases), or build one from this repository and install it in your CAP application:
 
 ```sh
 npm install
 npm pack
 # In your CAP application:
-npm install /path/to/cap-jev/cap-jev-0.3.0.tgz
+npm install /path/to/cap-jev/cap-jev-0.4.0.tgz
 ```
 
 After npm publication, use `npm install cap-jev`.
@@ -37,15 +37,33 @@ const result = await systemOne.decide({
 console.log(result.answers.department.choice, result.answers.refund.noul);
 ```
 
-For questions held in a variable, use `satisfies Questions` to keep literal question types:
+Choice labels are inferred from the criteria keys: `result.answers.department.choice` is typed as `'billing' | 'technical'`, and its probability map has those same keys. TypeScript rejects unknown labels and can check that a handler map covers every choice:
+
+```ts
+const handlers = {
+  billing: () => 'Send to accounts',
+  technical: () => 'Send to support',
+} satisfies Record<typeof result.answers.department.choice, () => string>;
+const nextStep = handlers[result.answers.department.choice]();
+```
+
+For questions held in a variable, use `satisfies Questions` to keep literal question types and choice labels:
 
 ```ts
 import type { Questions } from 'cap-jev';
 const questions = {
+  department: {
+    type: 'choice',
+    instructions: 'Which team should handle this?',
+    criteria: { billing: 'Payments and refunds', technical: 'Errors and integrations' },
+  },
   refund: { type: 'noul', instructions: 'Does the customer request a refund?' },
 } satisfies Questions;
 const result = await systemOne.decide({ state: 'Please refund me', questions });
+// result.answers.department.choice: 'billing' | 'technical'
 ```
+
+To annotate an answer explicitly, use `ChoiceAnswer<'billing' | 'technical'>`. The default `ChoiceAnswer` and questions with dynamic `Record<string, ...>` criteria keep `choice: string`. Numeric criteria keys infer their string forms, matching the JSON response. Maps explicitly typed as `Questions` keep the broad `Answer` union; once the keys have been widened, the answer type cannot recover their original labels.
 
 Request state, instructions, and criteria must contain plain JSON data: strings, arrays, and plain objects (including null-prototype objects), with JSON primitive values inside them. Circular references and objects such as `Map`, `Set`, `Date`, or class instances are rejected with `INVALID_REQUEST`. Shared references are allowed when they do not form a cycle. Dynamically built maps typed as `Questions` return the `Answer` union, which can be narrowed using `answer.type`.
 
@@ -116,7 +134,7 @@ npm test
 npm pack --dry-run
 ```
 
-The test suite uses local HTTP servers and needs no external API key. The integration test installs the packed plugin in a temporary CAP application using the npm cache when available, and the registry otherwise; its test and child processes have timeouts. To run one focused test: `node --test tests/transport.test.cjs`. `npm run typecheck` also checks answer inference and narrowing in `tests/types.test.ts`. `npm run build` emits CommonJS JavaScript and declarations in `dist/`.
+The test suite uses local HTTP servers and needs no external API key. The integration test installs the packed plugin in a temporary CAP application using the npm cache when available, and the registry otherwise; its test and child processes have timeouts. To run one focused test: `node --test tests/transport.test.cjs`. `npm run typecheck` also checks answer inference and narrowing in `tests/types.test.ts` and exact choice labels in `tests/choice-labels.test.ts`. `npm run build` emits CommonJS JavaScript and declarations in `dist/`.
 
 [CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck, tests (including the build), and package checks on Node.js 22, 24, and 26 for pushes and pull requests.
 

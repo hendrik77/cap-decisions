@@ -46,10 +46,10 @@ export async function inference(
   const checks: [
     Assert<Equal<(typeof dynamic.answers)[string], Answer>>,
     Assert<Equal<(typeof dynamicRequest.answers)[string], Answer>>,
-    Assert<Equal<typeof inline.answers.choice, ChoiceAnswer>>,
+    Assert<Equal<typeof inline.answers.choice, ChoiceAnswer<'a'>>>,
     Assert<Equal<typeof inline.answers.score, ScoreAnswer>>,
     Assert<Equal<typeof inline.answers.noul, NoulAnswer>>,
-    Assert<Equal<typeof satisfies.answers.choice, ChoiceAnswer>>,
+    Assert<Equal<typeof satisfies.answers.choice, ChoiceAnswer<'a'>>>,
     Assert<Equal<typeof satisfies.answers.score, ScoreAnswer>>,
     Assert<Equal<typeof satisfies.answers.noul, NoulAnswer>>,
   ] = [true, true, true, true, true, true, true, true];

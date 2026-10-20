@@ -26,10 +26,10 @@ export interface NoulAnswer {
   type: 'noul';
   noul: number;
 }
-export interface ChoiceAnswer {
+export interface ChoiceAnswer<Label extends string = string> {
   type: 'choice';
-  choice: string;
-  probabilities: Record<string, number>;
+  choice: Label;
+  probabilities: Record<Label, number>;
   confidence: number;
 }
 export interface ScoreAnswer {
@@ -41,8 +41,12 @@ export interface ScoreAnswer {
 }
 export type Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer;
 
+type ChoiceAnswerFor<Criteria> = Criteria extends unknown
+  ? ChoiceAnswer<`${Extract<keyof Criteria, string | number>}`>
+  : never;
+
 type AnswerFor<T> = T extends ChoiceQuestion
-  ? ChoiceAnswer
+  ? ChoiceAnswerFor<T['criteria']>
   : T extends ScoreQuestion
     ? ScoreAnswer
     : T extends NoulQuestion
