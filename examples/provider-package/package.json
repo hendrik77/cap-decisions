@@ -1,0 +1,31 @@
+{
+  "name": "cap-jev-provider-acme",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Example provider package for cap-jev",
+  "license": "MIT",
+  "main": "srv/acme-service.js",
+  "files": [
+    "srv",
+    "cds-plugin.js",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "cap-jev": ">=0.5.0",
+    "@sap/cds": ">=9"
+  },
+  "cds": {
+    "requires": {
+      "kinds": {
+        "systemone-acme": {
+          "kind": "systemone-defaults",
+          "impl": "cap-jev-provider-acme",
+          "requiresToken": true,
+          "limits": {
+            "choiceOptions": 20
+          }
+        }
+      }
+    }
+  }
+}

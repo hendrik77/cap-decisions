@@ -97,6 +97,7 @@ export const withModel: SystemOneSettings = { model: 'jev-latest' };
 
 export class FullSubclass extends SystemOneService {
   static override settingsKeys = ['fixtures'];
+  static override credentialKeys = ['region'];
   protected override async setup(settings: SystemOneSettings): Promise<void> {
     await super.setup(settings);
     void this.settings.modelId;

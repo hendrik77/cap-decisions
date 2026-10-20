@@ -9,9 +9,10 @@ const root = path.resolve(__dirname, '../..');
 
 /**
  * Creates a temporary CAP app whose node_modules/cap-jev and node_modules/@sap/cds are symlinks to the
- * repository root and its @sap/cds copy, so that exactly one @sap/cds instance is loaded.
+ * repository root and its @sap/cds copy, so that exactly one @sap/cds instance is loaded. `links` maps further
+ * package names to directories that are symlinked into node_modules (for example a provider package).
  */
-function createApp(packageJson, files = {}) {
+function createApp(packageJson, files = {}, { links = {} } = {}) {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-app-')));
   const pkg = {
     ...packageJson,
@@ -30,6 +31,11 @@ function createApp(packageJson, files = {}) {
     path.join(dir, 'node_modules/@sap/cds'),
     'dir',
   );
+  for (const [name, target] of Object.entries(links)) {
+    const link = path.join(dir, 'node_modules', name);
+    fs.mkdirSync(path.dirname(link), { recursive: true });
+    fs.symlinkSync(target, link, 'dir');
+  }
   return dir;
 }
 

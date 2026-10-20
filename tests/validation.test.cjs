@@ -132,6 +132,23 @@ describe('validateSettings errors', () => {
   });
 });
 
+describe('validateSettings extra credential keys', () => {
+  test('an extra credential key is accepted when listed and rejected otherwise', () => {
+    const settings = { credentials: { url: 'https://x.example', region: 'eu' } };
+    assert.deepEqual(validateSettings(settings, [], ['region']), []);
+    assert.throws(() => validateSettings(settings), { ...invalidConfig, message: /region/ });
+    assert.throws(() => validateSettings(settings, [], ['other']), { ...invalidConfig, message: /region/ });
+  });
+
+  test('extra credential values must be strings and the built-in keys stay allowed', () => {
+    assert.throws(() => validateSettings({ credentials: { region: 1 } }, [], ['region']), {
+      ...invalidConfig,
+      message: /credentials\.region must be a string/,
+    });
+    assert.deepEqual(validateSettings({ credentials: { token: 't', region: 'eu' } }, [], ['region']), []);
+  });
+});
+
 describe('validateSettings warnings', () => {
   const full = {
     kind: 'systemone-typesafe',

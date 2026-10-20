@@ -42,7 +42,8 @@
   },
   "workspaces": [
     ".",
-    "examples/cap-app"
+    "examples/cap-app",
+    "examples/provider-package"
   ],
   "peerDependencies": {
     "@sap/cds": ">=9",

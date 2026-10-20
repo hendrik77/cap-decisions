@@ -13,13 +13,16 @@ export interface DecideOptions {
 export class SystemOneService extends cds.Service {
   // Setting keys a subclass accepts in addition to the built-in ones, so they do not produce a warning.
   static settingsKeys: readonly string[] = [];
+  // Credential keys a subclass accepts in addition to url, token, accountId and destination (string values).
+  static credentialKeys: readonly string[] = [];
 
   protected settings!: SystemOneSettings;
   protected transport?: SystemOneTransport;
 
   async init(): Promise<void> {
     this.settings = (this as cds.Service & { options?: SystemOneSettings }).options ?? {};
-    const warnings = validateSettings(this.settings, (this.constructor as typeof SystemOneService).settingsKeys);
+    const { settingsKeys, credentialKeys } = this.constructor as typeof SystemOneService;
+    const warnings = validateSettings(this.settings, settingsKeys, credentialKeys);
     for (const warning of warnings) cds.log('systemone').warn(warning);
     await this.setup(this.settings);
     this.on('decide', async (request: SignalRequest) => {

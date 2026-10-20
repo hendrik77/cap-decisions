@@ -139,7 +139,11 @@ function validateLimits(limits: unknown): void {
   }
 }
 
-export function validateSettings(settings: unknown, extraKeys: readonly string[] = []): string[] {
+export function validateSettings(
+  settings: unknown,
+  extraKeys: readonly string[] = [],
+  extraCredentialKeys: readonly string[] = [],
+): string[] {
   const values = settings === undefined ? {} : settings;
   if (!plain(values)) throw invalidConfig('cds.requires.systemone must be an object');
   if (Object.hasOwn(values, 'model')) {
@@ -152,7 +156,8 @@ export function validateSettings(settings: unknown, extraKeys: readonly string[]
     const credentials = values.credentials;
     if (!plain(credentials)) throw invalidConfig('credentials must be an object');
     for (const [key, value] of Object.entries(credentials)) {
-      if (!CREDENTIAL_KEYS.includes(key)) throw invalidConfig(`Unknown credentials setting "${key}"`);
+      if (!CREDENTIAL_KEYS.includes(key) && !extraCredentialKeys.includes(key))
+        throw invalidConfig(`Unknown credentials setting "${key}"`);
       if (value !== undefined && typeof value !== 'string') throw invalidConfig(`credentials.${key} must be a string`);
     }
     if (credentials.destination !== undefined && !(credentials.destination as string).trim()) {
