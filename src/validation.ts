@@ -1,4 +1,4 @@
-import type { DecisionRequest, DecisionResult, Questions } from './types';
+import type { DecisionRequest, DecisionResult, Questions, SystemOneProvider } from './types';
 
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -30,9 +30,15 @@ export class SystemOneError extends Error {
   }
 }
 
-export function validateRequest(input: unknown): asserts input is DecisionRequest {
+export function validateRequest(
+  input: unknown,
+  provider: SystemOneProvider = 'generic',
+): asserts input is DecisionRequest {
   if (!record(input) || !content(input.state) || !record(input.questions) || !Object.keys(input.questions).length) {
     throw new SystemOneError('INVALID_REQUEST', 'state and a non-empty questions map are required');
+  }
+  if (provider === 'cloudflare' && Object.keys(input.questions).length > 64) {
+    throw new SystemOneError('INVALID_REQUEST', 'Cloudflare supports at most 64 questions');
   }
   for (const [id, raw] of Object.entries(input.questions)) {
     if (!id || !record(raw) || !content(raw.instructions)) {
@@ -43,7 +49,8 @@ export function validateRequest(input: unknown): asserts input is DecisionReques
       if (
         !record(question.criteria) ||
         !Object.keys(question.criteria).length ||
-        Object.keys(question.criteria).length > 255 ||
+        (provider === 'typesafe' && Object.keys(question.criteria).length > 255) ||
+        (provider === 'laya' && Object.keys(question.criteria).length > 100) ||
         Object.entries(question.criteria).some(([label, value]) => !label || (value !== null && !content(value)))
       ) {
         throw new SystemOneError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
@@ -51,8 +58,8 @@ export function validateRequest(input: unknown): asserts input is DecisionReques
     } else if (question.type === 'score') {
       if (
         !Array.isArray(question.criteria) ||
-        question.criteria.length < 2 ||
-        question.criteria.length > 10 ||
+        question.criteria.length < (provider === 'typesafe' ? 2 : 1) ||
+        (provider === 'typesafe' && question.criteria.length > 10) ||
         !question.criteria.every(content)
       ) {
         throw new SystemOneError('INVALID_REQUEST', `Invalid criteria for question ${id}`);

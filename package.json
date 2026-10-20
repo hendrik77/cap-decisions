@@ -6,13 +6,25 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
     "./package.json": "./package.json",
     "./cds-plugin": "./cds-plugin.js",
     "./cds-plugin.js": "./cds-plugin.js"
   },
-  "repository": { "type": "git", "url": "https://github.com/hendrik77/cap-jev.git" },
-  "keywords": ["sap", "cap", "system-one", "jev", "decision-service"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hendrik77/cap-jev.git"
+  },
+  "keywords": [
+    "sap",
+    "cap",
+    "system-one",
+    "jev",
+    "decision-service"
+  ],
   "author": "Hendrik Neumann",
   "files": [
     "dist",
@@ -46,7 +58,36 @@
   },
   "cds": {
     "requires": {
-      "systemone": { "impl": "cap-jev" }
+      "systemone": {
+        "kind": "systemone"
+      },
+      "kinds": {
+        "systemone": {
+          "impl": "cap-jev",
+          "provider": "generic",
+          "timeoutMs": 10000
+        },
+        "systemone-typesafe": {
+          "kind": "systemone",
+          "provider": "typesafe",
+          "model": "jev-latest",
+          "credentials": {
+            "url": "https://api.typesafe.ai/v1/systemone"
+          }
+        },
+        "systemone-cloudflare": {
+          "kind": "systemone",
+          "provider": "cloudflare",
+          "model": "clef"
+        },
+        "systemone-laya": {
+          "kind": "systemone",
+          "provider": "laya",
+          "credentials": {
+            "url": "http://127.0.0.1:8000/v1/systemone"
+          }
+        }
+      }
     }
   }
 }

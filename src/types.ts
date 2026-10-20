@@ -58,8 +58,16 @@ export interface DecisionResult<Q extends Questions = Questions> {
 
 export interface SystemOneCredentials {
   url?: string;
-  model?: string | null;
   token?: string;
-  responseFormat?: 'direct' | 'cloudflare';
+  accountId?: string;
+  destination?: string;
+}
+
+export type SystemOneProvider = 'generic' | 'typesafe' | 'cloudflare' | 'laya';
+
+export interface SystemOneSettings {
+  provider?: SystemOneProvider;
+  model?: string;
   timeoutMs?: number;
+  credentials?: SystemOneCredentials;
 }

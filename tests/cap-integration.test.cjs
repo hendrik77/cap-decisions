@@ -32,7 +32,7 @@ test('installed package registers an internal CAP service with decide()', async 
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(fixture, 'package.json')));
-    pkg.cds.requires['systemone'].credentials.url = `http://127.0.0.1:${server.address().port}/v1/systemone`;
+    pkg.cds.requires['systemone'].credentials = { url: `http://127.0.0.1:${server.address().port}/v1/systemone` };
     pkg.dependencies['@sap/cds'] = `file:${path.join(root, 'node_modules/@sap/cds')}`;
     fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(pkg));
     const pack = spawnSync('npm', ['pack', '--ignore-scripts', '--pack-destination', temp], {
@@ -94,7 +94,7 @@ test('installed package registers an internal CAP service with decide()', async 
       const cds = require('@sap/cds');
       (async () => {
         await cds.plugins;
-        cds.requires.systemone.credentials = {};
+        cds.requires.systemone.credentials = { url: 'invalid' };
         try { await cds.connect.to('systemone'); throw new Error('Expected invalid config'); }
         catch (error) { if (error.code !== 'INVALID_CONFIG') throw error; }
         process.stdout.write('ok');

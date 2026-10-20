@@ -35,8 +35,15 @@ const endpoint = async () => {
   await ready;
   return `http://127.0.0.1:${server.address().port}/v1/systemone`;
 };
-const decide = async (credentials = {}, request = { state: { text: 'Refund me' }, questions }) =>
-  new SystemOneTransport({ url: await endpoint(), model: 'jev-latest', ...credentials }).decide(request);
+const decide = async (options = {}, request = { state: { text: 'Refund me' }, questions }) => {
+  const { provider = 'generic', model = 'jev-latest', timeoutMs = 10000, url, token, accountId } = options;
+  return new SystemOneTransport({
+    provider,
+    model: model === null ? undefined : model,
+    timeoutMs,
+    credentials: { url: url ?? (await endpoint()), token, accountId },
+  }).decide(request);
+};
 
 test('sends multiple typed questions and returns TypeSafe answers', async () => {
   handler = async (req, res) => {
@@ -52,12 +59,12 @@ test('sends multiple typed questions and returns TypeSafe answers', async () => 
     res.setHeader('content-type', 'application/json');
     res.end(JSON.stringify(result));
   };
-  assert.deepEqual(await decide({ token: 'secret' }), result);
+  assert.deepEqual(await decide({ provider: 'typesafe', token: 'secret' }), result);
 });
 
 test('unwraps Cloudflare result', async () => {
   handler = (_req, res) => res.end(JSON.stringify({ success: true, result }));
-  assert.deepEqual(await decide({ responseFormat: 'cloudflare', model: 'clef' }), result);
+  assert.deepEqual(await decide({ provider: 'cloudflare', accountId: 'test', token: 'secret', model: 'clef' }), result);
 });
 
 test('Laya works without token or model', async () => {
@@ -68,7 +75,7 @@ test('Laya works without token or model', async () => {
     assert.equal('model' in JSON.parse(Buffer.concat(chunks).toString()), false);
     res.end(JSON.stringify(result));
   };
-  assert.deepEqual(await decide({ model: null }, { state: 'refund', questions }), result);
+  assert.deepEqual(await decide({ provider: 'laya', model: null }, { state: 'refund', questions }), result);
 });
 
 test('rejects missing, mismatched, and unknown choice answers', async () => {
@@ -131,8 +138,10 @@ test('reports timeout', async () => {
 });
 
 test('rejects a token over non-loopback HTTP before sending', async () => {
-  assert.throws(() => new SystemOneTransport({ url: 'http://example.com', token: 'secret' }),
-    (error) => error.code === 'INVALID_CONFIG');
+  assert.throws(
+    () => new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'http://example.com', token: 'secret' } }),
+    (error) => error.code === 'INVALID_CONFIG',
+  );
 });
 
 test('requires an endpoint and never calls fetch when it is missing', async () => {
@@ -143,7 +152,10 @@ test('requires an endpoint and never calls fetch when it is missing', async () =
     throw new Error('unexpected request');
   };
   try {
-    assert.throws(() => new SystemOneTransport(), (error) => error.code === 'INVALID_CONFIG');
+    assert.throws(
+      () => new SystemOneTransport({ timeoutMs: 1000 }),
+      (error) => error.code === 'INVALID_CONFIG',
+    );
     assert.equal(calls, 0);
   } finally {
     globalThis.fetch = original;
@@ -223,7 +235,7 @@ test('uses one deadline across retries and supports caller abort', async () => {
   handler = (_req, res) => {
     setTimeout(() => res.end(JSON.stringify(result)), 200);
   };
-  const cancelled = new SystemOneTransport({ url: await endpoint(), timeoutMs: 1000 }).decide(
+  const cancelled = new SystemOneTransport({ timeoutMs: 1000, credentials: { url: await endpoint() } }).decide(
     { state: 'x', questions },
     { signal: controller.signal },
   );
@@ -246,9 +258,12 @@ test('handles invalid JSON and provider codes without response messages', async 
   handler = (_req, res) =>
     res.end(JSON.stringify({ success: false, errors: [{ code: 1001, message: 'secret details' }] }));
   await assert.rejects(
-    decide({ responseFormat: 'cloudflare' }),
+    decide({ provider: 'cloudflare', accountId: 'test', token: 'secret' }),
     (error) => error.code === 'PROVIDER_ERROR' && error.providerCode === 1001 && !error.message.includes('secret'),
   );
   handler = (_req, res) => res.end(JSON.stringify({ success: true }));
-  await assert.rejects(decide({ responseFormat: 'cloudflare' }), (error) => error.code === 'INVALID_RESPONSE');
+  await assert.rejects(
+    decide({ provider: 'cloudflare', accountId: 'test', token: 'secret' }),
+    (error) => error.code === 'INVALID_RESPONSE',
+  );
 });

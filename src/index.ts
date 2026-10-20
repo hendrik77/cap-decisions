@@ -1,6 +1,6 @@
 import cds from '@sap/cds';
 import { SystemOneTransport } from './transport';
-import type { DecisionRequest, DecisionResult, Questions, SystemOneCredentials } from './types';
+import type { DecisionRequest, DecisionResult, Questions, SystemOneSettings } from './types';
 
 const signalKey = Symbol('systemone.callerSignal');
 type SignalRequest<Q extends Questions = Questions> = cds.Request<DecisionRequest<Q>> & { [signalKey]?: AbortSignal };
@@ -9,9 +9,8 @@ export class SystemOneService extends cds.Service {
   private transport!: SystemOneTransport;
 
   async init(): Promise<void> {
-    const credentials =
-      (this as cds.Service & { options?: { credentials?: SystemOneCredentials } }).options?.credentials ?? {};
-    this.transport = new SystemOneTransport(credentials);
+    const settings = (this as cds.Service & { options?: SystemOneSettings }).options ?? {};
+    this.transport = new SystemOneTransport(settings);
     this.on('decide', async (request: SignalRequest) => {
       const started = performance.now();
       return this.transport.decide(request.data, {
@@ -60,6 +59,8 @@ export type {
   DecisionRequest,
   DecisionResult,
   SystemOneCredentials,
+  SystemOneProvider,
+  SystemOneSettings,
 } from './types';
 
 export default SystemOneService;

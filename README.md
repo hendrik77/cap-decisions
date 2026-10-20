@@ -10,12 +10,12 @@ The package is not yet published to npm. Until publication, build a tarball from
 npm install
 npm pack
 # In your CAP application:
-npm install /path/to/cap-jev/cap-jev-0.1.0.tgz
+npm install /path/to/cap-jev/cap-jev-0.2.0.tgz
 ```
 
 After npm publication, use `npm install cap-jev`.
 
-CAP loads the package's `cds-plugin.js` and adds the `systemone` required service. Configure credentials in your application's `package.json`, then connect from a service handler:
+CAP loads the package's `cds-plugin.js` and adds the `systemone` required service. Select a provider kind in your application's `package.json`, supply its secrets through a runtime configuration source, then connect from a service handler:
 
 ```ts
 import cds from '@sap/cds';
@@ -37,69 +37,71 @@ const result = await systemOne.decide({
 console.log(result.answers.department.choice, result.answers.refund.noul);
 ```
 
+For questions held in a variable, use `satisfies Questions` to keep literal question types:
+
+```ts
+import type { Questions } from 'cap-jev';
+const questions = {
+  refund: { type: 'noul', instructions: 'Does the customer request a refund?' },
+} satisfies Questions;
+const result = await systemOne.decide({ state: 'Please refund me', questions });
+```
+
 The [example CAP application](examples/cap-app) shows a TypeScript action handler. Its CDS action belongs to the application; the plugin registers no annotations or handlers for application actions.
 
 `decide()` sends an internal CAP `decide` event. Applications can register `before` and `after` handlers on the connected service. Configuration is checked when `cds.connect.to('systemone')` runs; an invalid endpoint rejects that connection with `INVALID_CONFIG`. Pass `{ signal }` as the second argument to cancel a call. Successful calls emit a `systemone` debug log with latency, attempt count, model and input/output token counts.
 
-## Endpoint configuration
+## Provider configuration
 
-Set `cds.requires.systemone.credentials` in your application. `url` is the **full POST endpoint** and is required; the plugin has no default endpoint or model. Set `model` if your endpoint requires one. `token` is optional; store it in a runtime binding or environment-specific configuration, not in source control. A token is sent only to HTTPS or a loopback HTTP endpoint (`127.0.0.1`, `localhost`, or `::1`). `timeoutMs` defaults to 10,000. The configurations below are examples, not an exhaustive list of supported models or providers.
+Select a `kind` under `cds.requires.systemone`. Non-secret settings (`provider`, `model`, `timeoutMs`) live at service level; credentials (`url`, `token`, `accountId`) live under `credentials`. The base `systemone` kind is a generic Jev-compatible endpoint with no default URL or model, so a bare installation cannot send data. `timeoutMs` defaults to 10,000 for the whole call.
 
-Because the service name is a single lowercase word, the token can come from an environment variable: `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_TOKEN=<token>`. On Cloud Foundry, a user-provided service named `systemone` is bound automatically.
+| Kind | Endpoint and model | Credentials | Request limits |
+| --- | --- | --- | --- |
+| `systemone` | Supply a full POST `credentials.url`; `model` is optional | Token optional | Structural checks only |
+| `systemone-typesafe` | TypeSafe System One, `jev-latest` | Token required | At most 255 choice options; 2–10 score criteria |
+| `systemone-cloudflare` | Cloudflare Clef; URL built from `accountId`; model `clef` | `accountId` and token required | 1–64 questions |
+| `systemone-laya` | Loopback Laya endpoint, no model | Token optional | At most 100 choice options |
 
-TypeSafe Jev:
-
-```json
-{
-  "cds": {
-    "requires": {
-      "systemone": {
-        "credentials": {
-          "url": "https://api.typesafe.ai/v1/systemone",
-          "model": "jev-latest",
-          "token": "<from secret binding>"
-        }
-      }
-    }
-  }
-}
-```
-
-Cloudflare Clef:
+For TypeSafe or Cloudflare, select the kind in committed configuration and inject the token separately:
 
 ```json
-{
-  "cds": {
-    "requires": {
-      "systemone": {
-        "credentials": {
-          "url": "https://api.cloudflare.com/client/v4/accounts/<account-id>/ai/run/@cf/cloudflare/clef",
-          "model": "clef",
-          "token": "<from secret binding>",
-          "responseFormat": "cloudflare"
-        }
-      }
-    }
-  }
-}
+{ "cds": { "requires": { "systemone": { "kind": "systemone-typesafe" } } } }
 ```
-
-Local Laya (no authentication and automatic model selection):
 
 ```json
-{
-  "cds": {
-    "requires": { "systemone": { "credentials": { "url": "http://127.0.0.1:8000/v1/systemone", "model": null } } }
-  }
-}
+{ "cds": { "requires": { "systemone": { "kind": "systemone-cloudflare" } } } }
 ```
 
-Set `model` to `null` to omit it from the request. A configured token becomes a Bearer header. The `cloudflare` response format requires `success: true` and unwraps the REST API's `result` field. Responses must include a model identifier, one correctly typed answer per question, and usage counts. Invalid input, malformed responses, HTTP errors, and timeouts throw `SystemOneError` with `code` and, for HTTP errors, `status`. A safe machine-readable provider error code, when available, is exposed as `providerCode`. Network and parse errors retain their original `cause`. HTTP 429, 502, 503, 504 and 529, and network failures, are retried at most twice, honoring `Retry-After` or using jittered backoff. `timeoutMs` covers the whole call, including retries and response reading. Both the service and `SystemOneTransport.decide()` accept `{ signal }` as the second argument; caller cancellation throws `ABORTED`. Request state and credentials are never logged by this package.
+For a local or other Jev-compatible server, use the base kind with an explicit endpoint:
+
+```json
+{ "cds": { "requires": { "systemone": { "kind": "systemone", "credentials": { "url": "http://127.0.0.1:8000/v1/systemone" } } } } }
+```
+
+CAP profiles can select different kinds:
+
+```json
+{ "cds": { "requires": { "systemone": { "kind": "systemone-typesafe", "[development]": { "kind": "systemone-laya" } } } } }
+```
+
+Keep tokens and account IDs out of committed files. CAP can inject them from these sources:
+
+| Environment | Secret source |
+| --- | --- |
+| Local | `.cdsrc-private.json` or `cds bind` |
+| Cloud Foundry | User-provided service named `systemone` |
+| Kyma/Kubernetes | `servicebinding.io` Secret via `SERVICE_BINDING_ROOT` |
+| Any | `CDS_CONFIG` JSON or `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_TOKEN` |
+
+Cloudflare needs a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS or to `127.0.0.1`, `localhost`, or `::1` over HTTP. The Cloudflare adapter requires `success: true` and unwraps `result`.
+
+Responses must include a model identifier, one correctly typed answer per question, and usage counts. Invalid input, malformed responses, HTTP errors, and timeouts throw `SystemOneError` with `code` and, for HTTP errors, `status`. A safe machine-readable provider error code, when available, is exposed as `providerCode`. Network and parse errors retain their original `cause`. HTTP 429, 502, 503, 504 and 529, and network failures, are retried at most twice, honoring `Retry-After` or using jittered backoff. Both the service and `SystemOneTransport.decide()` accept `{ signal }` as the second argument; caller cancellation throws `ABORTED`. Request state and credentials are never logged by this package.
 
 ## Development
 
 ```sh
 npm install
+npm run lint
 npm run typecheck
 npm run build
 npm test

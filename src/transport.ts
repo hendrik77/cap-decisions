@@ -1,4 +1,4 @@
-import type { DecisionRequest, DecisionResult, Questions, SystemOneCredentials } from './types';
+import type { DecisionRequest, DecisionResult, Questions, SystemOneProvider, SystemOneSettings } from './types';
 import { SystemOneError, validateRequest, validateResult } from './validation';
 
 const MAX_RETRIES = 2;
@@ -92,10 +92,31 @@ export class SystemOneTransport {
   private readonly url: URL;
   private readonly timeoutMs: number;
   private readonly responseFormat: 'direct' | 'cloudflare';
+  private readonly provider: SystemOneProvider;
 
-  constructor(private readonly credentials: SystemOneCredentials = {}) {
+  constructor(private readonly settings: SystemOneSettings) {
+    this.provider = settings.provider ?? 'generic';
+    if (
+      !['generic', 'typesafe', 'cloudflare', 'laya'].includes(this.provider) ||
+      'responseFormat' in settings ||
+      settings.model === null
+    ) {
+      throw new SystemOneError('INVALID_CONFIG', 'Invalid provider or model setting');
+    }
+    const credentials = settings.credentials ?? {};
+    if (['typesafe', 'cloudflare'].includes(this.provider) && !credentials.token) {
+      throw new SystemOneError('INVALID_CONFIG', 'This provider requires a token');
+    }
+    if (this.provider === 'cloudflare' && !credentials.accountId) {
+      throw new SystemOneError('INVALID_CONFIG', 'Cloudflare requires accountId');
+    }
+    const endpoint =
+      this.provider === 'cloudflare'
+        ? (credentials.url ??
+          `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(credentials.accountId ?? '')}/ai/run/@cf/cloudflare/clef`)
+        : credentials.url;
     try {
-      this.url = new URL(credentials.url ?? '');
+      this.url = new URL(endpoint ?? '');
     } catch (error) {
       throw new SystemOneError('INVALID_CONFIG', 'A complete endpoint URL is required', { cause: error });
     }
@@ -109,23 +130,21 @@ export class SystemOneTransport {
     ) {
       throw new SystemOneError('INVALID_CONFIG', 'Token requires HTTPS or a loopback endpoint');
     }
-    this.timeoutMs = credentials.timeoutMs ?? 10000;
+    this.timeoutMs = settings.timeoutMs as number;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs <= 0)
       throw new SystemOneError('INVALID_CONFIG', 'timeoutMs must be a positive integer');
-    this.responseFormat = credentials.responseFormat ?? 'direct';
-    if (!['direct', 'cloudflare'].includes(this.responseFormat))
-      throw new SystemOneError('INVALID_CONFIG', 'Unknown response format');
+    this.responseFormat = this.provider === 'cloudflare' ? 'cloudflare' : 'direct';
   }
 
   async decide<Q extends Questions>(
     request: DecisionRequest<Q>,
     options: DecisionOptions = {},
   ): Promise<DecisionResult<Q>> {
-    validateRequest(request);
-    const model = this.credentials.model;
+    validateRequest(request, this.provider);
+    const model = this.settings.model;
     const body = JSON.stringify({ ...request, ...(model ? { model } : {}) });
     const headers: Record<string, string> = { 'content-type': 'application/json' };
-    if (this.credentials.token) headers.authorization = `Bearer ${this.credentials.token}`;
+    if (this.settings.credentials?.token) headers.authorization = `Bearer ${this.settings.credentials.token}`;
 
     const deadline = AbortSignal.timeout(this.timeoutMs);
     const signal = options.signal ? AbortSignal.any([deadline, options.signal]) : deadline;
