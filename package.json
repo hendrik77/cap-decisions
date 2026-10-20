@@ -1,6 +1,6 @@
 {
   "name": "cap-jev",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Internal System One decision service for SAP CAP",
   "license": "MIT",
   "main": "dist/index.js",
@@ -57,7 +57,7 @@
   "scripts": {
     "lint": "eslint .",
     "format": "prettier --write src tests examples/cap-app/srv",
-    "typecheck": "tsc --noEmit && tsc -p examples/cap-app/tsconfig.json",
+    "typecheck": "tsc --noEmit && tsc -p tests/tsconfig.json && tsc -p examples/cap-app/tsconfig.json",
     "build": "tsc",
     "test": "npm run build && node --test tests/*.test.cjs",
     "prepack": "npm run build"

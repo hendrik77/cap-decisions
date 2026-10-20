@@ -23,15 +23,15 @@ test('destination supplies URL and URL.headers.Authorization without local cachi
     return new globalThis.Response(JSON.stringify(result));
   };
   try {
-    const transport = new SystemOneTransport(
-      {
-        provider: 'typesafe',
-        model: 'jev-latest',
-        timeoutMs: 1000,
-        credentials: { destination: 'test-destination' },
-      },
-      resolver,
-    );
+    const settings = {
+      provider: 'typesafe',
+      model: 'jev-latest',
+      timeoutMs: 1000,
+      credentials: { destination: 'test-destination' },
+    };
+    const transport = new SystemOneTransport(settings, resolver);
+    delete settings.credentials.destination;
+    settings.credentials.token = 'changed-token';
     await transport.validateDestination();
     assert.deepEqual(await transport.decide(request), result);
     assert.deepEqual(await transport.decide(request), result);

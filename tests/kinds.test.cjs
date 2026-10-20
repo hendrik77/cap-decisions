@@ -21,6 +21,20 @@ test('CAP links the base and provider kinds', () => {
   assert.equal(kinds['systemone-laya'].provider, 'laya');
 });
 
+test('CAP connection rejects unsupported timeout values during initialization', async () => {
+  for (const timeoutMs of [2 ** 31, 2 ** 32]) {
+    await assert.rejects(
+      cds.connect.to('systemone', {
+        ...kinds.systemone,
+        impl: require.resolve('../dist'),
+        timeoutMs,
+        credentials: { url: 'http://127.0.0.1:9999/custom' },
+      }),
+      (error) => error.code === 'INVALID_CONFIG',
+    );
+  }
+});
+
 test('each kind sends its endpoint, model and auth settings', async () => {
   const original = globalThis.fetch;
   const seen = [];

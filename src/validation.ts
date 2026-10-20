@@ -6,13 +6,25 @@ const finite = (value: unknown): value is number => typeof value === 'number' &&
 const probability = (value: unknown): value is number => finite(value) && value >= 0 && value <= 1;
 const content = (value: unknown): boolean =>
   typeof value === 'string' || (typeof value === 'object' && value !== null && json(value));
-const json = (value: unknown): boolean =>
-  value === null ||
-  typeof value === 'string' ||
-  typeof value === 'boolean' ||
-  finite(value) ||
-  (Array.isArray(value) && value.every(json)) ||
-  (record(value) && Object.values(value).every(json));
+
+function json(value: unknown, ancestors = new Set<object>()): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean' || finite(value)) return true;
+  if (typeof value !== 'object') return false;
+  if (!Array.isArray(value) && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+    throw new SystemOneError('INVALID_REQUEST', 'Request content contains an unsupported object; use plain JSON data');
+  }
+  if (ancestors.has(value))
+    throw new SystemOneError('INVALID_REQUEST', 'Request content contains a circular reference');
+  ancestors.add(value);
+  try {
+    for (const child of Array.isArray(value) ? value : Object.values(value)) {
+      if (!json(child, ancestors)) return false;
+    }
+    return true;
+  } finally {
+    ancestors.delete(value);
+  }
+}
 
 export class SystemOneError extends Error {
   readonly status?: number;
@@ -45,6 +57,9 @@ export function validateRequest(
       throw new SystemOneError('INVALID_REQUEST', 'Each question needs an id and instructions');
     }
     const question = raw as Record<string, unknown>;
+    if (question.criteria !== undefined && !json(question.criteria)) {
+      throw new SystemOneError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
+    }
     if (question.type === 'choice') {
       if (
         !record(question.criteria) ||

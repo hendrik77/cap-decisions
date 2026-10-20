@@ -41,9 +41,14 @@ export interface ScoreAnswer {
 }
 export type Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer;
 
-export type Answers<Q extends Questions> = {
-  [K in keyof Q]: Q[K] extends ChoiceQuestion ? ChoiceAnswer : Q[K] extends ScoreQuestion ? ScoreAnswer : NoulAnswer;
-};
+type AnswerFor<T> = T extends ChoiceQuestion
+  ? ChoiceAnswer
+  : T extends ScoreQuestion
+    ? ScoreAnswer
+    : T extends NoulQuestion
+      ? NoulAnswer
+      : never;
+export type Answers<Q extends Questions> = { [K in keyof Q]: AnswerFor<Q[K]> };
 
 export interface DecisionRequest<Q extends Questions = Questions> {
   state: Content;

@@ -8,7 +8,7 @@ const { spawnSync, execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
 
-test('installed package registers an internal CAP service with decide()', async () => {
+test('installed package registers an internal CAP service with decide()', { timeout: 300_000 }, async () => {
   const root = path.resolve(__dirname, '..');
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-integration-'));
   const fixture = path.join(temp, 'cap-app');
@@ -38,16 +38,18 @@ test('installed package registers an internal CAP service with decide()', async 
     const pack = spawnSync('npm', ['pack', '--ignore-scripts', '--pack-destination', temp], {
       cwd: root,
       encoding: 'utf8',
+      timeout: 30_000,
     });
-    assert.equal(pack.status, 0, pack.stderr);
+    assert.equal(pack.status, 0, pack.error?.message ?? pack.stderr);
     const tarball = path.join(temp, pack.stdout.trim().split('\n').at(-1));
     pkg.dependencies['cap-jev'] = `file:${tarball}`;
     fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(pkg));
-    const install = spawnSync('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund'], {
+    const install = spawnSync('npm', ['install', '--prefer-offline', '--ignore-scripts', '--no-audit', '--no-fund'], {
       cwd: fixture,
       encoding: 'utf8',
+      timeout: 120_000,
     });
-    assert.equal(install.status, 0, install.stderr);
+    assert.equal(install.status, 0, install.error?.message ?? install.stderr);
     const script = `
       const cds = require('@sap/cds');
       (async () => {
@@ -69,7 +71,11 @@ test('installed package registers an internal CAP service with decide()', async 
         process.stdout.write('ok');
       })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
     `;
-    const run = await execFileAsync(process.execPath, ['-e', script], { cwd: fixture, encoding: 'utf8' });
+    const run = await execFileAsync(process.execPath, ['-e', script], {
+      cwd: fixture,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
     assert.match(run.stdout, /ok/);
     assert.equal(received[0].state, 'modified private state');
     const replacement = `
@@ -87,7 +93,8 @@ test('installed package registers an internal CAP service with decide()', async 
       })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
     `;
     assert.match(
-      (await execFileAsync(process.execPath, ['-e', replacement], { cwd: fixture, encoding: 'utf8' })).stdout,
+      (await execFileAsync(process.execPath, ['-e', replacement], { cwd: fixture, encoding: 'utf8', timeout: 30_000 }))
+        .stdout,
       /ok/,
     );
     const invalid = `
@@ -101,7 +108,8 @@ test('installed package registers an internal CAP service with decide()', async 
       })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
     `;
     assert.match(
-      (await execFileAsync(process.execPath, ['-e', invalid], { cwd: fixture, encoding: 'utf8' })).stdout,
+      (await execFileAsync(process.execPath, ['-e', invalid], { cwd: fixture, encoding: 'utf8', timeout: 30_000 }))
+        .stdout,
       /ok/,
     );
   } finally {

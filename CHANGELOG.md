@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.0
+
+### Breaking changes
+
+- Request content must be plain JSON data. Circular references, `Map`, `Set`, `Date`, and class instances now fail with `INVALID_REQUEST`; shared references and null-prototype objects remain supported.
+- Retriable HTTP responses whose retry delay does not fit within the remaining deadline now fail immediately with `HTTP_ERROR`, preserving `status` and `providerCode`, instead of waiting for `TIMEOUT`.
+- `HTTP_ERROR` no longer carries a `Response` as its cause, avoiding response headers and endpoint URLs in error inspection.
+
+### Fixed
+
+- Snapshot endpoint, token, destination, and model settings at construction so later configuration mutations cannot bypass transport validation. Destinations are still resolved on each call.
+- Reject `timeoutMs` above Node's timer limit of 2,147,483,647 ms during construction and CAP connection.
+- Retry interrupted response bodies within the existing attempt limit and call deadline, preserving the network cause. Complete malformed JSON is not retried.
+- Return the full `Answer` union for dynamic `Questions` maps while preserving precise answer types for literal maps.
+
+### Added
+
+- Compile-time answer type regressions included in `npm run typecheck`.
+- Integration test and child-process timeouts, and fixture installation that works with an empty npm cache.
+- GitHub Actions checks on Node.js 22, 24, and 26.
+
 ## 0.2.0
 
 ### Breaking changes

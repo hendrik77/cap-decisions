@@ -3,6 +3,7 @@ import type { DecisionRequest, DecisionResult, Questions, SystemOneProvider, Sys
 import { SystemOneError, validateRequest, validateResult } from './validation';
 
 const MAX_RETRIES = 2;
+const MAX_TIMEOUT_MS = 2_147_483_647;
 const RETRY_STATUSES = new Set([429, 502, 503, 504, 529]);
 const MAX_ERROR_BYTES = 8192;
 const optionalRequire = createRequire(__filename);
@@ -87,6 +88,20 @@ function retryDelay(attempt: number, header: string | null): number {
   return Math.round(500 * 2 ** attempt * (0.5 + Math.random()));
 }
 
+async function retryNetworkFailure(
+  error: unknown,
+  attempt: number,
+  deadlineAt: number,
+  signal: AbortSignal,
+  caller?: AbortSignal,
+): Promise<void> {
+  if (signal.aborted || Date.now() >= deadlineAt) throw interruption(signal, caller, error);
+  if (attempt === MAX_RETRIES) {
+    throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
+  }
+  await pause(Math.min(retryDelay(attempt, null), Math.max(0, deadlineAt - Date.now())), signal, caller);
+}
+
 function machineCode(raw: unknown): string | number | undefined {
   if (typeof raw === 'number' && Number.isSafeInteger(raw)) return raw;
   if (typeof raw === 'string' && /^[\w.:-]{1,100}$/.test(raw)) return raw;
@@ -135,9 +150,12 @@ export class SystemOneTransport {
   private readonly timeoutMs: number;
   private readonly responseFormat: 'direct' | 'cloudflare';
   private readonly provider: SystemOneProvider;
+  private readonly token?: string;
+  private readonly destination?: string;
+  private readonly model?: string;
 
   constructor(
-    private readonly settings: SystemOneSettings,
+    settings: SystemOneSettings,
     private readonly destinationResolver?: DestinationResolver,
   ) {
     this.provider = settings.provider ?? 'generic';
@@ -176,13 +194,16 @@ export class SystemOneTransport {
       this.url = endpoint(url, !!credentials.token);
     }
     this.timeoutMs = settings.timeoutMs as number;
-    if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs <= 0)
-      throw new SystemOneError('INVALID_CONFIG', 'timeoutMs must be a positive integer');
+    if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs <= 0 || this.timeoutMs > MAX_TIMEOUT_MS)
+      throw new SystemOneError('INVALID_CONFIG', `timeoutMs must be a positive integer at most ${MAX_TIMEOUT_MS}`);
+    this.token = credentials.token;
+    this.destination = credentials.destination;
+    this.model = settings.model;
     this.responseFormat = this.provider === 'cloudflare' ? 'cloudflare' : 'direct';
   }
 
   private async target(): Promise<{ url: URL; headers: Record<string, string> }> {
-    const name = this.settings.credentials?.destination;
+    const name = this.destination;
     if (!name) return { url: this.url as URL, headers: {} };
     let resolver = this.destinationResolver;
     if (!resolver) {
@@ -213,7 +234,7 @@ export class SystemOneTransport {
       if (typeof value !== 'string') throw new SystemOneError('INVALID_CONFIG', 'Destination headers must be strings');
       headers[key.toLowerCase()] = value;
     }
-    const authorized = !!(headers.authorization || this.settings.credentials?.token);
+    const authorized = !!(headers.authorization || this.token);
     const url = endpoint(destination.url, authorized);
     if (['typesafe', 'cloudflare'].includes(this.provider) && !authorized) {
       throw new SystemOneError('INVALID_CONFIG', 'This provider requires a token');
@@ -222,43 +243,39 @@ export class SystemOneTransport {
   }
 
   async validateDestination(): Promise<void> {
-    if (this.settings.credentials?.destination) await this.target();
+    if (this.destination) await this.target();
   }
 
   async decide<Q extends Questions>(
     request: DecisionRequest<Q>,
     options: DecisionOptions = {},
   ): Promise<DecisionResult<Q>> {
-    validateRequest(request, this.provider);
-    const model = this.settings.model;
-    const body = JSON.stringify({ ...request, ...(model ? { model } : {}) });
+    const deadlineAt = Date.now() + this.timeoutMs;
     const deadline = AbortSignal.timeout(this.timeoutMs);
     const signal = options.signal ? AbortSignal.any([deadline, options.signal]) : deadline;
+    validateRequest(request, this.provider);
+    const model = this.model;
+    const body = JSON.stringify({ ...request, ...(model ? { model } : {}) });
     if (signal.aborted) throw interruption(signal, options.signal);
     const target = await untilAbort(this.target(), signal, options.signal);
     const headers: Record<string, string> = { ...target.headers, 'content-type': 'application/json' };
-    if (this.settings.credentials?.token) headers.authorization = `Bearer ${this.settings.credentials.token}`;
+    if (this.token) headers.authorization = `Bearer ${this.token}`;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       let response: Response;
       try {
         response = await fetch(target.url, { method: 'POST', headers, body, signal });
       } catch (error) {
-        if (signal.aborted) throw interruption(signal, options.signal, error);
-        if (attempt < MAX_RETRIES) {
-          await pause(Math.min(retryDelay(attempt, null), this.timeoutMs), signal, options.signal);
-          continue;
-        }
-        throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
+        await retryNetworkFailure(error, attempt, deadlineAt, signal, options.signal);
+        continue;
       }
       if (!response.ok) {
         if (RETRY_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
-          await response.body?.cancel();
-          await pause(
-            Math.min(retryDelay(attempt, response.headers.get('retry-after')), this.timeoutMs),
-            signal,
-            options.signal,
-          );
-          continue;
+          const delay = retryDelay(attempt, response.headers.get('retry-after'));
+          if (delay < deadlineAt - Date.now()) {
+            await response.body?.cancel();
+            await pause(delay, signal, options.signal);
+            continue;
+          }
         }
         let payload: unknown;
         try {
@@ -270,12 +287,19 @@ export class SystemOneTransport {
         throw new SystemOneError('HTTP_ERROR', `System One returned HTTP ${response.status}`, {
           status: response.status,
           providerCode: providerCode(payload, this.responseFormat),
-          cause: response,
         });
+      }
+      let text: string;
+      try {
+        text = await response.text();
+      } catch (error) {
+        await response.body?.cancel().catch(() => undefined);
+        await retryNetworkFailure(error, attempt, deadlineAt, signal, options.signal);
+        continue;
       }
       let payload: unknown;
       try {
-        payload = await response.json();
+        payload = JSON.parse(text);
       } catch (error) {
         if (signal.aborted) throw interruption(signal, options.signal, error);
         throw new SystemOneError('INVALID_RESPONSE', 'System One returned invalid JSON', { cause: error });

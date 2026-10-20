@@ -10,7 +10,7 @@ The package is not yet published to npm. Until publication, build a tarball from
 npm install
 npm pack
 # In your CAP application:
-npm install /path/to/cap-jev/cap-jev-0.2.0.tgz
+npm install /path/to/cap-jev/cap-jev-0.3.0.tgz
 ```
 
 After npm publication, use `npm install cap-jev`.
@@ -47,13 +47,15 @@ const questions = {
 const result = await systemOne.decide({ state: 'Please refund me', questions });
 ```
 
+Request state, instructions, and criteria must contain plain JSON data: strings, arrays, and plain objects (including null-prototype objects), with JSON primitive values inside them. Circular references and objects such as `Map`, `Set`, `Date`, or class instances are rejected with `INVALID_REQUEST`. Shared references are allowed when they do not form a cycle. Dynamically built maps typed as `Questions` return the `Answer` union, which can be narrowed using `answer.type`.
+
 The [example CAP application](examples/cap-app) shows a TypeScript action handler. Its CDS action belongs to the application; the plugin registers no annotations or handlers for application actions.
 
 `decide()` sends an internal CAP `decide` event. Applications can register `before` and `after` handlers on the connected service. Configuration is checked when `cds.connect.to('systemone')` runs; an invalid endpoint rejects that connection with `INVALID_CONFIG`. Pass `{ signal }` as the second argument to cancel a call. Successful calls emit a `systemone` debug log with latency, attempt count, model and input/output token counts.
 
 ## Provider configuration
 
-Select a `kind` under `cds.requires.systemone`. Non-secret settings (`provider`, `model`, `timeoutMs`) live at service level; credentials (`url`, `token`, `accountId`, `destination`) live under `credentials`. The base `systemone` kind is a generic Jev-compatible endpoint with no default URL or model, so a bare installation cannot send data. `timeoutMs` defaults to 10,000 for the whole call.
+Select a `kind` under `cds.requires.systemone`. Non-secret settings (`provider`, `model`, `timeoutMs`) live at service level; credentials (`url`, `token`, `accountId`, `destination`) live under `credentials`. The base `systemone` kind is a generic Jev-compatible endpoint with no default URL or model, so a bare installation cannot send data. `timeoutMs` defaults to 10,000 for the whole call and must be an integer from 1 to 2,147,483,647 ms. Settings are snapshotted when the transport is constructed; restart the application to apply configuration changes.
 
 | Kind | Endpoint and model | Credentials | Request limits |
 | --- | --- | --- | --- |
@@ -101,7 +103,7 @@ On SAP BTP, you can set `credentials.destination` to the name of a Destination s
 { "cds": { "requires": { "systemone": { "kind": "systemone", "credentials": { "destination": "systemone-api" } } } } }
 ```
 
-Responses must include a model identifier, one correctly typed answer per question, and usage counts. Invalid input, malformed responses, HTTP errors, and timeouts throw `SystemOneError` with `code` and, for HTTP errors, `status`. A safe machine-readable provider error code, when available, is exposed as `providerCode`. Network and parse errors retain their original `cause`. HTTP 429, 502, 503, 504 and 529, and network failures, are retried at most twice, honoring `Retry-After` or using jittered backoff. Both the service and `SystemOneTransport.decide()` accept `{ signal }` as the second argument; caller cancellation throws `ABORTED`. Request state and credentials are never logged by this package.
+Responses must include a model identifier, one correctly typed answer per question, and usage counts. Invalid input, malformed responses, HTTP errors, and timeouts throw `SystemOneError` with `code` and, for HTTP errors, `status`. A safe machine-readable provider error code, when available, is exposed as `providerCode`. Network and parse errors retain their original `cause`; HTTP errors omit the response object. HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, an HTTP failure is returned immediately as `HTTP_ERROR` with its status and provider code. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. Both the service and `SystemOneTransport.decide()` accept `{ signal }` as the second argument; caller cancellation throws `ABORTED`. Request state and credentials are never logged by this package.
 
 ## Development
 
@@ -114,7 +116,9 @@ npm test
 npm pack --dry-run
 ```
 
-The test suite uses local HTTP servers and needs no external API key. To run one focused test: `node --test tests/transport.test.cjs`. `npm run build` emits CommonJS JavaScript and declarations in `dist/`.
+The test suite uses local HTTP servers and needs no external API key. The integration test installs the packed plugin in a temporary CAP application using the npm cache when available, and the registry otherwise; its test and child processes have timeouts. To run one focused test: `node --test tests/transport.test.cjs`. `npm run typecheck` also checks answer inference and narrowing in `tests/types.test.ts`. `npm run build` emits CommonJS JavaScript and declarations in `dist/`.
+
+[CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck, tests (including the build), and package checks on Node.js 22, 24, and 26 for pushes and pull requests.
 
 ## Protocol references
 
