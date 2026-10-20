@@ -204,6 +204,35 @@ This section is the work order for a coding agent. The findings above explain *w
 **Step 7 – Remaining tests (item 14)**
 - Cover every path in item 14 that the earlier steps did not already cover.
 
+### Completion status
+
+| Item | Status |
+|---|---|
+| 1 | Done in `c232fbf` |
+| 2 | Done in `c232fbf` |
+| 3 | Done in `c232fbf` |
+| 4 | Done in `c232fbf` |
+| 5 | Done in `c232fbf` |
+| 6 | Done in `540b8e7` |
+| 7 | Done in `540b8e7` |
+| 8 | Done in `540b8e7` |
+| 9 | Done in `540b8e7` |
+| 10 | Done in `7d4ef83` |
+| 11 | Done in `7d4ef83` |
+| 12 | Done in `e7cefbf` and `54147a7` |
+| 13 | Done in `540b8e7` |
+| 14 | Done in `2728e1e` (with earlier test coverage in `c232fbf`, `7d4ef83`, and `8413c19`) |
+| 16, lint and formatter | Done in `e7cefbf` and `54147a7` |
+| 17 | Done in `7d4ef83` |
+| 18 | Done in `0ebb8e9` |
+| 19 | Done in `0ebb8e9` |
+| 20 | Done in `e7df350` and `7d4ef83` |
+| 21 | Done in `7d4ef83` |
+| 22 | Done in `c232fbf` |
+| 23 | Done in `7d4ef83` |
+| 24 | Done in `8413c19` |
+| 25 | Done in `c232fbf` and `7d4ef83` |
+
 ### Definition of done
 
 - Every item in scope is marked done in this file; out-of-scope items stay unmarked.
