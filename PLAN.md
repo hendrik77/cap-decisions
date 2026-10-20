@@ -331,6 +331,14 @@ Files: `src/providers/mock.ts`, `package.json` (kind, default profiles, `exports
 | Warn for unknown settings, fail for misplaced secrets | `cds-caching` (`detectMisplacedKeyManagement`) | T2 |
 | Guides in `docs/` instead of a long README | `cds-caching` | T7, M5 |
 
+## Progress
+
+| Task | Status |
+| --- | --- |
+| T0–T7 | Done on `release-0.5.0`; 124 tests pass on CAP 10.1.1 and 9.9.3 |
+| T8 | Release 0.5.0 in progress |
+| M1–M5 | Not started |
+
 ## Blocked tests
 
-None yet.
+None.

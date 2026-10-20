@@ -1,7 +1,7 @@
 # 1. Provider kinds as CAP service subclasses
 
 **Date:** 2026-10-21
-**Status:** Proposed for 0.5.0
+**Status:** Accepted (0.5.0)
 
 ## Context
 
