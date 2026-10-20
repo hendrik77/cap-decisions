@@ -2,6 +2,13 @@
 
 This changelog starts with 0.5.0. Earlier versions are described in the [GitHub releases](https://github.com/hendrik77/cap-jev/releases) up to v0.4.3.
 
+## 0.5.1
+
+### Fixed
+
+- The install instructions failed with npm 12, which refuses tarball URLs by default (`allow-remote`). The README now shows two ways that work: allowing URLs listed in `package.json` through the project's `.npmrc`, or downloading the archive and installing the file.
+- The example app's README told readers to install the release archive inside the repository, where the app is an npm workspace that uses the local `cap-jev`. It now describes the workspace setup and the release archive for copies outside the repository.
+
 ## 0.5.0
 
 ### Breaking changes

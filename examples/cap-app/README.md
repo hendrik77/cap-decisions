@@ -10,12 +10,19 @@ A CAP application with one action, `classify`, that asks System One which team s
 
 The app uses the `systemone-laya` kind, which calls a Jev-compatible server at `http://127.0.0.1:8000/v1/systemone` without a token. Start such a server, for example [Laya](https://github.com/WhoIsMrSentry/laya-system-one#self-hosting-http-server-jev-compatible), or point the app at another endpoint with `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_URL`.
 
-`cap-jev` is not yet published to npm, so install it from a release archive before the other dependencies:
+In this repository, the app is an npm workspace and uses the local `cap-jev`. Install and build from the repository root:
 
 ```sh
-cd examples/cap-app
-npm install https://github.com/hendrik77/cap-jev/releases/download/v0.5.0/cap-jev-0.5.0.tgz
 npm install
+npm run build
+cd examples/cap-app
+```
+
+For a copy of the app outside this repository, install `cap-jev` from a release archive as described in the [main README](../../README.md#install-and-use), for example:
+
+```sh
+curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.5.1/cap-jev-0.5.1.tgz
+npm install ./cap-jev-0.5.1.tgz
 ```
 
 CAP loads TypeScript handlers when `CDS_TYPESCRIPT` is set. Node.js 22.18 or newer runs them without a separate compiler:
