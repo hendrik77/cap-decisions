@@ -16,6 +16,7 @@ This changelog starts with 0.5.0. Earlier versions are described in the [GitHub 
 ### Fixed
 
 - `cds.connect.to('systemone')` failed with `MODEL_NOT_FOUND` for `systemone-typesafe` and `systemone-cloudflare`, because CAP read the `model` setting as a CDS model.
+- After a network failure, a retry could start at the call deadline when the retry pause used up the remaining time. No attempt starts after the deadline now.
 - Every provider kind resolved to the generic provider, because the service and the base kind were both named `systemone` and CAP merged the base kind over the selected one. Provider limits and settings now apply.
 
 ### Added

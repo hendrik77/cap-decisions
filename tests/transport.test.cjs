@@ -413,6 +413,32 @@ test('uses one deadline across retries and supports caller abort', async () => {
   await assert.rejects(cancelled, (error) => error.code === 'ABORTED' && !!error.cause);
 });
 
+test('no request starts after a network retry used up the deadline', async () => {
+  let calls = 0;
+  handler = (_req, res) => {
+    calls++;
+    res.destroy();
+  };
+  const original = globalThis.fetch;
+  const starts = [];
+  globalThis.fetch = (...args) => {
+    starts.push(Date.now());
+    return original(...args);
+  };
+  try {
+    // The retry pause and the deadline end at the same moment; repeat to cover both timer orders.
+    for (let run = 0; run < 20; run++) {
+      starts.length = 0;
+      const started = Date.now();
+      await assert.rejects(decide({ timeoutMs: 40 }), (error) => error.code === 'TIMEOUT');
+      for (const start of starts) assert.ok(start - started < 40, `a request started after the deadline in run ${run}`);
+    }
+  } finally {
+    globalThis.fetch = original;
+  }
+  assert.ok(calls > 0);
+});
+
 test('handles invalid JSON and provider codes without response messages', async () => {
   let calls = 0;
   handler = (_req, res) => {
