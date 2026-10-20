@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@sap/cds": "^10.0.0",
-    "cap-jev": "^0.4.1"
+    "cap-jev": "^0.4.2"
   },
   "cds": {
     "requires": {
