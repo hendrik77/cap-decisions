@@ -103,6 +103,7 @@ export type {
   ProviderLimits,
   SystemOneCredentials,
   SystemOneSettings,
+  MockSettings,
 } from './types';
 
 export default SystemOneService;

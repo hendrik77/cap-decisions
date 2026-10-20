@@ -61,7 +61,10 @@ describe('connecting', () => {
   });
 
   test('a token over non-loopback HTTP fails with INVALID_CONFIG', async () => {
-    const result = await inApp({ credentials: { url: 'http://example.com/x', token: 't' } }, connect);
+    const result = await inApp(
+      { kind: 'systemone-generic', credentials: { url: 'http://example.com/x', token: 't' } },
+      connect,
+    );
     expectError(result, invalidConfig(/HTTPS or a loopback/));
   });
 
