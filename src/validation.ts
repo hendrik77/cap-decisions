@@ -1,4 +1,4 @@
-import type { DecisionRequest, DecisionResult, Question, Questions } from './types';
+import type { DecisionRequest, DecisionResult, Questions } from './types';
 
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);

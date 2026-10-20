@@ -21,9 +21,14 @@
     "@cap-js/cds-types": "^0.20.0",
     "@sap/cds": "^10.0.0",
     "@types/node": "^22.0.0",
-    "typescript": "^5.9.0"
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.72.0"
   },
   "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --write .",
     "typecheck": "tsc --noEmit && tsc -p examples/cap-app/tsconfig.json",
     "build": "tsc",
     "test": "npm run build && node --test tests/*.test.cjs",
