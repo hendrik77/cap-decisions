@@ -37,7 +37,13 @@
     "node": ">=22"
   },
   "peerDependencies": {
-    "@sap/cds": "^10.0.0"
+    "@sap/cds": "^10.0.0",
+    "@sap-cloud-sdk/connectivity": "^4.9.1"
+  },
+  "peerDependenciesMeta": {
+    "@sap-cloud-sdk/connectivity": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@cap-js/cds-types": "^0.20.0",

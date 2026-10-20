@@ -53,7 +53,7 @@ The [example CAP application](examples/cap-app) shows a TypeScript action handle
 
 ## Provider configuration
 
-Select a `kind` under `cds.requires.systemone`. Non-secret settings (`provider`, `model`, `timeoutMs`) live at service level; credentials (`url`, `token`, `accountId`) live under `credentials`. The base `systemone` kind is a generic Jev-compatible endpoint with no default URL or model, so a bare installation cannot send data. `timeoutMs` defaults to 10,000 for the whole call.
+Select a `kind` under `cds.requires.systemone`. Non-secret settings (`provider`, `model`, `timeoutMs`) live at service level; credentials (`url`, `token`, `accountId`, `destination`) live under `credentials`. The base `systemone` kind is a generic Jev-compatible endpoint with no default URL or model, so a bare installation cannot send data. `timeoutMs` defaults to 10,000 for the whole call.
 
 | Kind | Endpoint and model | Credentials | Request limits |
 | --- | --- | --- | --- |
@@ -94,6 +94,12 @@ Keep tokens and account IDs out of committed files. CAP can inject them from the
 | Any | `CDS_CONFIG` JSON or `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_TOKEN` |
 
 Cloudflare needs a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS or to `127.0.0.1`, `localhost`, or `::1` over HTTP. The Cloudflare adapter requires `success: true` and unwraps `result`.
+
+On SAP BTP, you can set `credentials.destination` to the name of a Destination service entry instead of supplying `url` and `token`. Install the optional peer package `@sap-cloud-sdk/connectivity` in the CAP application. Set the destination URL to the full POST endpoint and use a `NoAuthentication` destination with a `URL.headers.Authorization` property containing the bearer header. The plugin resolves the destination with `getDestination()` at startup and for each call; it uses the SDK's cache. The token transport rule also applies to destination headers. This integration reads the destination URL and static headers; other destination authentication flows are outside its scope.
+
+```json
+{ "cds": { "requires": { "systemone": { "kind": "systemone", "credentials": { "destination": "systemone-api" } } } } }
+```
 
 Responses must include a model identifier, one correctly typed answer per question, and usage counts. Invalid input, malformed responses, HTTP errors, and timeouts throw `SystemOneError` with `code` and, for HTTP errors, `status`. A safe machine-readable provider error code, when available, is exposed as `providerCode`. Network and parse errors retain their original `cause`. HTTP 429, 502, 503, 504 and 529, and network failures, are retried at most twice, honoring `Retry-After` or using jittered backoff. Both the service and `SystemOneTransport.decide()` accept `{ signal }` as the second argument; caller cancellation throws `ABORTED`. Request state and credentials are never logged by this package.
 

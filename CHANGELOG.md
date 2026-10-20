@@ -13,3 +13,7 @@
 - CommonJS `require('cap-jev')` now returns a module object. Use `require('cap-jev').SystemOneService` or `.default` where code previously treated the require result as a class.
 
 Further 0.2.0 migration notes will be added as the review implementation proceeds.
+
+### Added
+
+- Optional SAP BTP destination support through `credentials.destination` and `@sap-cloud-sdk/connectivity`. Use a `NoAuthentication` destination with `URL.headers.Authorization` for a static bearer token.

@@ -11,6 +11,7 @@ export class SystemOneService extends cds.Service {
   async init(): Promise<void> {
     const settings = (this as cds.Service & { options?: SystemOneSettings }).options ?? {};
     this.transport = new SystemOneTransport(settings);
+    await this.transport.validateDestination();
     this.on('decide', async (request: SignalRequest) => {
       const started = performance.now();
       return this.transport.decide(request.data, {
@@ -42,6 +43,7 @@ export class SystemOneService extends cds.Service {
 }
 
 export { SystemOneTransport } from './transport';
+export type { DestinationResolver, ResolvedDestination } from './transport';
 export { SystemOneError } from './validation';
 export type {
   JsonValue,
