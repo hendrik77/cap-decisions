@@ -1,6 +1,6 @@
 {
   "name": "cap-jev",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Internal System One decision service for SAP CAP",
   "license": "MIT",
   "main": "dist/index.js",
@@ -9,6 +9,7 @@
     "dist",
     "cds-plugin.js",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "engines": {
@@ -38,12 +39,7 @@
     "requires": {
       "systemone": {
         "impl": "cap-jev",
-        "credentials": {
-          "url": "https://api.typesafe.ai/v1/systemone",
-          "model": "jev-latest",
-          "responseFormat": "direct",
-          "timeoutMs": 10000
-        }
+        "credentials": { "timeoutMs": 10000 }
       }
     }
   }

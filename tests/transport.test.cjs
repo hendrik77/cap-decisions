@@ -36,7 +36,7 @@ const endpoint = async () => {
   return `http://127.0.0.1:${server.address().port}/v1/systemone`;
 };
 const decide = async (credentials = {}, request = { state: { text: 'Refund me' }, questions }) =>
-  new SystemOneTransport({ url: await endpoint(), ...credentials }).decide(request);
+  new SystemOneTransport({ url: await endpoint(), model: 'jev-latest', ...credentials }).decide(request);
 
 test('sends multiple typed questions and returns TypeSafe answers', async () => {
   handler = async (req, res) => {
@@ -128,4 +128,29 @@ test('retries 429 and 529 twice at most', async () => {
 test('reports timeout', async () => {
   handler = (_req, res) => setTimeout(() => res.end(JSON.stringify(result)), 100);
   await assert.rejects(decide({ timeoutMs: 10 }), (error) => error.code === 'TIMEOUT');
+});
+
+test('rejects a token over non-loopback HTTP before sending', async () => {
+  await assert.rejects(
+    new SystemOneTransport({ url: 'http://example.com', token: 'secret' }).decide({ state: 'x', questions }),
+    (error) => error.code === 'INVALID_CONFIG',
+  );
+});
+
+test('requires an endpoint and never calls fetch when it is missing', async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    throw new Error('unexpected request');
+  };
+  try {
+    await assert.rejects(
+      new SystemOneTransport().decide({ state: 'x', questions }),
+      (error) => error.code === 'INVALID_CONFIG',
+    );
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = original;
+  }
 });

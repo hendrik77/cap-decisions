@@ -1,7 +1,6 @@
 import type { DecisionRequest, DecisionResult, Questions, SystemOneCredentials } from './types';
 import { SystemOneError, validateRequest, validateResult } from './validation';
 
-const DEFAULT_URL = 'https://api.typesafe.ai/v1/systemone';
 const RETRY_DELAYS = [100, 200];
 
 export class SystemOneTransport {
@@ -9,15 +8,22 @@ export class SystemOneTransport {
 
   async decide<Q extends Questions>(request: DecisionRequest<Q>): Promise<DecisionResult<Q>> {
     validateRequest(request);
-    const url = this.credentials.url ?? DEFAULT_URL;
+    const url = this.credentials.url;
     let parsed: URL;
     try {
-      parsed = new URL(url);
+      parsed = new URL(url ?? '');
     } catch {
       throw new SystemOneError('INVALID_CONFIG', 'A complete endpoint URL is required');
     }
     if (!['https:', 'http:'].includes(parsed.protocol) || !parsed.host) {
       throw new SystemOneError('INVALID_CONFIG', 'Endpoint URL must use HTTP or HTTPS');
+    }
+    if (
+      this.credentials.token &&
+      parsed.protocol === 'http:' &&
+      !['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname)
+    ) {
+      throw new SystemOneError('INVALID_CONFIG', 'Token requires HTTPS or a loopback endpoint');
     }
     const timeoutMs = this.credentials.timeoutMs ?? 10000;
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0)
@@ -25,7 +31,7 @@ export class SystemOneTransport {
     const responseFormat = this.credentials.responseFormat ?? 'direct';
     if (!['direct', 'cloudflare'].includes(responseFormat))
       throw new SystemOneError('INVALID_CONFIG', 'Unknown response format');
-    const model = this.credentials.model === undefined ? 'jev-latest' : this.credentials.model;
+    const model = this.credentials.model;
     const body = JSON.stringify({ ...request, ...(model ? { model } : {}) });
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (this.credentials.token) headers.authorization = `Bearer ${this.credentials.token}`;
