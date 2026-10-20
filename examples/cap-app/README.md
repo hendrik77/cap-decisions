@@ -36,7 +36,7 @@ An explicit `kind` always wins over the mock. To try a real server in developmen
 CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya CDS_TYPESCRIPT=true npm start
 ```
 
-Start such a server, for example [Laya](https://github.com/WhoIsMrSentry/laya-system-one#self-hosting-http-server-jev-compatible), or point the app at another endpoint with `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_URL`.
+Start such a server, for example [Laya](https://github.com/WhoIsMrSentry/laya-system-one#self-hosting-http-server-jev-compatible), or point `systemone-laya` at another endpoint with `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_URL`. The URL alone does not leave the mock; the kind must be set too.
 
 In production (`CDS_TYPESCRIPT=true npm start -- --production`), [`package.json`](package.json) selects `systemone-laya`, which needs a Jev-compatible server and a real authentication strategy (see below). The mock refuses to run in production.
 

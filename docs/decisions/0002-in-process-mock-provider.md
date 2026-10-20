@@ -1,7 +1,7 @@
 # 2. In-process mock provider
 
 **Date:** 2026-10-21
-**Status:** Proposed for 0.6.0
+**Status:** Accepted (0.6.0)
 
 ## Context
 
@@ -40,6 +40,6 @@ On CAP 10.1.1 and 9.9.3, a plugin-level `"[development]"` default for `systemone
 
 ## References
 
-- [PLAN.md](../../PLAN.md), tasks M1–M5
+- [Plan](../plans/completed/provider-kinds-and-mock.md), tasks M1–M5
 - [Local-first dev with CAP Node.js](https://qmacro.org/blog/posts/2026/05/11/local-first-dev-with-cap-node-js/) and its posts on mocking data, auth, remote services and messaging
 - capire: [Testing with cds.test](https://cap.cloud.sap/docs/node.js/cds-test), [cds.env profiles](https://cap.cloud.sap/docs/node.js/cds-env#profiles)

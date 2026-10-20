@@ -5,10 +5,10 @@ This repository contains the `cap-jev` TypeScript CAP plugin. Keep these convent
 ## Project Structure & Module Organization
 
 - `src/`: plugin source. `index.ts` holds `SystemOneService` and the public exports, `transport.ts` is the internal HTTP transport, `validation.ts` and `types.ts` hold validation and types.
-- `src/providers/`: provider subclasses of `SystemOneService`, one file per provider (currently `cloudflare.ts`). Each is exported through `exports` in `package.json`.
+- `src/providers/`: provider subclasses of `SystemOneService`, one file per provider (currently `cloudflare.ts` and `mock.ts`). Each is exported through `exports` in `package.json`. The mock's pure helpers sit next to it: `mock-engine.ts` (the deterministic answer engine) and `mock-fixtures.ts` (parsing and matching of fixture rules). They import no CAP code and are not exported.
 - `tests/`: Node test files. `tests/helpers/` holds the temporary-app helper (`app.cjs`) and the local fake server (`fake-server.cjs`).
-- `examples/cap-app/`: the sample CAP app. `examples/provider-package/`: a minimal provider package. Both are npm workspaces.
-- `docs/`: guides (`providers.md`), architecture decision records in `docs/decisions/`, and plans in `docs/plans/`.
+- `examples/cap-app/`: the sample CAP app; it runs on the mock in development, and its fixture rules are in `examples/cap-app/test/data/systemone.json`. `examples/provider-package/`: a minimal provider package. Both are npm workspaces.
+- `docs/`: guides (`providers.md`, `local-development.md`), architecture decision records in `docs/decisions/`, and plans in `docs/plans/`.
 - `dist/` is generated and excluded from Git. `cds-plugin.js` must remain at the package root for CAP discovery, and it must never throw.
 
 ## Build, Test, and Development Commands
@@ -33,7 +33,9 @@ Data goes in kinds, behaviour goes in `impl`. Provider facts (URL, `modelId`, `r
 Use Node's built-in test runner. Work red-green: write the test first and see it fail for the expected reason, then write the code. Add tests for new behavior and a failure case where relevant. HTTP tests must use local servers and avoid external API keys.
 
 - CAP-level behavior is tested in temporary apps created with `tests/helpers/app.cjs` (`createApp`, `runInApp`, `removeApp`). They resolve the repository's `cap-jev` and `@sap/cds`.
-- The example app is tested with `cds.test` in `tests/example-app.test.cjs`.
+- The mock is the default kind in the `development` and `test` profiles. A test that needs a real or fake HTTP endpoint must select a kind explicitly, or run in the production profile, as `tests/cap-integration.test.cjs` does.
+- The mock is tested in `tests/mock.test.cjs` (activation, production refusal, fixtures, failures, latency), `tests/mock-engine.test.cjs` and `tests/mock-fixtures.test.cjs`; its settings types in `tests/mock.test.ts`.
+- The example app is tested with `cds.test` in `tests/example-app.test.cjs` and `tests/example-app-failure.test.cjs`, on the mock and without a fake server.
 - One test, `tests/cap-integration.test.cjs`, installs the packed package in a copy of the example app. Keep the example handler and that test's fake server in step.
 - Type-level behavior belongs in `tests/*.test.ts`, which `npm run typecheck` checks with positive assertions and `@ts-expect-error` cases.
 - CI runs Node 22, 24 and 26 with CAP 9 and CAP 10. To check CAP 9 locally, run `npm install --no-save @sap/cds@^9` and then `npm test`.

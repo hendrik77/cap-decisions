@@ -2,6 +2,31 @@
 
 This changelog starts with 0.5.0. Earlier versions are described in the [GitHub releases](https://github.com/hendrik77/cap-jev/releases) up to v0.4.3.
 
+## 0.6.0
+
+### Breaking changes
+
+None for applications that set an explicit `kind`: they are unaffected, because an explicit kind always wins over the mock. See "Changed" for applications that set no `kind`.
+
+### Added
+
+- A `systemone-mock` kind (`cap-jev/providers/mock`) that answers in-process, without a server, a token or network access. The plugin selects it by default in the `development` and `test` profiles, so `cds watch`, `cds serve` and `cds.test` work out of the box. Production keeps `systemone-generic`.
+- Deterministic answers: the seed is a hash of the state and the question ID. The `strategy` setting is `keywords` (default; word overlap between the state and each choice label and its criteria text) or `seeded`.
+- Fixtures: ordered rules in `test/data/systemone.json`, or in the file named by `fixtures`, that give fixed answers or simulated failures for matching input.
+- Simulated latency and failures: the `latencyMs` and `fail` settings. `latencyMs` honours `timeoutMs` (`TIMEOUT`) and the caller's `signal` (`ABORTED`).
+- Production refusal: the mock fails with `INVALID_CONFIG` in the `production` profile unless `allowInProduction` is `true`.
+- A startup warning from the mock that says answers are simulated and that a `kind` selects a real endpoint in development.
+- The `MockSettings` type.
+- Guide `docs/local-development.md`: the mock, fixtures, simulated failures, the activation table, and when to use Laya or a real provider.
+- Architecture decision record `docs/decisions/0002-in-process-mock-provider.md`.
+
+### Changed
+
+- An application that sets no `kind` gets the mock in `development` and `test` instead of `systemone-generic`. Production is unchanged. An application that sets only `credentials.url` without a `kind` also gets the mock in development; set a `kind` to use a real endpoint there.
+- The example app uses the mock in development and `systemone-laya` in production.
+- The example app's tests run without a fake server and cover the mock, a fixture rule and a simulated failure.
+- The integration test runs its server calls in the production profile, and adds one call in development on the mock.
+
 ## 0.5.1
 
 ### Fixed
