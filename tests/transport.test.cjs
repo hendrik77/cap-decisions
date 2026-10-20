@@ -1,4 +1,4 @@
-const { test, after } = require('node:test');
+const { test, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { SystemOneTransport } = require('../dist/transport');
@@ -29,12 +29,26 @@ let handler = (_request, response) => {
   response.writeHead(200, { 'content-type': 'application/json' });
   response.end(JSON.stringify(result));
 };
-const server = http.createServer((request, response) => handler(request, response));
+// Each test gets its own path prefix, so a late request from an earlier test never reaches the current handler.
+let prefix = '/t0';
+let tests = 0;
+beforeEach(() => {
+  prefix = `/t${++tests}`;
+});
+const server = http.createServer((request, response) => {
+  if (!request.url.startsWith(`${prefix}/`)) {
+    response.writeHead(410);
+    response.end();
+    return;
+  }
+  request.url = request.url.slice(prefix.length);
+  handler(request, response);
+});
 const ready = new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 after(() => server.close());
 const endpoint = async () => {
   await ready;
-  return `http://127.0.0.1:${server.address().port}/v1/systemone`;
+  return `http://127.0.0.1:${server.address().port}${prefix}/v1/systemone`;
 };
 const settingsFor = async (options = {}) => {
   const { modelId = 'jev-latest', timeoutMs = 10000, url, token, requiresToken, accountId } = options;
@@ -393,14 +407,24 @@ test('retries a closed connection and preserves the final network cause', async 
   assert.equal(calls, 3);
 });
 
-test('uses one deadline across retries and supports caller abort', async () => {
+test('a network retry that does not fit the deadline fails at once with the network error', async () => {
   let calls = 0;
   handler = (_req, res) => {
     calls++;
     res.destroy();
   };
-  await assert.rejects(decide({ timeoutMs: 150 }), (error) => error.code === 'TIMEOUT');
-  assert.ok(calls <= 2);
+  // The first retry waits at least 250 ms, which never fits into 150 ms.
+  for (let run = 0; run < 5; run++) {
+    calls = 0;
+    await assert.rejects(
+      decide({ timeoutMs: 150 }),
+      (error) => error.code === 'NETWORK_ERROR' && error.cause instanceof Error,
+    );
+    assert.equal(calls, 1, `run ${run} sent ${calls} requests`);
+  }
+});
+
+test('supports caller abort', async () => {
   const controller = new globalThis.AbortController();
   handler = (_req, res) => {
     setTimeout(() => res.end(JSON.stringify(result)), 200);
@@ -411,32 +435,6 @@ test('uses one deadline across retries and supports caller abort', async () => {
   );
   controller.abort(new Error('caller stopped'));
   await assert.rejects(cancelled, (error) => error.code === 'ABORTED' && !!error.cause);
-});
-
-test('no request starts after a network retry used up the deadline', async () => {
-  let calls = 0;
-  handler = (_req, res) => {
-    calls++;
-    res.destroy();
-  };
-  const original = globalThis.fetch;
-  const starts = [];
-  globalThis.fetch = (...args) => {
-    starts.push(Date.now());
-    return original(...args);
-  };
-  try {
-    // The retry pause and the deadline end at the same moment; repeat to cover both timer orders.
-    for (let run = 0; run < 20; run++) {
-      starts.length = 0;
-      const started = Date.now();
-      await assert.rejects(decide({ timeoutMs: 40 }), (error) => error.code === 'TIMEOUT');
-      for (const start of starts) assert.ok(start - started < 40, `a request started after the deadline in run ${run}`);
-    }
-  } finally {
-    globalThis.fetch = original;
-  }
-  assert.ok(calls > 0);
 });
 
 test('handles invalid JSON and provider codes without response messages', async () => {

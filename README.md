@@ -199,13 +199,13 @@ Responses must include a model identifier, one correctly typed answer per questi
 | `INVALID_RESPONSE` | The response is malformed JSON or does not match the questions |
 | `HTTP_ERROR` | The endpoint returned an error status; `status` and, when available, `providerCode` are set |
 | `PROVIDER_ERROR` | The provider reported a failure in a successful HTTP response; `systemone-cloudflare` returned `success: false` |
-| `NETWORK_ERROR` | The connection or response body failed after all retries |
+| `NETWORK_ERROR` | The connection or response body failed after all retries, or a retry would not fit into the remaining call deadline |
 | `TIMEOUT` | The call exceeded `timeoutMs` |
 | `ABORTED` | The caller's `signal` cancelled the call |
 
 `providerCode` is a safe machine-readable provider error code. Network and parse errors retain their original `cause`; HTTP errors omit the response object.
 
-HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, an HTTP failure is returned immediately as `HTTP_ERROR` with its status and provider code. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. Caller cancellation through the `signal` option throws `ABORTED`. Request state and credentials are never logged by this package.
+HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, the failure is returned immediately: an HTTP failure as `HTTP_ERROR` with its status and provider code, a network failure as `NETWORK_ERROR` with its cause. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. Caller cancellation through the `signal` option throws `ABORTED`. Request state and credentials are never logged by this package.
 
 ## Protecting actions that call a provider
 

@@ -104,9 +104,12 @@ async function retryNetworkFailure(
   if (attempt === MAX_RETRIES) {
     throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
   }
-  await pause(Math.min(retryDelay(attempt, null), Math.max(0, deadlineAt - Date.now())), signal, caller);
-  // The pause can end just before the deadline signal fires; never start an attempt after the deadline.
-  if (signal.aborted || Date.now() >= deadlineAt) throw interruption(signal, caller, error);
+  // Like HTTP failures, a retry that does not fit into the remaining time fails at once with its cause.
+  const delay = retryDelay(attempt, null);
+  if (delay >= deadlineAt - Date.now()) {
+    throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
+  }
+  await pause(delay, signal, caller);
 }
 
 async function errorPayload(response: Response): Promise<unknown> {

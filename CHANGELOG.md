@@ -23,9 +23,11 @@ None for applications that set an explicit `kind`: they are unaffected, because 
 ### Changed
 
 - An application that sets no `kind` gets the mock in `development` and `test` instead of `systemone-generic`. Production is unchanged. An application that sets only `credentials.url` without a `kind` also gets the mock in development; set a `kind` to use a real endpoint there.
+- A network failure whose retry delay does not fit into the remaining call deadline now fails at once with `NETWORK_ERROR` and its cause, as HTTP failures already did, instead of waiting until the deadline and failing with `TIMEOUT`. No request starts at the deadline any more.
 - The example app uses the mock in development and `systemone-laya` in production.
 - The example app's tests run without a fake server and cover the mock, a fixture rule and a simulated failure.
 - The integration test runs its server calls in the production profile, and adds one call in development on the mock.
+- Each transport test uses its own URL path, so a late request from an earlier test cannot reach it.
 
 ## 0.5.1
 
