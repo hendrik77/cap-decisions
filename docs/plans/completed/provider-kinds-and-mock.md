@@ -6,10 +6,10 @@ Written on 2026-10-20 and revised on 2026-10-21 against `main` at v0.4.3 (`bbb5a
 
 The reasoning lives in two draft ADRs:
 
-- [ADR 0001: Provider kinds as CAP service subclasses](docs/decisions/0001-provider-kinds-as-cap-service-subclasses.md), accepted when 0.5.0 is merged.
-- [ADR 0002: In-process mock provider](docs/decisions/0002-in-process-mock-provider.md), accepted when 0.6.0 is merged.
+- [ADR 0001: Provider kinds as CAP service subclasses](../../decisions/0001-provider-kinds-as-cap-service-subclasses.md), accepted when 0.5.0 is merged.
+- [ADR 0002: In-process mock provider](../../decisions/0002-in-process-mock-provider.md), accepted when 0.6.0 is merged.
 
-When 0.6.0 is merged, this file moves to `docs/plans/completed/provider-kinds-and-mock.md`.
+Completed with 0.6.0; this file was moved here from `PLAN.md` in the repository root.
 
 ## Contents
 
@@ -335,9 +335,10 @@ Files: `src/providers/mock.ts`, `package.json` (kind, default profiles, `exports
 
 | Task | Status |
 | --- | --- |
-| T0–T7 | Done on `release-0.5.0`; 124 tests pass on CAP 10.1.1 and 9.9.3 |
-| T8 | Release 0.5.0 in progress |
-| M1–M5 | Not started |
+| T0–T8 | Released in 0.5.0; install instructions fixed in 0.5.1 (npm 12 refuses tarball URLs by default) |
+| M1–M5 | Released in 0.6.0 |
+
+Found during the work and fixed before release: a network retry could start at the call deadline (0.5.0).
 
 ## Blocked tests
 

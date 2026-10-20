@@ -1,6 +1,6 @@
 {
   "name": "cap-jev",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Internal System One decision service for SAP CAP",
   "license": "MIT",
   "main": "dist/index.js",
@@ -13,6 +13,10 @@
     "./providers/cloudflare": {
       "types": "./dist/providers/cloudflare.d.ts",
       "default": "./dist/providers/cloudflare.js"
+    },
+    "./providers/mock": {
+      "types": "./dist/providers/mock.d.ts",
+      "default": "./dist/providers/mock.js"
     },
     "./package.json": "./package.json",
     "./cds-plugin": "./cds-plugin.js",
@@ -75,7 +79,13 @@
   "cds": {
     "requires": {
       "systemone": {
-        "kind": "systemone-generic"
+        "kind": "systemone-generic",
+        "[development]": {
+          "kind": "systemone-mock"
+        },
+        "[test]": {
+          "kind": "systemone-mock"
+        }
       },
       "kinds": {
         "systemone-defaults": {
@@ -108,6 +118,10 @@
           "limits": {
             "questions": 64
           }
+        },
+        "systemone-mock": {
+          "kind": "systemone-defaults",
+          "impl": "cap-jev/providers/mock"
         },
         "systemone-laya": {
           "kind": "systemone-defaults",

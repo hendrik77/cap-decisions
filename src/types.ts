@@ -1,3 +1,5 @@
+import type { SystemOneErrorCode } from './validation';
+
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 export type Content = string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -98,4 +100,12 @@ export interface SystemOneSettings {
   requiresToken?: boolean;
   limits?: ProviderLimits;
   credentials?: SystemOneCredentials;
+}
+
+export interface MockSettings extends SystemOneSettings {
+  fixtures?: string;
+  strategy?: 'keywords' | 'seeded';
+  latencyMs?: number;
+  fail?: SystemOneErrorCode | { code: SystemOneErrorCode; status?: number; providerCode?: string };
+  allowInProduction?: boolean;
 }

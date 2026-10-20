@@ -1,0 +1,6 @@
+[
+  {
+    "when": { "stateIncludes": ["refund", "money back"], "question": "department" },
+    "answer": { "choice": "billing" }
+  }
+]

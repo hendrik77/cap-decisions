@@ -96,9 +96,12 @@ test('installed package registers an internal CAP service with decide()', { time
         process.stdout.write('ok');
       })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
     `;
+    // The example selects systemone-laya only in production; development uses the mock provider.
+    const production = { ...process.env, CDS_ENV: 'production' };
     const run = await execFileAsync(process.execPath, ['-e', script], {
       cwd: fixture,
       encoding: 'utf8',
+      env: production,
       timeout: 30_000,
     });
     assert.match(run.stdout, /ok/);
@@ -118,8 +121,14 @@ test('installed package registers an internal CAP service with decide()', { time
       })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
     `;
     assert.match(
-      (await execFileAsync(process.execPath, ['-e', replacement], { cwd: fixture, encoding: 'utf8', timeout: 30_000 }))
-        .stdout,
+      (
+        await execFileAsync(process.execPath, ['-e', replacement], {
+          cwd: fixture,
+          encoding: 'utf8',
+          env: production,
+          timeout: 30_000,
+        })
+      ).stdout,
       /ok/,
     );
     const invalid = `
@@ -133,8 +142,14 @@ test('installed package registers an internal CAP service with decide()', { time
       })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
     `;
     assert.match(
-      (await execFileAsync(process.execPath, ['-e', invalid], { cwd: fixture, encoding: 'utf8', timeout: 30_000 }))
-        .stdout,
+      (
+        await execFileAsync(process.execPath, ['-e', invalid], {
+          cwd: fixture,
+          encoding: 'utf8',
+          env: production,
+          timeout: 30_000,
+        })
+      ).stdout,
       /ok/,
     );
     const example = `
@@ -161,12 +176,40 @@ test('installed package registers an internal CAP service with decide()', { time
         await execFileAsync(process.execPath, ['-e', example], {
           cwd: fixture,
           encoding: 'utf8',
-          env: { ...process.env, CDS_TYPESCRIPT: 'true' },
+          env: { ...production, CDS_TYPESCRIPT: 'true' },
           timeout: 30_000,
         })
       ).stdout,
       /ok/,
     );
+    // Without CDS_ENV the example runs in development and answers from the mock and its fixture rule.
+    const development = { ...process.env, CDS_TYPESCRIPT: 'true' };
+    delete development.CDS_ENV;
+    delete development.NODE_ENV;
+    const mocked = `
+      const cds = require('@sap/cds');
+      (async () => {
+        await cds.plugins;
+        cds.model = cds.linked(await cds.load('*'));
+        const service = await cds.serve('DecisionService').from(cds.model);
+        const queue = await service.tx({ user: new cds.User({ id: 'alice' }) }, (tx) => tx.send('classify', { message: 'I want a refund' }));
+        if (queue !== 'accounts') throw new Error('Wrong queue: ' + queue);
+        process.stdout.write('ok');
+      })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
+    `;
+    const requestsBefore = received.length;
+    assert.match(
+      (
+        await execFileAsync(process.execPath, ['-e', mocked], {
+          cwd: fixture,
+          encoding: 'utf8',
+          env: development,
+          timeout: 30_000,
+        })
+      ).stdout,
+      /ok/,
+    );
+    assert.equal(received.length, requestsBefore, 'the mock must not call the fake server');
   } finally {
     server.close();
     fs.rmSync(temp, { recursive: true, force: true });

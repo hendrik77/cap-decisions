@@ -7,12 +7,14 @@
   },
   "dependencies": {
     "@sap/cds": ">=9",
-    "cap-jev": "^0.5.1"
+    "cap-jev": "^0.6.0"
   },
   "cds": {
     "requires": {
       "systemone": {
-        "kind": "systemone-laya"
+        "[production]": {
+          "kind": "systemone-laya"
+        }
       }
     }
   }

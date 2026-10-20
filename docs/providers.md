@@ -139,7 +139,10 @@ The kind requires a token, so supply `credentials.token` from a secret source su
 | `settingsKeys` | `static settingsKeys: readonly string[]` | `[]` | The subclass adds service-level settings. Listed keys produce no warning. Read them from `this.settings` |
 | `credentialKeys` | `static credentialKeys: readonly string[]` | `[]` | The subclass adds credentials. Listed keys under `credentials` are accepted if their values are strings. Unlisted keys fail with `INVALID_CONFIG` |
 
-[`src/providers/cloudflare.ts`](../src/providers/cloudflare.ts) is the built-in example: it overrides `endpoint`, `unwrap` and `errorCode`.
+Two built-in providers show the hooks:
+
+- [`src/providers/cloudflare.ts`](../src/providers/cloudflare.ts) overrides `endpoint`, `unwrap` and `errorCode`.
+- [`src/providers/mock.ts`](../src/providers/mock.ts) overrides `setup` and `call` and uses no HTTP. It has no transport. It answers from fixtures and a deterministic engine, honours `options.signal` and `settings.timeoutMs` in its simulated delay, and declares its settings in `static settingsKeys`. See [Local development](local-development.md).
 
 ## Rules for subclasses
 

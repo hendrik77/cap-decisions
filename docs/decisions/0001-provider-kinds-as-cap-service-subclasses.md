@@ -64,7 +64,7 @@ Community plugins show the same split. `cds-caching` (Mike Zaschka) is one packa
 
 ## References
 
-- [PLAN.md](../../PLAN.md), tasks T0–T8
+- [Plan](../plans/completed/provider-kinds-and-mock.md), tasks T0–T8
 - capire: [CDS Plugin Packages](https://cap.cloud.sap/docs/node.js/cds-plugins), [cds.env](https://cap.cloud.sap/docs/node.js/cds-env)
 - [`@cap-js/audit-logging`](https://github.com/cap-js/audit-logging), [`@cap-js/attachments`](https://github.com/cap-js/attachments), [`cap-js/cds-dbs`](https://github.com/cap-js/cds-dbs)
 - [`cds-caching`](https://github.com/mikezaschka/cds-caching), [`cds-data` ADR 0003](https://github.com/mikezaschka/cds-data/blob/main/spec/internal/decisions/0003-split-plugin-into-replication-and-federation.md)

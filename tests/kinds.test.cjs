@@ -49,10 +49,18 @@ for (const [kind, settings] of Object.entries(expected)) {
   });
 }
 
-test('an application without a systemone entry resolves the generic kind', async () => {
-  const settings = await resolveSettings(undefined);
+test('an application without a systemone entry resolves the generic kind in production', async () => {
+  const settings = await resolveSettings(undefined, { CDS_ENV: 'production' });
   assert.equal(settings.impl, 'cap-jev');
   assert.equal(settings.url, undefined);
+});
+
+test('an application without a systemone entry resolves the mock kind in development and test', async () => {
+  for (const profile of ['development', 'test']) {
+    const settings = await resolveSettings(undefined, { CDS_ENV: profile });
+    assert.equal(settings.impl, 'cap-jev/providers/mock', profile);
+    assert.equal(settings.timeoutMs, 10000, profile);
+  }
 });
 
 test('profiles switch the kind and production keeps the base kind', async () => {

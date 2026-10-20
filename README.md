@@ -10,17 +10,17 @@ The package is not yet published to npm. Install a release archive from [GitHub 
 
 ```sh
 npm config set allow-remote root --location=project
-npm install https://github.com/hendrik77/cap-jev/releases/download/v0.5.1/cap-jev-0.5.1.tgz
+npm install https://github.com/hendrik77/cap-jev/releases/download/v0.6.0/cap-jev-0.6.0.tgz
 ```
 
 or download the archive and install the file, which works with every npm version:
 
 ```sh
-curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.5.1/cap-jev-0.5.1.tgz
-npm install ./cap-jev-0.5.1.tgz
+curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.6.0/cap-jev-0.6.0.tgz
+npm install ./cap-jev-0.6.0.tgz
 ```
 
-The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.5.1.tgz`; keep the archive in the project.
+The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.6.0.tgz`; keep the archive in the project.
 
 To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-jev-<version>.tgz` file.
 
@@ -95,13 +95,25 @@ The [example CAP application](examples/cap-app) shows a TypeScript action handle
 
 `decide()` sends an internal CAP `decide` event. Applications can register `before` and `after` handlers on the connected service. Configuration is checked when `cds.connect.to('systemone')` runs; invalid settings or a missing endpoint reject that connection with `INVALID_CONFIG`. Pass `{ signal }` (type `DecideOptions`) as the second argument to cancel a call. Successful calls emit a `systemone` debug log with latency, attempt count, model and input/output token counts.
 
+## Local development
+
+In the `development` and `test` profiles, an application without an explicit `kind` gets the `systemone-mock` kind. It answers in-process, deterministically and without a server, a token or network access, so `cds watch`, `cds serve` and `cds.test` work out of the box.
+
+- Fixtures in `test/data/systemone.json` give fixed answers or simulated failures for matching input.
+- The settings `latencyMs` and `fail` simulate slow and failing providers for error-handling tests.
+- To use a real endpoint in development, set a `kind`, for example `CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya`. An explicit kind always wins.
+- The mock refuses the `production` profile unless `allowInProduction` is `true`.
+
+[docs/local-development.md](docs/local-development.md) has the activation table, the settings and the fixture format.
+
 ## Provider configuration
 
-Select a provider kind under `cds.requires.systemone` with its full name. Settings sit at service level, except credentials, which sit under `credentials`. If an application sets no `kind`, `systemone-generic` applies. It has no URL, so a bare installation cannot send data and fails with `INVALID_CONFIG` when it connects.
+Select a provider kind under `cds.requires.systemone` with its full name. Settings sit at service level, except credentials, which sit under `credentials`. If an application sets no `kind`, the plugin uses `systemone-mock` in the `development` and `test` profiles and `systemone-generic` in production. The generic kind has no URL, so a production installation without a kind cannot send data and fails with `INVALID_CONFIG` when it connects. See [Local development](#local-development).
 
 | Kind | Endpoint | `modelId` | `requiresToken` | `limits` |
 | --- | --- | --- | --- | --- |
 | `systemone-generic` | None; set `credentials.url` to the full POST URL | None | `false` | Protocol minimums only |
+| `systemone-mock` | None; answers in-process, without network access. The default in `development` and `test`; refuses `production` unless `allowInProduction` is `true` | None | `false` | Protocol minimums only |
 | `systemone-typesafe` | `https://api.typesafe.ai/v1/systemone` | `jev-latest` | `true` | `choiceOptions`: 255; `scoreCriteria`: 2 to 10 |
 | `systemone-cloudflare` | Built from `credentials.accountId`, unless `credentials.url` is set | `clef` | `true` | `questions`: 64 |
 | `systemone-laya` | `http://127.0.0.1:8000/v1/systemone` | None | `false` | `choiceOptions`: 100 |
@@ -187,13 +199,13 @@ Responses must include a model identifier, one correctly typed answer per questi
 | `INVALID_RESPONSE` | The response is malformed JSON or does not match the questions |
 | `HTTP_ERROR` | The endpoint returned an error status; `status` and, when available, `providerCode` are set |
 | `PROVIDER_ERROR` | The provider reported a failure in a successful HTTP response; `systemone-cloudflare` returned `success: false` |
-| `NETWORK_ERROR` | The connection or response body failed after all retries |
+| `NETWORK_ERROR` | The connection or response body failed after all retries, or a retry would not fit into the remaining call deadline |
 | `TIMEOUT` | The call exceeded `timeoutMs` |
 | `ABORTED` | The caller's `signal` cancelled the call |
 
 `providerCode` is a safe machine-readable provider error code. Network and parse errors retain their original `cause`; HTTP errors omit the response object.
 
-HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, an HTTP failure is returned immediately as `HTTP_ERROR` with its status and provider code. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. Caller cancellation through the `signal` option throws `ABORTED`. Request state and credentials are never logged by this package.
+HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, the failure is returned immediately: an HTTP failure as `HTTP_ERROR` with its status and provider code, a network failure as `NETWORK_ERROR` with its cause. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. Caller cancellation through the `signal` option throws `ABORTED`. Request state and credentials are never logged by this package.
 
 ## Protecting actions that call a provider
 
@@ -216,10 +228,10 @@ You can add a provider at three levels:
 | `cds.connect.to('systemone')`, `decide()` and its options (`DecideOptions`) | Stable |
 | The request, question and answer types | Stable |
 | `SystemOneError` and its codes | Stable |
-| The kind names and the settings | Stable |
+| The kind names and the settings, including the `systemone-mock` kind and its settings (`MockSettings`) | Stable |
 | The subclass hooks: `setup`, `call`, `endpoint`, `unwrap`, `errorCode`, and the static `settingsKeys` and `credentialKeys` | Experimental until the first npm publication |
 
-`SystemOneTransport` is internal and not exported.
+`MockSettings` is exported as a type. `SystemOneTransport` is internal and not exported.
 
 ## Development
 
@@ -235,8 +247,10 @@ npm pack --dry-run
 Tests use Node's built-in test runner and need no external API key; HTTP tests run against local servers. `npm test` builds the package and runs `tests/*.test.cjs`. To run one file: `node --test tests/transport.test.cjs`.
 
 - CAP-level tests create temporary CAP apps with `tests/helpers/app.cjs`. The apps use the repository's `cap-jev` and `@sap/cds`, so one copy of each is loaded.
-- `tests/example-app.test.cjs` runs `examples/cap-app` with `cds.test`.
-- `tests/cap-integration.test.cjs` installs the packed package in a copy of the example app, using the npm cache when available and the registry otherwise.
+- `tests/mock.test.cjs`, `tests/mock-engine.test.cjs` and `tests/mock-fixtures.test.cjs` test the mock provider: activation in each profile, production refusal, fixtures, simulated failures and latency, and the answer engine. `tests/mock.test.ts` checks the `MockSettings` types.
+- Because the mock is the default in `development` and `test`, a test that needs a real or fake HTTP endpoint selects a kind explicitly.
+- `tests/example-app.test.cjs` and `tests/example-app-failure.test.cjs` run `examples/cap-app` with `cds.test` on the mock, without a fake server.
+- `tests/cap-integration.test.cjs` installs the packed package in a copy of the example app, using the npm cache when available and the registry otherwise. It makes its server calls in the production profile and one call in development on the mock.
 - `npm run typecheck` also checks the types in `tests/*.test.ts`: answer inference, choice labels, exports and the subclass hooks.
 - `npm run build` emits CommonJS JavaScript and declarations in `dist/`.
 
