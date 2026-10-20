@@ -154,3 +154,106 @@ test('requires an endpoint and never calls fetch when it is missing', async () =
     globalThis.fetch = original;
   }
 });
+
+test('retries 503 after cancelling its response body', async () => {
+  let closed = false;
+  let calls = 0;
+  handler = (_req, res) => {
+    calls++;
+    if (calls === 1) {
+      res.writeHead(503);
+      res.write('temporary failure');
+      res.on('close', () => {
+        closed = true;
+      });
+    } else res.end(JSON.stringify(result));
+  };
+  assert.deepEqual(await decide(), result);
+  assert.equal(calls, 2);
+  assert.equal(closed, true);
+});
+
+test('honours Retry-After and caps it at the overall deadline', async () => {
+  let calls = 0;
+  handler = (_req, res) => {
+    calls++;
+    res.writeHead(503, { 'retry-after': '0.12' });
+    res.end();
+  };
+  const started = Date.now();
+  await assert.rejects(decide({ timeoutMs: 1000 }), (error) => error.code === 'HTTP_ERROR' && error.status === 503);
+  assert.equal(calls, 3);
+  assert.ok(Date.now() - started >= 200);
+  calls = 0;
+  handler = (_req, res) => {
+    calls++;
+    res.writeHead(429, { 'retry-after': '10' });
+    res.end();
+  };
+  await assert.rejects(decide({ timeoutMs: 40 }), (error) => error.code === 'TIMEOUT' && !!error.cause);
+  assert.equal(calls, 1);
+});
+
+test('retries a closed connection and preserves the final network cause', async () => {
+  let calls = 0;
+  handler = (_req, res) => {
+    calls++;
+    if (calls < 3) res.destroy();
+    else res.end(JSON.stringify(result));
+  };
+  assert.deepEqual(await decide({ timeoutMs: 5000 }), result);
+  assert.equal(calls, 3);
+  calls = 0;
+  handler = (_req, res) => {
+    calls++;
+    res.destroy();
+  };
+  await assert.rejects(
+    decide({ timeoutMs: 5000 }),
+    (error) => error.code === 'NETWORK_ERROR' && error.cause instanceof Error,
+  );
+  assert.equal(calls, 3);
+});
+
+test('uses one deadline across retries and supports caller abort', async () => {
+  let calls = 0;
+  handler = (_req, res) => {
+    calls++;
+    res.writeHead(503, { 'retry-after': '0.1' });
+    res.end();
+  };
+  await assert.rejects(decide({ timeoutMs: 150 }), (error) => error.code === 'TIMEOUT');
+  assert.ok(calls <= 2);
+  const controller = new globalThis.AbortController();
+  handler = (_req, res) => {
+    setTimeout(() => res.end(JSON.stringify(result)), 200);
+  };
+  const cancelled = new SystemOneTransport({ url: await endpoint(), timeoutMs: 1000 }).decide(
+    { state: 'x', questions },
+    { signal: controller.signal },
+  );
+  controller.abort(new Error('caller stopped'));
+  await assert.rejects(cancelled, (error) => error.code === 'ABORTED' && !!error.cause);
+});
+
+test('handles invalid JSON and provider codes without response messages', async () => {
+  handler = (_req, res) => res.end('{broken');
+  await assert.rejects(decide(), (error) => error.code === 'INVALID_RESPONSE' && error.cause instanceof Error);
+  handler = (_req, res) => {
+    res.writeHead(400);
+    res.end(JSON.stringify({ error: { type: 'invalid_request', message: 'secret details' } }));
+  };
+  await assert.rejects(
+    decide(),
+    (error) =>
+      error.code === 'HTTP_ERROR' && error.providerCode === 'invalid_request' && !error.message.includes('secret'),
+  );
+  handler = (_req, res) =>
+    res.end(JSON.stringify({ success: false, errors: [{ code: 1001, message: 'secret details' }] }));
+  await assert.rejects(
+    decide({ responseFormat: 'cloudflare' }),
+    (error) => error.code === 'PROVIDER_ERROR' && error.providerCode === 1001 && !error.message.includes('secret'),
+  );
+  handler = (_req, res) => res.end(JSON.stringify({ success: true }));
+  await assert.rejects(decide({ responseFormat: 'cloudflare' }), (error) => error.code === 'INVALID_RESPONSE');
+});

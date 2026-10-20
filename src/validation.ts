@@ -15,13 +15,18 @@ const json = (value: unknown): boolean =>
   (record(value) && Object.values(value).every(json));
 
 export class SystemOneError extends Error {
+  readonly status?: number;
+  readonly providerCode?: string | number;
+
   constructor(
     public readonly code: string,
     message: string,
-    public readonly status?: number,
+    options: { status?: number; providerCode?: string | number; cause?: unknown } = {},
   ) {
-    super(message);
+    super(message, { cause: options.cause });
     this.name = 'SystemOneError';
+    this.status = options.status;
+    this.providerCode = options.providerCode;
   }
 }
 

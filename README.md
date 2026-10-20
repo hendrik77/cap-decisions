@@ -92,7 +92,7 @@ Local Laya (no authentication and automatic model selection):
 }
 ```
 
-Set `model` to `null` to omit it from the request. A configured token becomes a Bearer header. The `cloudflare` response format unwraps the REST API's `result` field. Responses must include a model identifier, one correctly typed answer per question, and usage counts. Invalid input, malformed responses, HTTP errors, and timeouts throw `SystemOneError` with `code` and, for HTTP errors, `status`. HTTP 429 and 529 are retried at most twice with backoff. Request state and credentials are never logged by this package.
+Set `model` to `null` to omit it from the request. A configured token becomes a Bearer header. The `cloudflare` response format requires `success: true` and unwraps the REST API's `result` field. Responses must include a model identifier, one correctly typed answer per question, and usage counts. Invalid input, malformed responses, HTTP errors, and timeouts throw `SystemOneError` with `code` and, for HTTP errors, `status`. A safe machine-readable provider error code, when available, is exposed as `providerCode`. Network and parse errors retain their original `cause`. HTTP 429, 502, 503, 504 and 529, and network failures, are retried at most twice, honoring `Retry-After` or using jittered backoff. `timeoutMs` covers the whole call, including retries and response reading. `SystemOneTransport.decide()` accepts `{ signal }` as its second argument; caller cancellation throws `ABORTED`. Request state and credentials are never logged by this package.
 
 ## Development
 
