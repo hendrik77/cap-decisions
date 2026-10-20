@@ -12,7 +12,10 @@ test('installed package registers an internal CAP service with decide()', { time
   const root = path.resolve(__dirname, '..');
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-integration-'));
   const fixture = path.join(temp, 'cap-app');
-  fs.cpSync(path.join(root, 'examples/cap-app'), fixture, { recursive: true });
+  fs.cpSync(path.join(root, 'examples/cap-app'), fixture, {
+    recursive: true,
+    filter: (source) => path.basename(source) !== 'node_modules',
+  });
   const received = [];
   const server = http.createServer(async (request, response) => {
     const chunks = [];

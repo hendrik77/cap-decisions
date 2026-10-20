@@ -6,8 +6,8 @@
     "start": "cds-serve"
   },
   "dependencies": {
-    "@sap/cds": "^10.0.0",
-    "cap-jev": "^0.4.3"
+    "@sap/cds": ">=9",
+    "cap-jev": "^0.5.0"
   },
   "cds": {
     "requires": {

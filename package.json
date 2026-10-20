@@ -1,6 +1,6 @@
 {
   "name": "cap-jev",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "Internal System One decision service for SAP CAP",
   "license": "MIT",
   "main": "dist/index.js",
@@ -36,8 +36,12 @@
   "engines": {
     "node": ">=22"
   },
+  "workspaces": [
+    ".",
+    "examples/cap-app"
+  ],
   "peerDependencies": {
-    "@sap/cds": "^10.0.0",
+    "@sap/cds": ">=9",
     "@sap-cloud-sdk/connectivity": "^4.9.1"
   },
   "peerDependenciesMeta": {
@@ -46,6 +50,7 @@
     }
   },
   "devDependencies": {
+    "@cap-js/cds-test": "^1.0.2",
     "@cap-js/cds-types": "^0.20.0",
     "@sap/cds": "^10.0.0",
     "@types/node": "^22.0.0",
