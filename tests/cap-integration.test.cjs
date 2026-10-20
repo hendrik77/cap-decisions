@@ -13,7 +13,13 @@ test('installed package registers an internal CAP service with decide()', async 
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-integration-'));
   const fixture = path.join(temp, 'cap-app');
   fs.cpSync(path.join(root, 'examples/cap-app'), fixture, { recursive: true });
-  const server = http.createServer((_req, response) => {
+  const received = [];
+  const server = http.createServer(async (request, response) => {
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const payload = JSON.parse(Buffer.concat(chunks).toString());
+    received.push(payload);
+    if (payload.state === 'slow') await new Promise((resolve) => setTimeout(resolve, 200));
     response.setHeader('content-type', 'application/json');
     response.end(
       JSON.stringify({
@@ -48,13 +54,56 @@ test('installed package registers an internal CAP service with decide()', async 
         await cds.plugins;
         const service = await cds.connect.to('systemone');
         if (!(service instanceof cds.Service)) throw new Error('Not a CAP Service');
-        const result = await service.decide({ state: 'refund', questions: { answer: { type: 'noul', instructions: 'Refund?' } } });
+        const logs = [];
+        cds.log('systemone').debug = (...args) => logs.push(args);
+        service.before('decide', request => { if (request.data.state === 'original private state') request.data.state = 'modified private state'; });
+        const result = await service.decide({ state: 'original private state', questions: { answer: { type: 'noul', instructions: 'Refund?' } } });
         if (result.answers.answer.noul !== 0.8) throw new Error('Wrong result');
+        if (logs.length !== 1 || logs[0][1].attempts !== 1 || logs[0][1].usage.input_tokens !== 3) throw new Error('Missing safe debug log');
+        if (JSON.stringify(logs).includes('private state') || JSON.stringify(logs).includes('Refund?')) throw new Error('Request leaked to log');
+        const controller = new AbortController();
+        const cancelled = service.decide({ state: 'slow', questions: { answer: { type: 'noul', instructions: 'Refund?' } } }, { signal: controller.signal });
+        setTimeout(() => controller.abort(), 10);
+        try { await cancelled; throw new Error('Expected cancellation'); }
+        catch (error) { if (error.code !== 'ABORTED') throw error; }
         process.stdout.write('ok');
       })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
     `;
     const run = await execFileAsync(process.execPath, ['-e', script], { cwd: fixture, encoding: 'utf8' });
     assert.match(run.stdout, /ok/);
+    assert.equal(received[0].state, 'modified private state');
+    const replacement = `
+      const cds = require('@sap/cds');
+      (async () => {
+        await cds.plugins;
+        class Fake extends require('cap-jev').SystemOneService {
+          async init() { this.on('decide', () => ({ model: 'fake', answers: { answer: { type: 'noul', noul: 0.25 } }, usage: { input_tokens: 0, output_tokens: 0 } })); await cds.Service.prototype.init.call(this); }
+        }
+        cds.requires.systemone.impl = Fake;
+        const service = await cds.connect.to('systemone');
+        const result = await service.decide({ state: 'test', questions: { answer: { type: 'noul', instructions: 'Refund?' } } });
+        if (result.answers.answer.noul !== 0.25) throw new Error('Replacement impl was not used');
+        process.stdout.write('ok');
+      })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
+    `;
+    assert.match(
+      (await execFileAsync(process.execPath, ['-e', replacement], { cwd: fixture, encoding: 'utf8' })).stdout,
+      /ok/,
+    );
+    const invalid = `
+      const cds = require('@sap/cds');
+      (async () => {
+        await cds.plugins;
+        cds.requires.systemone.credentials = {};
+        try { await cds.connect.to('systemone'); throw new Error('Expected invalid config'); }
+        catch (error) { if (error.code !== 'INVALID_CONFIG') throw error; }
+        process.stdout.write('ok');
+      })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
+    `;
+    assert.match(
+      (await execFileAsync(process.execPath, ['-e', invalid], { cwd: fixture, encoding: 'utf8' })).stdout,
+      /ok/,
+    );
   } finally {
     server.close();
     fs.rmSync(temp, { recursive: true, force: true });

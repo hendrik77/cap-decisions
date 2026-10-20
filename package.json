@@ -5,6 +5,15 @@
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./package.json": "./package.json",
+    "./cds-plugin": "./cds-plugin.js",
+    "./cds-plugin.js": "./cds-plugin.js"
+  },
+  "repository": { "type": "git", "url": "https://github.com/hendrik77/cap-jev.git" },
+  "keywords": ["sap", "cap", "system-one", "jev", "decision-service"],
+  "author": "Hendrik Neumann",
   "files": [
     "dist",
     "cds-plugin.js",
@@ -37,10 +46,7 @@
   },
   "cds": {
     "requires": {
-      "systemone": {
-        "impl": "cap-jev",
-        "credentials": { "timeoutMs": 10000 }
-      }
+      "systemone": { "impl": "cap-jev" }
     }
   }
 }

@@ -131,10 +131,8 @@ test('reports timeout', async () => {
 });
 
 test('rejects a token over non-loopback HTTP before sending', async () => {
-  await assert.rejects(
-    new SystemOneTransport({ url: 'http://example.com', token: 'secret' }).decide({ state: 'x', questions }),
-    (error) => error.code === 'INVALID_CONFIG',
-  );
+  assert.throws(() => new SystemOneTransport({ url: 'http://example.com', token: 'secret' }),
+    (error) => error.code === 'INVALID_CONFIG');
 });
 
 test('requires an endpoint and never calls fetch when it is missing', async () => {
@@ -145,10 +143,7 @@ test('requires an endpoint and never calls fetch when it is missing', async () =
     throw new Error('unexpected request');
   };
   try {
-    await assert.rejects(
-      new SystemOneTransport().decide({ state: 'x', questions }),
-      (error) => error.code === 'INVALID_CONFIG',
-    );
+    assert.throws(() => new SystemOneTransport(), (error) => error.code === 'INVALID_CONFIG');
     assert.equal(calls, 0);
   } finally {
     globalThis.fetch = original;

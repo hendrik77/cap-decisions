@@ -39,6 +39,8 @@ console.log(result.answers.department.choice, result.answers.refund.noul);
 
 The [example CAP application](examples/cap-app) shows a TypeScript action handler. Its CDS action belongs to the application; the plugin registers no annotations or handlers for application actions.
 
+`decide()` sends an internal CAP `decide` event. Applications can register `before` and `after` handlers on the connected service. Configuration is checked when `cds.connect.to('systemone')` runs; an invalid endpoint rejects that connection with `INVALID_CONFIG`. Pass `{ signal }` as the second argument to cancel a call. Successful calls emit a `systemone` debug log with latency, attempt count, model and input/output token counts.
+
 ## Endpoint configuration
 
 Set `cds.requires.systemone.credentials` in your application. `url` is the **full POST endpoint** and is required; the plugin has no default endpoint or model. Set `model` if your endpoint requires one. `token` is optional; store it in a runtime binding or environment-specific configuration, not in source control. A token is sent only to HTTPS or a loopback HTTP endpoint (`127.0.0.1`, `localhost`, or `::1`). `timeoutMs` defaults to 10,000. The configurations below are examples, not an exhaustive list of supported models or providers.
@@ -92,7 +94,7 @@ Local Laya (no authentication and automatic model selection):
 }
 ```
 
-Set `model` to `null` to omit it from the request. A configured token becomes a Bearer header. The `cloudflare` response format requires `success: true` and unwraps the REST API's `result` field. Responses must include a model identifier, one correctly typed answer per question, and usage counts. Invalid input, malformed responses, HTTP errors, and timeouts throw `SystemOneError` with `code` and, for HTTP errors, `status`. A safe machine-readable provider error code, when available, is exposed as `providerCode`. Network and parse errors retain their original `cause`. HTTP 429, 502, 503, 504 and 529, and network failures, are retried at most twice, honoring `Retry-After` or using jittered backoff. `timeoutMs` covers the whole call, including retries and response reading. `SystemOneTransport.decide()` accepts `{ signal }` as its second argument; caller cancellation throws `ABORTED`. Request state and credentials are never logged by this package.
+Set `model` to `null` to omit it from the request. A configured token becomes a Bearer header. The `cloudflare` response format requires `success: true` and unwraps the REST API's `result` field. Responses must include a model identifier, one correctly typed answer per question, and usage counts. Invalid input, malformed responses, HTTP errors, and timeouts throw `SystemOneError` with `code` and, for HTTP errors, `status`. A safe machine-readable provider error code, when available, is exposed as `providerCode`. Network and parse errors retain their original `cause`. HTTP 429, 502, 503, 504 and 529, and network failures, are retried at most twice, honoring `Retry-After` or using jittered backoff. `timeoutMs` covers the whole call, including retries and response reading. Both the service and `SystemOneTransport.decide()` accept `{ signal }` as the second argument; caller cancellation throws `ABORTED`. Request state and credentials are never logged by this package.
 
 ## Development
 

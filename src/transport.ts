@@ -89,51 +89,55 @@ function providerCode(payload: unknown, format: 'direct' | 'cloudflare'): string
 }
 
 export class SystemOneTransport {
-  constructor(private readonly credentials: SystemOneCredentials = {}) {}
+  private readonly url: URL;
+  private readonly timeoutMs: number;
+  private readonly responseFormat: 'direct' | 'cloudflare';
+
+  constructor(private readonly credentials: SystemOneCredentials = {}) {
+    try {
+      this.url = new URL(credentials.url ?? '');
+    } catch (error) {
+      throw new SystemOneError('INVALID_CONFIG', 'A complete endpoint URL is required', { cause: error });
+    }
+    if (!['https:', 'http:'].includes(this.url.protocol) || !this.url.host) {
+      throw new SystemOneError('INVALID_CONFIG', 'Endpoint URL must use HTTP or HTTPS');
+    }
+    if (
+      credentials.token &&
+      this.url.protocol === 'http:' &&
+      !['127.0.0.1', 'localhost', '[::1]'].includes(this.url.hostname)
+    ) {
+      throw new SystemOneError('INVALID_CONFIG', 'Token requires HTTPS or a loopback endpoint');
+    }
+    this.timeoutMs = credentials.timeoutMs ?? 10000;
+    if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs <= 0)
+      throw new SystemOneError('INVALID_CONFIG', 'timeoutMs must be a positive integer');
+    this.responseFormat = credentials.responseFormat ?? 'direct';
+    if (!['direct', 'cloudflare'].includes(this.responseFormat))
+      throw new SystemOneError('INVALID_CONFIG', 'Unknown response format');
+  }
 
   async decide<Q extends Questions>(
     request: DecisionRequest<Q>,
     options: DecisionOptions = {},
   ): Promise<DecisionResult<Q>> {
     validateRequest(request);
-    let parsed: URL;
-    try {
-      parsed = new URL(this.credentials.url ?? '');
-    } catch (error) {
-      throw new SystemOneError('INVALID_CONFIG', 'A complete endpoint URL is required', { cause: error });
-    }
-    if (!['https:', 'http:'].includes(parsed.protocol) || !parsed.host) {
-      throw new SystemOneError('INVALID_CONFIG', 'Endpoint URL must use HTTP or HTTPS');
-    }
-    if (
-      this.credentials.token &&
-      parsed.protocol === 'http:' &&
-      !['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname)
-    ) {
-      throw new SystemOneError('INVALID_CONFIG', 'Token requires HTTPS or a loopback endpoint');
-    }
-    const timeoutMs = this.credentials.timeoutMs ?? 10000;
-    if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0)
-      throw new SystemOneError('INVALID_CONFIG', 'timeoutMs must be a positive integer');
-    const responseFormat = this.credentials.responseFormat ?? 'direct';
-    if (!['direct', 'cloudflare'].includes(responseFormat))
-      throw new SystemOneError('INVALID_CONFIG', 'Unknown response format');
     const model = this.credentials.model;
     const body = JSON.stringify({ ...request, ...(model ? { model } : {}) });
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (this.credentials.token) headers.authorization = `Bearer ${this.credentials.token}`;
 
-    const deadline = AbortSignal.timeout(timeoutMs);
+    const deadline = AbortSignal.timeout(this.timeoutMs);
     const signal = options.signal ? AbortSignal.any([deadline, options.signal]) : deadline;
     if (signal.aborted) throw interruption(signal, options.signal);
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       let response: Response;
       try {
-        response = await fetch(parsed, { method: 'POST', headers, body, signal });
+        response = await fetch(this.url, { method: 'POST', headers, body, signal });
       } catch (error) {
         if (signal.aborted) throw interruption(signal, options.signal, error);
         if (attempt < MAX_RETRIES) {
-          await pause(Math.min(retryDelay(attempt, null), timeoutMs), signal, options.signal);
+          await pause(Math.min(retryDelay(attempt, null), this.timeoutMs), signal, options.signal);
           continue;
         }
         throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
@@ -142,7 +146,7 @@ export class SystemOneTransport {
         if (RETRY_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
           await response.body?.cancel();
           await pause(
-            Math.min(retryDelay(attempt, response.headers.get('retry-after')), timeoutMs),
+            Math.min(retryDelay(attempt, response.headers.get('retry-after')), this.timeoutMs),
             signal,
             options.signal,
           );
@@ -157,7 +161,7 @@ export class SystemOneTransport {
         }
         throw new SystemOneError('HTTP_ERROR', `System One returned HTTP ${response.status}`, {
           status: response.status,
-          providerCode: providerCode(payload, responseFormat),
+          providerCode: providerCode(payload, this.responseFormat),
           cause: response,
         });
       }
@@ -168,7 +172,7 @@ export class SystemOneTransport {
         if (signal.aborted) throw interruption(signal, options.signal, error);
         throw new SystemOneError('INVALID_RESPONSE', 'System One returned invalid JSON', { cause: error });
       }
-      if (responseFormat === 'cloudflare') {
+      if (this.responseFormat === 'cloudflare') {
         if (typeof payload !== 'object' || payload === null) {
           throw new SystemOneError('INVALID_RESPONSE', 'Cloudflare response is invalid');
         }
