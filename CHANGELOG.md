@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.3
+
+### Added
+
+- Exported `SystemOneErrorCode`, the union of all `SystemOneError` codes, and `DecisionOptions`, the options type of `SystemOneTransport.decide()`. `SystemOneError.code` now uses the union, so comparisons with undocumented codes fail type-checking; runtime behaviour is unchanged.
+- The example application handles `SystemOneError` codes as HTTP responses, rejects empty messages with 400, checks its queue map against the inferred choice labels, and has a README and `start` script. The integration test now calls its `classify` action.
+
+### Documentation
+
+- The README lists every error code, including `NETWORK_ERROR` and `PROVIDER_ERROR`, and describes the answer fields for each question type.
+- Installation uses the release archive URL directly. Code examples no longer redeclare `result`.
+
 ## 0.4.2
 
 ### Removed

@@ -43,8 +43,9 @@ export class SystemOneService extends cds.Service {
 }
 
 export { SystemOneTransport } from './transport';
-export type { DestinationResolver, ResolvedDestination } from './transport';
+export type { DecisionOptions, DestinationResolver, ResolvedDestination } from './transport';
 export { SystemOneError } from './validation';
+export type { SystemOneErrorCode } from './validation';
 export type {
   JsonValue,
   Content,

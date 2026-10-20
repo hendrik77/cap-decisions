@@ -21,6 +21,28 @@ test('installed package registers an internal CAP service with decide()', { time
     received.push(payload);
     if (payload.state === 'slow') await new Promise((resolve) => setTimeout(resolve, 200));
     response.setHeader('content-type', 'application/json');
+    if (payload.state === 'provider failure') {
+      response.statusCode = 400;
+      response.end(JSON.stringify({ error: { code: 'bad_request' } }));
+      return;
+    }
+    if (payload.questions.department) {
+      response.end(
+        JSON.stringify({
+          model: 'laya',
+          answers: {
+            department: {
+              type: 'choice',
+              choice: 'technical',
+              probabilities: { billing: 0.2, technical: 0.8 },
+              confidence: 0.8,
+            },
+          },
+          usage: { input_tokens: 3, output_tokens: 1 },
+        }),
+      );
+      return;
+    }
     response.end(
       JSON.stringify({
         model: 'laya',
@@ -110,6 +132,33 @@ test('installed package registers an internal CAP service with decide()', { time
     assert.match(
       (await execFileAsync(process.execPath, ['-e', invalid], { cwd: fixture, encoding: 'utf8', timeout: 30_000 }))
         .stdout,
+      /ok/,
+    );
+    const example = `
+      const cds = require('@sap/cds');
+      (async () => {
+        await cds.plugins;
+        cds.model = cds.linked(await cds.load('*'));
+        const service = await cds.serve('DecisionService').from(cds.model);
+        if (service.constructor.name !== 'DecisionService') throw new Error('Example handler was not loaded');
+        const queue = await service.send('classify', { message: 'The API returns errors' });
+        if (queue !== 'support') throw new Error('Wrong queue: ' + queue);
+        for (const [message, status] of [[' ', 400], ['provider failure', 502]]) {
+          try { await service.send('classify', { message }); throw new Error('Expected rejection'); }
+          catch (error) { if (error.code !== status) throw error; }
+        }
+        process.stdout.write('ok');
+      })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
+    `;
+    assert.match(
+      (
+        await execFileAsync(process.execPath, ['-e', example], {
+          cwd: fixture,
+          encoding: 'utf8',
+          env: { ...process.env, CDS_TYPESCRIPT: 'true' },
+          timeout: 30_000,
+        })
+      ).stdout,
       /ok/,
     );
   } finally {

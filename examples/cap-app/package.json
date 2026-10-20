@@ -2,9 +2,12 @@
   "name": "cap-jev-example",
   "private": true,
   "version": "1.0.0",
+  "scripts": {
+    "start": "cds-serve"
+  },
   "dependencies": {
     "@sap/cds": "^10.0.0",
-    "cap-jev": "^0.4.2"
+    "cap-jev": "^0.4.3"
   },
   "cds": {
     "requires": {
