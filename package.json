@@ -1,43 +1,97 @@
 {
   "name": "cap-jev",
-  "version": "0.1.0",
+  "version": "0.4.1",
   "description": "Internal System One decision service for SAP CAP",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json",
+    "./cds-plugin": "./cds-plugin.js",
+    "./cds-plugin.js": "./cds-plugin.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hendrik77/cap-jev.git"
+  },
+  "keywords": [
+    "sap",
+    "cap",
+    "system-one",
+    "jev",
+    "decision-service"
+  ],
+  "author": "Hendrik Neumann",
   "files": [
     "dist",
     "cds-plugin.js",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "engines": {
     "node": ">=22"
   },
   "peerDependencies": {
-    "@sap/cds": "^10.0.0"
+    "@sap/cds": "^10.0.0",
+    "@sap-cloud-sdk/connectivity": "^4.9.1"
+  },
+  "peerDependenciesMeta": {
+    "@sap-cloud-sdk/connectivity": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@cap-js/cds-types": "^0.20.0",
     "@sap/cds": "^10.0.0",
     "@types/node": "^22.0.0",
-    "typescript": "^5.9.0"
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.72.0"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit && tsc -p examples/cap-app/tsconfig.json",
+    "lint": "eslint .",
+    "format": "prettier --write src tests examples/cap-app/srv",
+    "typecheck": "tsc --noEmit && tsc -p tests/tsconfig.json && tsc -p examples/cap-app/tsconfig.json",
     "build": "tsc",
     "test": "npm run build && node --test tests/*.test.cjs",
     "prepack": "npm run build"
   },
   "cds": {
     "requires": {
-      "system-one": {
-        "impl": "cap-jev",
-        "credentials": {
-          "url": "https://api.typesafe.ai/v1/systemone",
-          "model": "jev-latest",
-          "responseFormat": "direct",
+      "systemone": {
+        "kind": "systemone"
+      },
+      "kinds": {
+        "systemone": {
+          "impl": "cap-jev",
+          "provider": "generic",
           "timeoutMs": 10000
+        },
+        "systemone-typesafe": {
+          "kind": "systemone",
+          "provider": "typesafe",
+          "model": "jev-latest",
+          "credentials": {
+            "url": "https://api.typesafe.ai/v1/systemone"
+          }
+        },
+        "systemone-cloudflare": {
+          "kind": "systemone",
+          "provider": "cloudflare",
+          "model": "clef"
+        },
+        "systemone-laya": {
+          "kind": "systemone",
+          "provider": "laya",
+          "credentials": {
+            "url": "http://127.0.0.1:8000/v1/systemone"
+          }
         }
       }
     }

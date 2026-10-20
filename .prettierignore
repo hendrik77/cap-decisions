@@ -1,0 +1,4 @@
+dist/
+node_modules/
+examples/cap-app/node_modules/
+package-lock.json

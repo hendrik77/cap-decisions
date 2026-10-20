@@ -22,15 +22,51 @@ export interface ScoreQuestion {
 export type Question = NoulQuestion | ChoiceQuestion | ScoreQuestion;
 export type Questions = Record<string, Question>;
 
-export interface NoulAnswer { type: 'noul'; noul: number }
-export interface ChoiceAnswer { type: 'choice'; choice: string; probabilities: Record<string, number>; confidence: number }
-export interface ScoreAnswer { type: 'score'; score: number; legend: Record<string, string>; probabilities: Record<string, number>; confidence: number }
+export interface NoulAnswer {
+  type: 'noul';
+  noul: number;
+}
+export interface ChoiceAnswer<Label extends string = string, OptionalLabel extends Label = never> {
+  type: 'choice';
+  choice: Label;
+  probabilities: [OptionalLabel] extends [never]
+    ? Record<Label, number>
+    : Record<Exclude<Label, OptionalLabel>, number> & Partial<Record<OptionalLabel, number>>;
+  confidence: number;
+}
+export interface ScoreAnswer {
+  type: 'score';
+  score: number;
+  legend: Record<string, string>;
+  probabilities: Record<string, number>;
+  confidence: number;
+}
 export type Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer;
 
-export type Answers<Q extends Questions> = {
-  [K in keyof Q]: Q[K] extends ChoiceQuestion ? ChoiceAnswer :
-    Q[K] extends ScoreQuestion ? ScoreAnswer : NoulAnswer;
-};
+type Label<Key> = `${Extract<Key, string | number>}`;
+// Literal keys that may be absent; index signatures are not treated as optional.
+type OptionalKeys<T> = {
+  [K in keyof T]-?: string extends K
+    ? never
+    : number extends K
+      ? never
+      : Record<never, never> extends Pick<T, K>
+        ? K
+        : never;
+}[keyof T];
+
+type ChoiceAnswerFor<Criteria> = Criteria extends unknown
+  ? ChoiceAnswer<Label<keyof Criteria>, Label<OptionalKeys<Criteria>>>
+  : never;
+
+type AnswerFor<T> = T extends ChoiceQuestion
+  ? ChoiceAnswerFor<T['criteria']>
+  : T extends ScoreQuestion
+    ? ScoreAnswer
+    : T extends NoulQuestion
+      ? NoulAnswer
+      : never;
+export type Answers<Q extends Questions> = { [K in keyof Q]: AnswerFor<Q[K]> };
 
 export interface DecisionRequest<Q extends Questions = Questions> {
   state: Content;
@@ -45,8 +81,16 @@ export interface DecisionResult<Q extends Questions = Questions> {
 
 export interface SystemOneCredentials {
   url?: string;
-  model?: string | null;
   token?: string;
-  responseFormat?: 'direct' | 'cloudflare';
+  accountId?: string;
+  destination?: string;
+}
+
+export type SystemOneProvider = 'generic' | 'typesafe' | 'cloudflare' | 'laya';
+
+export interface SystemOneSettings {
+  provider?: SystemOneProvider;
+  model?: string;
   timeoutMs?: number;
+  credentials?: SystemOneCredentials;
 }

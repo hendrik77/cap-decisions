@@ -2,14 +2,14 @@
   "name": "cap-jev-example",
   "private": true,
   "version": "1.0.0",
-  "dependencies": { "@sap/cds": "^10.0.0", "cap-jev": "^0.1.0" },
+  "dependencies": {
+    "@sap/cds": "^10.0.0",
+    "cap-jev": "^0.4.1"
+  },
   "cds": {
     "requires": {
-      "system-one": {
-        "credentials": {
-          "url": "http://127.0.0.1:8000/v1/systemone",
-          "model": null
-        }
+      "systemone": {
+        "kind": "systemone-laya"
       }
     }
   }
