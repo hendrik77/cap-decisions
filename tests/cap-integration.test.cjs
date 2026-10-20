@@ -15,24 +15,32 @@ test('installed package registers an internal CAP service with decide()', async 
   fs.cpSync(path.join(root, 'examples/cap-app'), fixture, { recursive: true });
   const server = http.createServer((_req, response) => {
     response.setHeader('content-type', 'application/json');
-    response.end(JSON.stringify({
-      model: 'laya',
-      answers: { answer: { type: 'noul', noul: 0.8 } },
-      usage: { input_tokens: 3, output_tokens: 1 }
-    }));
+    response.end(
+      JSON.stringify({
+        model: 'laya',
+        answers: { answer: { type: 'noul', noul: 0.8 } },
+        usage: { input_tokens: 3, output_tokens: 1 },
+      }),
+    );
   });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(fixture, 'package.json')));
     pkg.cds.requires['systemone'].credentials.url = `http://127.0.0.1:${server.address().port}/v1/systemone`;
     pkg.dependencies['@sap/cds'] = `file:${path.join(root, 'node_modules/@sap/cds')}`;
     fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(pkg));
-    const pack = spawnSync('npm', ['pack', '--ignore-scripts', '--pack-destination', temp], { cwd: root, encoding: 'utf8' });
+    const pack = spawnSync('npm', ['pack', '--ignore-scripts', '--pack-destination', temp], {
+      cwd: root,
+      encoding: 'utf8',
+    });
     assert.equal(pack.status, 0, pack.stderr);
     const tarball = path.join(temp, pack.stdout.trim().split('\n').at(-1));
     pkg.dependencies['cap-jev'] = `file:${tarball}`;
     fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(pkg));
-    const install = spawnSync('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: fixture, encoding: 'utf8' });
+    const install = spawnSync('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund'], {
+      cwd: fixture,
+      encoding: 'utf8',
+    });
     assert.equal(install.status, 0, install.stderr);
     const script = `
       const cds = require('@sap/cds');

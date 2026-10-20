@@ -11,14 +11,20 @@ export class SystemOneTransport {
     validateRequest(request);
     const url = this.credentials.url ?? DEFAULT_URL;
     let parsed: URL;
-    try { parsed = new URL(url); } catch { throw new SystemOneError('INVALID_CONFIG', 'A complete endpoint URL is required'); }
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new SystemOneError('INVALID_CONFIG', 'A complete endpoint URL is required');
+    }
     if (!['https:', 'http:'].includes(parsed.protocol) || !parsed.host) {
       throw new SystemOneError('INVALID_CONFIG', 'Endpoint URL must use HTTP or HTTPS');
     }
     const timeoutMs = this.credentials.timeoutMs ?? 10000;
-    if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) throw new SystemOneError('INVALID_CONFIG', 'timeoutMs must be a positive integer');
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0)
+      throw new SystemOneError('INVALID_CONFIG', 'timeoutMs must be a positive integer');
     const responseFormat = this.credentials.responseFormat ?? 'direct';
-    if (!['direct', 'cloudflare'].includes(responseFormat)) throw new SystemOneError('INVALID_CONFIG', 'Unknown response format');
+    if (!['direct', 'cloudflare'].includes(responseFormat))
+      throw new SystemOneError('INVALID_CONFIG', 'Unknown response format');
     const model = this.credentials.model === undefined ? 'jev-latest' : this.credentials.model;
     const body = JSON.stringify({ ...request, ...(model ? { model } : {}) });
     const headers: Record<string, string> = { 'content-type': 'application/json' };
@@ -36,14 +42,15 @@ export class SystemOneTransport {
       }
       if (!response.ok) {
         if ([429, 529].includes(response.status) && attempt < RETRY_DELAYS.length) {
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS[attempt]));
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[attempt]));
           continue;
         }
         throw new SystemOneError('HTTP_ERROR', `System One returned HTTP ${response.status}`, response.status);
       }
       let payload: unknown;
-      try { payload = await response.json(); }
-      catch (error) {
+      try {
+        payload = await response.json();
+      } catch (error) {
         if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
           throw new SystemOneError('TIMEOUT', 'System One response timed out');
         }

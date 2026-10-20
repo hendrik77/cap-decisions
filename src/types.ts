@@ -22,14 +22,27 @@ export interface ScoreQuestion {
 export type Question = NoulQuestion | ChoiceQuestion | ScoreQuestion;
 export type Questions = Record<string, Question>;
 
-export interface NoulAnswer { type: 'noul'; noul: number }
-export interface ChoiceAnswer { type: 'choice'; choice: string; probabilities: Record<string, number>; confidence: number }
-export interface ScoreAnswer { type: 'score'; score: number; legend: Record<string, string>; probabilities: Record<string, number>; confidence: number }
+export interface NoulAnswer {
+  type: 'noul';
+  noul: number;
+}
+export interface ChoiceAnswer {
+  type: 'choice';
+  choice: string;
+  probabilities: Record<string, number>;
+  confidence: number;
+}
+export interface ScoreAnswer {
+  type: 'score';
+  score: number;
+  legend: Record<string, string>;
+  probabilities: Record<string, number>;
+  confidence: number;
+}
 export type Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer;
 
 export type Answers<Q extends Questions> = {
-  [K in keyof Q]: Q[K] extends ChoiceQuestion ? ChoiceAnswer :
-    Q[K] extends ScoreQuestion ? ScoreAnswer : NoulAnswer;
+  [K in keyof Q]: Q[K] extends ChoiceQuestion ? ChoiceAnswer : Q[K] extends ScoreQuestion ? ScoreAnswer : NoulAnswer;
 };
 
 export interface DecisionRequest<Q extends Questions = Questions> {
