@@ -14,7 +14,7 @@ The app uses the `systemone-laya` kind, which calls a Jev-compatible server at `
 
 ```sh
 cd examples/cap-app
-npm install https://github.com/hendrik77/cap-jev/releases/download/v0.4.3/cap-jev-0.4.3.tgz
+npm install https://github.com/hendrik77/cap-jev/releases/download/v0.5.0/cap-jev-0.5.0.tgz
 npm install
 ```
 
@@ -38,4 +38,4 @@ curl -u alice: -X POST http://localhost:4004/odata/v4/decision/classify \
 
 In development CAP's mocked users apply, such as `alice` with an empty password (`curl -u alice: ...`). In production, configure a real authentication strategy, such as XSUAA or IAS, and add `@requires` roles or `@restrict` rules where only some users may spend the quota.
 
-The repository's integration test packs the plugin, installs it in a copy of this app, and calls `classify` against a local fake server, so the example is checked on every CI run.
+The repository checks this app in two tests: `tests/example-app.test.cjs` runs it with `cds.test` against a local fake server, and `tests/cap-integration.test.cjs` packs the plugin, installs it in a copy of this app and calls `classify`. Both run on every CI run.

@@ -1,13 +1,15 @@
 # cap-jev
 
-`cap-jev` adds an internal System One decision service to SAP CAP Node.js 10 applications on Node.js 22 or newer. It evaluates `choice`, `score`, and `noul` questions against one text or JSON state. It works with any Jev-compatible System One HTTP endpoint that accepts the same request and response schema. The package creates no OData endpoint and produces no text.
+`cap-jev` adds an internal System One decision service to SAP CAP Node.js applications. It evaluates `choice`, `score`, and `noul` questions against one text or JSON state. It works with any Jev-compatible System One HTTP endpoint that accepts the same request and response schema. The package creates no OData endpoint and produces no text.
+
+Requirements: Node.js 22 or newer and `@sap/cds` 9 or 10 (the peer range is `>=9`). CI tests Node.js 22, 24 and 26 against CAP 9 and CAP 10.
 
 ## Install and use
 
 The package is not yet published to npm. Install a release archive from [GitHub releases](https://github.com/hendrik77/cap-jev/releases) in your CAP application:
 
 ```sh
-npm install https://github.com/hendrik77/cap-jev/releases/download/v0.4.3/cap-jev-0.4.3.tgz
+npm install https://github.com/hendrik77/cap-jev/releases/download/v0.5.0/cap-jev-0.5.0.tgz
 ```
 
 To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-jev-<version>.tgz` file.
@@ -81,33 +83,62 @@ Request state, instructions, and criteria must contain plain JSON data: strings,
 
 The [example CAP application](examples/cap-app) shows a TypeScript action handler with exhaustive label handling and error mapping, and explains how to run it. Its CDS action belongs to the application; the plugin registers no annotations or handlers for application actions.
 
-`decide()` sends an internal CAP `decide` event. Applications can register `before` and `after` handlers on the connected service. Configuration is checked when `cds.connect.to('systemone')` runs; an invalid endpoint rejects that connection with `INVALID_CONFIG`. Pass `{ signal }` as the second argument to cancel a call. Successful calls emit a `systemone` debug log with latency, attempt count, model and input/output token counts.
+`decide()` sends an internal CAP `decide` event. Applications can register `before` and `after` handlers on the connected service. Configuration is checked when `cds.connect.to('systemone')` runs; invalid settings or a missing endpoint reject that connection with `INVALID_CONFIG`. Pass `{ signal }` (type `DecideOptions`) as the second argument to cancel a call. Successful calls emit a `systemone` debug log with latency, attempt count, model and input/output token counts.
 
 ## Provider configuration
 
-Select a `kind` under `cds.requires.systemone`. Non-secret settings (`provider`, `model`, `timeoutMs`) live at service level; credentials (`url`, `token`, `accountId`, `destination`) live under `credentials`. The base `systemone` kind is a generic Jev-compatible endpoint with no default URL or model, so a bare installation cannot send data. `timeoutMs` defaults to 10,000 for the whole call and must be an integer from 1 to 2,147,483,647 ms. Settings are snapshotted when the transport is constructed; restart the application to apply configuration changes.
+Select a provider kind under `cds.requires.systemone` with its full name. Settings sit at service level, except credentials, which sit under `credentials`. If an application sets no `kind`, `systemone-generic` applies. It has no URL, so a bare installation cannot send data and fails with `INVALID_CONFIG` when it connects.
 
-| Kind | Endpoint and model | Credentials | Request limits |
-| --- | --- | --- | --- |
-| `systemone` | Supply a full POST `credentials.url`; `model` is optional | Token optional | Structural checks only |
-| `systemone-typesafe` | TypeSafe System One, `jev-latest` | Token required | At most 255 choice options; 2–10 score criteria |
-| `systemone-cloudflare` | Cloudflare Clef; URL built from `accountId`; model `clef` | `accountId` and token required | 1–64 questions |
-| `systemone-laya` | Loopback Laya endpoint, no model | Token optional | At most 100 choice options |
+| Kind | Endpoint | `modelId` | `requiresToken` | `limits` |
+| --- | --- | --- | --- | --- |
+| `systemone-generic` | None; set `credentials.url` to the full POST URL | None | `false` | Protocol minimums only |
+| `systemone-typesafe` | `https://api.typesafe.ai/v1/systemone` | `jev-latest` | `true` | `choiceOptions`: 255; `scoreCriteria`: 2 to 10 |
+| `systemone-cloudflare` | Built from `credentials.accountId`, unless `credentials.url` is set | `clef` | `true` | `questions`: 64 |
+| `systemone-laya` | `http://127.0.0.1:8000/v1/systemone` | None | `false` | `choiceOptions`: 100 |
 
-For TypeSafe or Cloudflare, select the kind in committed configuration and inject the token separately:
+`systemone-defaults` is the shared parent of these kinds (the package's service class and `timeoutMs: 10000`). Do not select it.
+
+### Settings
+
+| Setting | Type | Meaning |
+| --- | --- | --- |
+| `modelId` | string | Model name. Sent as `model` in the request body; omitted when unset. Do not use `model`: CAP reads it as the CDS model of a service, so the plugin logs an error and the connection fails |
+| `timeoutMs` | integer, 1 to 2,147,483,647 | Time limit for the whole call, including retries. Default 10,000 |
+| `requiresToken` | boolean | When `true`, connecting fails with `INVALID_CONFIG` unless a `credentials.token` is set, or a `credentials.destination` that supplies an `Authorization` header |
+| `limits` | object | Request limits checked before anything is sent (see below) |
+| `credentials` | object | Secrets and the endpoint (see below) |
+
+`limits` keys, all positive integers:
+
+| Key | Meaning |
+| --- | --- |
+| `questions` | Maximum number of questions per request |
+| `choiceOptions` | Maximum number of criteria in a `choice` question |
+| `scoreCriteria.min`, `scoreCriteria.max` | Allowed number of criteria in a `score` question |
+
+The protocol minimums always apply: one question, one choice option and one score criterion. A request that breaks a limit fails with `INVALID_REQUEST`.
+
+`credentials` keys, all strings:
+
+| Key | Meaning |
+| --- | --- |
+| `url` | Full POST URL of the endpoint |
+| `token` | Bearer token |
+| `accountId` | Account ID; used by `systemone-cloudflare` to build the URL |
+| `destination` | Name of a BTP Destination service entry (see below) |
+
+Settings are deep-merged over the kind's settings, so an application overrides single values. This keeps the TypeSafe model, token requirement and score limits and raises the choice limit:
 
 ```json
-{ "cds": { "requires": { "systemone": { "kind": "systemone-typesafe" } } } }
+{ "cds": { "requires": { "systemone": { "kind": "systemone-typesafe", "limits": { "choiceOptions": 300 } } } } }
 ```
 
-```json
-{ "cds": { "requires": { "systemone": { "kind": "systemone-cloudflare" } } } }
-```
+Settings are validated when the service is created. These fail with `INVALID_CONFIG`: `model`; `token`, `url`, `accountId` or `destination` at service level instead of under `credentials`; an unknown `credentials` key; a malformed `modelId`, `requiresToken`, `limits` or `timeoutMs`; and a missing token when the kind requires one. An unknown service-level key only logs a warning. Settings are snapshotted when the service is created; restart the application to apply changes.
 
-For a local or other Jev-compatible server, use the base kind with an explicit endpoint:
+For a local or other Jev-compatible server, use the generic kind with an explicit endpoint:
 
 ```json
-{ "cds": { "requires": { "systemone": { "kind": "systemone", "credentials": { "url": "http://127.0.0.1:8000/v1/systemone" } } } } }
+{ "cds": { "requires": { "systemone": { "kind": "systemone-generic", "credentials": { "url": "http://127.0.0.1:8000/v1/systemone" } } } } }
 ```
 
 CAP profiles can select different kinds:
@@ -125,30 +156,60 @@ Keep tokens and account IDs out of committed files. CAP can inject them from the
 | Kyma/Kubernetes | `servicebinding.io` Secret via `SERVICE_BINDING_ROOT` |
 | Any | `CDS_CONFIG` JSON or `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_TOKEN` |
 
-Cloudflare needs a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS or to `127.0.0.1`, `localhost`, or `::1` over HTTP. The Cloudflare adapter requires `success: true` and unwraps `result`.
+`systemone-cloudflare` needs `accountId` and a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS or to `127.0.0.1`, `localhost`, or `::1` over HTTP. The Cloudflare adapter requires `success: true` and unwraps `result`.
 
-On SAP BTP, you can set `credentials.destination` to the name of a Destination service entry instead of supplying `url` and `token`. Install the optional peer package `@sap-cloud-sdk/connectivity` in the CAP application. Set the destination URL to the full POST endpoint and use a `NoAuthentication` destination with a `URL.headers.Authorization` property containing the bearer header. The plugin resolves the destination with `getDestination()` at startup and for each call; it uses the SDK's cache. The token transport rule also applies to destination headers. This integration reads the destination URL and static headers; other destination authentication flows are outside its scope.
+### Destinations
+
+On SAP BTP, you can set `credentials.destination` to the name of a Destination service entry instead of supplying `url` and `token`. Install the optional peer package `@sap-cloud-sdk/connectivity` in the CAP application. Set the destination URL to the full POST endpoint and use a `NoAuthentication` destination with a `URL.headers.Authorization` property containing the bearer header. The plugin resolves the destination with `getDestination()` when the service is created and for each call; it uses the SDK's cache. The token transport rule also applies to destination headers. When `requiresToken` is `true`, the destination must supply an `Authorization` header (or a `token` must be set), or the connection fails with `INVALID_CONFIG`. This integration reads the destination URL and static headers; other destination authentication flows are outside its scope.
 
 ```json
-{ "cds": { "requires": { "systemone": { "kind": "systemone", "credentials": { "destination": "systemone-api" } } } } }
+{ "cds": { "requires": { "systemone": { "kind": "systemone-generic", "credentials": { "destination": "systemone-api" } } } } }
 ```
+
+## Errors
 
 Responses must include a model identifier, one correctly typed answer per question, and usage counts. Failures throw `SystemOneError` with a `code` of type `SystemOneErrorCode`:
 
 | Code | Cause |
 | --- | --- |
-| `INVALID_CONFIG` | Invalid settings, reported by `cds.connect.to('systemone')` or the transport constructor, or a destination that cannot be resolved for a call |
+| `INVALID_CONFIG` | Invalid settings (such as `model`, a secret outside `credentials`, an unknown `credentials` key, or a malformed limit or timeout), a missing token when the kind requires one, or a missing or invalid endpoint, reported by `cds.connect.to('systemone')`; also a destination that cannot be resolved for a call |
 | `INVALID_REQUEST` | The request does not match the question schema or the provider's limits; nothing is sent |
 | `INVALID_RESPONSE` | The response is malformed JSON or does not match the questions |
 | `HTTP_ERROR` | The endpoint returned an error status; `status` and, when available, `providerCode` are set |
-| `PROVIDER_ERROR` | Cloudflare returned `success: false` |
+| `PROVIDER_ERROR` | The provider reported a failure in a successful HTTP response; `systemone-cloudflare` returned `success: false` |
 | `NETWORK_ERROR` | The connection or response body failed after all retries |
 | `TIMEOUT` | The call exceeded `timeoutMs` |
 | `ABORTED` | The caller's `signal` cancelled the call |
 
 `providerCode` is a safe machine-readable provider error code. Network and parse errors retain their original `cause`; HTTP errors omit the response object.
 
-HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, an HTTP failure is returned immediately as `HTTP_ERROR` with its status and provider code. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. Both the service and `SystemOneTransport.decide()` accept `{ signal }` as the second argument (type `DecisionOptions` for the transport); caller cancellation throws `ABORTED`. Request state and credentials are never logged by this package.
+HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, an HTTP failure is returned immediately as `HTTP_ERROR` with its status and provider code. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. Caller cancellation through the `signal` option throws `ABORTED`. Request state and credentials are never logged by this package.
+
+## Protecting actions that call a provider
+
+`cap-jev` serves no service of its own. An application action that calls `decide()` spends provider quota, so protect it in the application with `@requires` or `@restrict`. The [example application](examples/cap-app) uses `@requires: 'authenticated-user'` on its service.
+
+## Adding a provider
+
+You can add a provider at three levels:
+
+- A Jev-compatible server that needs only a URL, limits or a token flag: define a kind in your `package.json` that extends `systemone-generic`.
+- A provider with its own protocol: write a subclass of `SystemOneService` in your application and point a kind's `impl` at it.
+- A provider shared between applications: ship the kind and the subclass in a provider package.
+
+[docs/providers.md](docs/providers.md) shows each level, the subclass hooks and the rules for subclasses. The subclass hooks are experimental (see [Stability](#stability)).
+
+## Stability
+
+| Area | Status |
+| --- | --- |
+| `cds.connect.to('systemone')`, `decide()` and its options (`DecideOptions`) | Stable |
+| The request, question and answer types | Stable |
+| `SystemOneError` and its codes | Stable |
+| The kind names and the settings | Stable |
+| The subclass hooks: `setup`, `call`, `endpoint`, `unwrap`, `errorCode`, and the static `settingsKeys` and `credentialKeys` | Experimental until the first npm publication |
+
+`SystemOneTransport` is internal and not exported.
 
 ## Development
 
@@ -161,9 +222,19 @@ npm test
 npm pack --dry-run
 ```
 
-The test suite uses local HTTP servers and needs no external API key. The integration test installs the packed plugin in a temporary CAP application using the npm cache when available, and the registry otherwise; its test and child processes have timeouts. To run one focused test: `node --test tests/transport.test.cjs`. `npm run typecheck` also checks answer inference and narrowing in `tests/types.test.ts` and exact choice labels in `tests/choice-labels.test.ts`. `npm run build` emits CommonJS JavaScript and declarations in `dist/`.
+Tests use Node's built-in test runner and need no external API key; HTTP tests run against local servers. `npm test` builds the package and runs `tests/*.test.cjs`. To run one file: `node --test tests/transport.test.cjs`.
 
-[CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck, tests (including the build), and package checks on Node.js 22, 24, and 26 for pushes and pull requests.
+- CAP-level tests create temporary CAP apps with `tests/helpers/app.cjs`. The apps use the repository's `cap-jev` and `@sap/cds`, so one copy of each is loaded.
+- `tests/example-app.test.cjs` runs `examples/cap-app` with `cds.test`.
+- `tests/cap-integration.test.cjs` installs the packed package in a copy of the example app, using the npm cache when available and the registry otherwise.
+- `npm run typecheck` also checks the types in `tests/*.test.ts`: answer inference, choice labels, exports and the subclass hooks.
+- `npm run build` emits CommonJS JavaScript and declarations in `dist/`.
+
+To test against CAP 9, run `npm install --no-save @sap/cds@^9` and then `npm test`.
+
+[CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck (CAP 10 only), tests (including the build) and `npm pack --dry-run` on Node.js 22, 24 and 26 with CAP 9 and CAP 10, for pushes and pull requests.
+
+Design decisions are recorded in [docs/decisions/](docs/decisions/).
 
 ## Protocol references
 
