@@ -70,7 +70,8 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "format": "prettier --write src tests examples/cap-app/srv",
+    "release:check": "node scripts/release-check.cjs",
+    "format": "prettier --write src tests scripts examples/cap-app/srv",
     "typecheck": "tsc --noEmit && tsc -p tests/tsconfig.json && tsc -p examples/cap-app/tsconfig.json",
     "build": "tsc",
     "test": "npm run build && node --test tests/*.test.cjs",

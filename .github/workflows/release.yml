@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: GitHub release
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run release:check -- --tag "$GITHUB_REF_NAME"
+      - run: npm pack
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          title="$(node scripts/release-notes.cjs "$version" --notes release-notes.md)"
+          gh release create "$GITHUB_REF_NAME" "cap-jev-$version.tgz" \
+            --verify-tag --title "$title" --notes-file release-notes.md

@@ -2,7 +2,7 @@
 
 This changelog starts with 0.5.0. Earlier versions are described in the [GitHub releases](https://github.com/hendrik77/cap-jev/releases) up to v0.4.3.
 
-## 0.6.0
+## 0.6.0: Local-first mock provider
 
 ### Breaking changes
 
@@ -29,14 +29,14 @@ None for applications that set an explicit `kind`: they are unaffected, because 
 - The integration test runs its server calls in the production profile, and adds one call in development on the mock.
 - Each transport test uses its own URL path, so a late request from an earlier test cannot reach it.
 
-## 0.5.1
+## 0.5.1: Install instructions for npm 12
 
 ### Fixed
 
 - The install instructions failed with npm 12, which refuses tarball URLs by default (`allow-remote`). The README now shows two ways that work: allowing URLs listed in `package.json` through the project's `.npmrc`, or downloading the archive and installing the file.
 - The example app's README told readers to install the release archive inside the repository, where the app is an npm workspace that uses the local `cap-jev`. It now describes the workspace setup and the release archive for copies outside the repository.
 
-## 0.5.0
+## 0.5.0: Provider kinds as CAP service subclasses
 
 ### Breaking changes
 
