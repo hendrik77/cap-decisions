@@ -10,7 +10,7 @@ Written on 2026-10-21 against `main` at v0.8.0 (`718296f`). It continues the [0.
 - [How the work is done](#how-the-work-is-done)
 - [0.9.0: stable surface, provider test kit, coverage](#090-stable-surface-provider-test-kit-coverage)
 - [0.9.1: reviews](#091-reviews)
-- [0.9.2: release candidate](#092-release-candidate)
+- [0.9.2: release candidate and acceptance](#092-release-candidate-and-acceptance)
 - [1.0.0: npm publication](#100-npm-publication)
 - [Later](#later)
 - [Progress](#progress)
@@ -39,9 +39,9 @@ Written on 2026-10-21 against `main` at v0.8.0 (`718296f`). It continues the [0.
 - The README's stability table marks four areas stable (the service API, the request and answer types, `SystemOneError` and its codes, the kinds and settings) and three experimental "until the first npm publication": the subclass hooks, the HTTP mock server and its command line, and the `cds add systemone` facet.
 - No security review has been done. Areas without a recorded decision include: `fetch` follows redirects by default, and a response body is read whole (`response.text()`) without a size limit; the token rule (HTTPS or loopback) is checked on the configured URL.
 - Provider packages have no way to test their kind against `cap-jev` except by copying its tests; `examples/provider-package` has none of its own.
-- The peer range is `@sap/cds >=9`, so a future CAP 11 counts as supported without being tested.
+- The peer range is `@sap/cds >=9`, in `package.json` and in `examples/provider-package`, so a future CAP 11 counts as supported without being tested. The maintainer decided on 2026-10-21 that `cap-jev` supports **the last two stable CAP major versions**: today CAP 9 and CAP 10; when CAP 11 is released, CAP 9 is dropped (see [H1](#h1-the-100-public-api-main-adr-0006)).
 - The npm name `cap-jev` is free (checked 2026-10-21). `package.json` has `repository`, `keywords`, `author`, `files` and `engines`; it has no `homepage` or `bugs`. The README links to `docs/`, which is not in the package.
-- No real Laya server is reachable from the development machine of this plan; a run against Laya needs the maintainer.
+- No real model has been tested yet: every HTTP test runs against local fakes or the HTTP mock server. The maintainer decided on 2026-10-21 that 1.0.0 needs full acceptance tests, run manually with prepared support, against TypeSafe Jev, Cloudflare Clef, a local Laya server and a local Jev model (see [H9](#h9-acceptance-tests-against-the-real-models-user-prepared-by-agent)). None of them is reachable from the development machine of this plan, so the runs need the maintainer.
 
 ## How the work is done
 
@@ -54,7 +54,7 @@ As for 0.8.0 (see [the 0.8 plan](completed/cds-add-systemone.md#how-the-work-is-
 - **Patch releases.** Problems found after a release go into the next 0.9.x patch before the next task group starts.
 - **Every release reviews and updates all Markdown files**: `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/*.md`, `examples/*/README.md`, the ADRs and the plans, read against the code.
 
-Definition of done, in addition to the earlier plans: every public name is listed in ADR 0006 as stable, experimental or internal; `npm run coverage` passes its thresholds in CI; every high and medium security finding is fixed or explicitly accepted by the maintainer.
+Definition of done, in addition to the earlier plans: every public name is listed in ADR 0006 as stable, experimental or internal; `npm run coverage` passes its thresholds in CI; every high and medium security finding is fixed or explicitly accepted by the maintainer; the peer range names exactly the CAP majors that CI tests; the four acceptance runs of H9 pass on the release candidate that becomes 1.0.0.
 
 ## 0.9.0: stable surface, provider test kit, coverage
 
@@ -68,10 +68,14 @@ ADR `docs/decisions/0006-public-api-for-1.0.md` lists every public name and deci
 2. Decisions to make in the ADR, each with options and a recommendation:
    - whether the subclass hooks become stable in 1.0.0, or stay experimental until a second provider package uses them;
    - what is breaking: for example a new error code, a new required setting, a new kind default, a changed CLI exit code, a changed `cds add` message;
-   - the peer range: `>=9` (CAP 11 counts as supported untested) or `^9 || ^10` (CAP 11 needs a minor release of `cap-jev`);
+   - how the CAP support policy (decided, see below) is versioned: whether dropping the oldest CAP major after 1.0.0 is a major release of `cap-jev`, as semantic versioning usually treats a dropped peer version, or a minor release, because the policy is announced in advance;
    - the Node range (`>=22`) and when an end-of-life Node version is dropped;
    - whether `cap-jev/testing` (H2) is stable or experimental in 1.0.0.
-3. Proposed while 0.9.x runs; accepted when 1.0.0 is merged. The maintainer reviews the recommendations before 0.9.0 is released.
+3. Decided by the maintainer, recorded in the ADR and implemented in 0.9.0 (*agent*, red-green): `cap-jev` supports the last two stable CAP major versions.
+   - `peerDependencies` becomes `"@sap/cds": "^9 || ^10"` in `package.json` and `examples/provider-package/package.json`.
+   - `npm run release:check` fails when the CAP majors in the peer range differ from the CAP majors in the CI matrix (`.github/workflows/ci.yml`), so one cannot change without the other. Tests in `tests/release-scripts.test.cjs`.
+   - When CAP 11 is released: one release adds CAP 11 to CI and the peer range and removes CAP 9 from both, together with the CAP 9 notes in the README and `AGENTS.md` (the `@sap/cds-dk@^9` step and the `better-sqlite3` workaround). Code that exists only for CAP 9 is removed in the same release. The README states the policy next to the installation.
+4. Proposed while 0.9.x runs; accepted when 1.0.0 is merged. The maintainer reviews the recommendations before 0.9.0 is released.
 
 ### H2 Provider test kit `cap-jev/testing` (*agent*, red-green; ADR 0007)
 
@@ -129,15 +133,37 @@ Each accepted finding is fixed red-green in its own commit. The release follows 
 | --- | --- | --- | --- | --- | --- |
 | | | Filled in by H5 to H7 | | | |
 
-## 0.9.2: release candidate
+## 0.9.2: release candidate and acceptance
 
-Goal: everything that 1.0.0 needs is in place and verified, except the publication itself.
+Goal: everything that 1.0.0 needs is in place and verified against the real models, except the publication itself.
 
-### H9 Run against a real Laya server (*user*, prepared by *agent*)
+### H9 Acceptance tests against the real models (*user*, prepared by *agent*)
 
-1. *agent*: `docs/verification.md` with a script (in the document, not in the package) that runs the example app in production against `systemone-laya` and checks all three question types, the `choiceOptions` limit of 100, a timeout with a small `timeoutMs`, and the error for a stopped server. It prints one line per check.
-2. *user*: run it against Laya and record the date, the Laya version and the output in the document.
-3. Differences between Laya and the mock server become findings for 0.9.3, or a documented difference.
+Before 1.0.0, each of the four targets passes a full acceptance run. The maintainer runs it by hand, with a prepared script, a checklist and the main session analysing the output.
+
+| Target | Kind | Model | The maintainer provides |
+| --- | --- | --- | --- |
+| TypeSafe Jev | `systemone-typesafe` | `jev-latest` | a TypeSafe API token |
+| Cloudflare Clef | `systemone-cloudflare` | `clef` | `accountId` and a token with only Workers AI Read and Edit |
+| Local Laya | `systemone-laya` | the server's | a Laya server on `127.0.0.1:8000` |
+| Local Jev model | `systemone-generic` with `credentials.url` | the server's | a Jev-compatible server running on the machine |
+
+1. *agent*, red-green: `scripts/acceptance.cjs` (not in the package). `node scripts/acceptance.cjs --kind <kind> --archive <cap-jev-x.y.z.tgz> [--url <url>]` creates a fresh app, installs the archive, runs `cds add systemone --kind <kind>`, takes the token from the environment variable `CAP_JEV_ACCEPTANCE_TOKEN` (never from an argument, never printed) and runs the checks in the production profile:
+   - connecting validates the settings; a missing token fails with `INVALID_CONFIG` (token kinds);
+   - `choice`, `score` and `noul` answers come back typed: the choice is one of the offered labels, the score is in range, `noul` has its fields;
+   - several questions in one request;
+   - a request at each limit of the kind is accepted (Laya: 100 choice options; TypeSafe: 255 choice options, 2 and 10 score criteria; Cloudflare: 64 questions), and one over the limit is rejected before anything is sent;
+   - a wrong token fails with `HTTP_ERROR` (401 or 403), and neither the error message nor the log contains the token (token kinds);
+   - `timeoutMs: 1` fails with `TIMEOUT`;
+   - a URL with nothing listening fails with `NETWORK_ERROR` (local targets);
+   - the example app's handler end to end: a refund ticket is routed;
+   - the latency of each call.
+
+   It prints one line per check (`pass`, `fail` or `skipped` with the reason) and ends with a Markdown result block. Its own tests in `tests/acceptance-script.test.cjs` run it against `cap-jev-mock` for all four kinds (`--format cloudflare` for Cloudflare, `--token` for the token kinds), so the script is tested before anyone runs it against a real model.
+2. *agent*: `docs/acceptance.md`: the prerequisites per target (accounts, tokens and their permissions, how to start Laya and a local Jev server), the commands, what each check shows, and one result table per target: date, `cap-jev` archive, CAP and Node versions, model or server version, result, notes.
+3. *user*: run all four against the 0.9.2 archive and paste the output into the session; the main session records it in `docs/acceptance.md`.
+4. A failure caused by `cap-jev` becomes a finding, fixed red-green in 0.9.3, and the affected runs are repeated on 0.9.3. A provider difference (another limit, another error format, a model that answers outside the offered labels) changes the kind's settings or is documented in the README. Runs that are older than a change to the transport, the validation or a kind are repeated.
+5. 1.0.0 is released only when all four runs pass on the release candidate that becomes 1.0.0. If a target is unavailable, 1.0.0 waits.
 
 ### H10 Publication readiness (*agent*, *main*)
 
@@ -148,10 +174,11 @@ Goal: everything that 1.0.0 needs is in place and verified, except the publicati
 
 ### H11 Release 0.9.2 (*main*)
 
-The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.9.0 again from the published archive, and `npm publish --dry-run` in the workflow log.
+The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.9.0 again from the published archive, and `npm publish --dry-run` in the workflow log. Then the acceptance runs of H9 on the published 0.9.2 archive.
 
 ## 1.0.0: npm publication
 
+- All four acceptance runs in `docs/acceptance.md` pass on the release candidate that becomes 1.0.0 (H9).
 - ADRs 0006, 0007 and 0008 accepted; the README's stability table matches ADR 0006; semantic versioning applies from here.
 - The release workflow publishes with the method from H10, with provenance; the release archives stay attached to GitHub releases.
 - The install instructions switch to `npm add cap-jev`, or `cds add systemone -p cap-jev`, which installs and configures in one step; `release:check` checks the npm instructions instead of the archive URLs.
@@ -160,6 +187,7 @@ The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.9.0 again 
 ## Later
 
 - A Laya `docker compose` setup as the "real model on the developer's machine" option, documented only, without CI.
+- Repeating the acceptance runs of H9 for every minor release after 1.0.0.
 - Separate provider packages (ADR 0001, option D), when a provider needs heavy dependencies.
 - The mock refusing `credentials.url` without a `kind` in development, if the warning proves insufficient.
 - `cds add systemone` for `.cdsrc.json` projects and for credentials beyond the token (such as Cloudflare's `accountId`), if needed.
