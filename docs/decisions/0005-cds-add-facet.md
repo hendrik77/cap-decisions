@@ -44,6 +44,6 @@ CAP's command line has a plugin interface for `cds add` in `@sap/cds-dk` ([`cds 
 
 ## References
 
-- [Plan](../plans/cds-add-systemone.md), tasks F1–F4
+- [Plan](../plans/completed/cds-add-systemone.md), tasks F1–F4
 - [ADR 0001: Provider kinds as CAP service subclasses](0001-provider-kinds-as-cap-service-subclasses.md), [ADR 0002: In-process mock provider](0002-in-process-mock-provider.md)
 - CAP: [`cds add` plugin API](https://cap.cloud.sap/docs/tools/apis/cds-add), [profiles](https://cap.cloud.sap/docs/node.js/cds-env#profiles)

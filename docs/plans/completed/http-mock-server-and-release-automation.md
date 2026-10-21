@@ -9,7 +9,7 @@ The reasoning lives in two draft ADRs:
 - [ADR 0003: HTTP mock server in the same package](../../decisions/0003-http-mock-server.md), accepted when 0.7.0 is merged.
 - [ADR 0004: Tag-triggered release workflow](../../decisions/0004-tag-triggered-releases.md), accepted when 0.7.0 is merged.
 
-Completed with 0.7.1; the road after it continues in [the 0.8 plan](../cds-add-systemone.md).
+Completed with 0.7.1; the road after it continues in [the 0.8 plan](cds-add-systemone.md).
 
 ## Contents
 
@@ -189,7 +189,7 @@ Outcome: the path was never in the file. A Markdown viewer had shown the relativ
 
 ## After 0.7.1
 
-0.8.0 (`cds add systemone`), 0.9.x (hardening) and 1.0.0 (npm publication) continue in [the 0.8 plan](../cds-add-systemone.md).
+0.8.0 (`cds add systemone`), 0.9.x (hardening) and 1.0.0 (npm publication) continue in [the 0.8 plan](cds-add-systemone.md).
 
 ## Progress
 
