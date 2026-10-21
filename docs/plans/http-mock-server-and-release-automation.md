@@ -14,6 +14,7 @@ The reasoning lives in two draft ADRs:
 - [Starting point](#starting-point)
 - [How the work is done](#how-the-work-is-done)
 - [0.7.0: HTTP mock server and automated releases](#070-http-mock-server-and-automated-releases)
+- [0.7.1: no absolute paths](#071-no-absolute-paths)
 - [0.8.0: `cds add systemone`](#080-cds-add-systemone)
 - [0.9.x: hardening for 1.0.0](#09x-hardening-for-100)
 - [1.0.0: npm publication](#100-npm-publication)
@@ -175,6 +176,16 @@ Files: `scripts/release-check.cjs`, `scripts/release-notes.cjs` (CommonJS, expor
 3. Pull request, green CI, merge commit, tag `v0.7.0`, push the tag; the workflow creates the release.
 4. Smoke test: install the archive in a fresh app; `npx cap-jev-mock --port 0` answers; the app with `systemone-laya` and the server's URL answers in production.
 
+## 0.7.1: no absolute paths
+
+Reported on 2026-10-21: an absolute path from the developer's machine in an example README. A search of the tracked files, the git history and the release notes on `release-0.7.0` found none, so the source still has to be found (a rendered page, the release archive, an untracked file).
+
+#### P1 Find and replace absolute paths (*agent*, red-green)
+
+1. Tests first: `scripts/release-check.cjs` gets a check that no tracked text file (`git ls-files`, without `package-lock.json`) contains a machine path: `/Users/<name>/`, `/home/<name>/`, `/private/tmp/`, `/var/folders/`, or `C:\Users\`. It fails naming the file and line. `tests/release-scripts.test.cjs` covers each pattern and the clean repository.
+2. Replace every hit with a path relative to the file (links) or to the project root (commands), and check the unpacked release archive (`npm pack`, then search its files) the same way.
+3. `AGENTS.md`: paths in documentation and code are relative; absolute paths are not committed.
+
 ## 0.8.0: `cds add systemone`
 
 A detailed plan follows when 0.7.x is done. Scope:
@@ -208,7 +219,9 @@ A detailed plan follows when 0.7.x is done. Scope:
 
 | Task | Status |
 | --- | --- |
-| R1–R7 | Open |
+| R1, R2, R4, R5 | Done on `release-0.7.0` |
+| R3, R6, R7 | Open |
+| P1 (0.7.1) | Open |
 
 ## Blocked tests
 
