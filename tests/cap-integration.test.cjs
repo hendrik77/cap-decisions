@@ -217,6 +217,31 @@ test('installed package registers an internal CAP service with decide()', { time
       /ok/,
     );
     assert.equal(received.length, requestsBefore, 'the mock must not call the fake server');
+    // The facet is part of the archive and runs from the installed package.
+    assert.ok(fs.existsSync(path.join(fixture, 'node_modules/cap-jev/dist/add.js')), 'dist/add.js is installed');
+    assert.ok(fs.existsSync(path.join(fixture, 'node_modules/cap-jev/dist/add-core.js')), 'add-core.js is installed');
+    const cdsBin = path.join(path.dirname(require.resolve('@sap/cds-dk/package.json')), 'bin/cds.js');
+    const add = (...args) =>
+      execFileAsync(process.execPath, [cdsBin, 'add', 'systemone', ...args], {
+        cwd: fixture,
+        encoding: 'utf8',
+        env: development,
+        timeout: 60_000,
+      });
+    const projectFile = (name) => path.join(fixture, name);
+    const before = fs.readFileSync(projectFile('package.json'), 'utf8');
+    const kept = await add('--kind', 'systemone-typesafe');
+    assert.match(kept.stdout, /\[systemone\].*systemone-laya.*--force/);
+    assert.equal(fs.readFileSync(projectFile('package.json'), 'utf8'), before);
+    assert.equal(fs.existsSync(projectFile('.cdsrc-private.json')), false);
+    const forced = await add('--kind', 'systemone-typesafe', '--force');
+    assert.match(forced.stdout, /\[systemone\].*Replaced the kind systemone-laya/);
+    const configured = JSON.parse(fs.readFileSync(projectFile('package.json'), 'utf8'));
+    assert.equal(configured.cds.requires.systemone['[production]'].kind, 'systemone-typesafe');
+    assert.deepEqual(JSON.parse(fs.readFileSync(projectFile('.cdsrc-private.json'), 'utf8')), {
+      requires: { systemone: { '[production]': { credentials: { token: '' } } } },
+    });
+    assert.match(fs.readFileSync(projectFile('.gitignore'), 'utf8'), /^\.cdsrc-private\.json$/m);
   } finally {
     server.close();
     fs.rmSync(temp, { recursive: true, force: true });
