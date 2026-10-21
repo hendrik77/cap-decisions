@@ -10,13 +10,13 @@ The package is not yet published to npm. Install a release archive from [GitHub 
 
 ```sh
 npm config set allow-remote root --location=project
-npm install https://github.com/hendrik77/cap-jev/releases/download/v0.6.0/cap-jev-0.6.0.tgz
+npm install https://github.com/hendrik77/cap-jev/releases/download/v0.7.0/cap-jev-0.7.0.tgz
 ```
 
 or download the archive and install the file, which works with every npm version:
 
 ```sh
-curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.6.0/cap-jev-0.6.0.tgz
+curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.7.0/cap-jev-0.7.0.tgz
 npm install ./cap-jev-0.6.0.tgz
 ```
 
@@ -103,8 +103,9 @@ In the `development` and `test` profiles, an application without an explicit `ki
 - The settings `latencyMs` and `fail` simulate slow and failing providers for error-handling tests.
 - To use a real endpoint in development, set a `kind`, for example `CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya`. An explicit kind always wins.
 - The mock refuses the `production` profile unless `allowInProduction` is `true`.
+- To exercise the HTTP path (retries, timeouts, tokens, `systemone-laya`, `systemone-cloudflare`) without Laya, run the HTTP mock server: `npx cap-jev-mock`, then `CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya npm start`. It gives the same answers as the in-process mock over HTTP. See [HTTP mock server](docs/local-development.md#http-mock-server).
 
-[docs/local-development.md](docs/local-development.md) has the activation table, the settings and the fixture format.
+[docs/local-development.md](docs/local-development.md) has the activation table, the settings, the fixture format and the HTTP mock server.
 
 ## Provider configuration
 
@@ -230,8 +231,9 @@ You can add a provider at three levels:
 | `SystemOneError` and its codes | Stable |
 | The kind names and the settings, including the `systemone-mock` kind and its settings (`MockSettings`) | Stable |
 | The subclass hooks: `setup`, `call`, `endpoint`, `unwrap`, `errorCode`, and the static `settingsKeys` and `credentialKeys` | Experimental until the first npm publication |
+| The HTTP mock server: `cap-jev/mock-server` (`startMockServer`, `MockServerOptions`, `MockServer`) and the `cap-jev-mock` command line | Experimental until the first npm publication |
 
-`MockSettings` is exported as a type. `SystemOneTransport` is internal and not exported.
+`MockSettings` is exported as a type; `MockServerOptions` and `MockServer` come from `cap-jev/mock-server`. `SystemOneTransport` is internal and not exported.
 
 ## Development
 
@@ -242,21 +244,27 @@ npm run typecheck
 npm run build
 npm test
 npm pack --dry-run
+npm run release:check
 ```
 
 Tests use Node's built-in test runner and need no external API key; HTTP tests run against local servers. `npm test` builds the package and runs `tests/*.test.cjs`. To run one file: `node --test tests/transport.test.cjs`.
 
 - CAP-level tests create temporary CAP apps with `tests/helpers/app.cjs`. The apps use the repository's `cap-jev` and `@sap/cds`, so one copy of each is loaded.
 - `tests/mock.test.cjs`, `tests/mock-engine.test.cjs` and `tests/mock-fixtures.test.cjs` test the mock provider: activation in each profile, production refusal, fixtures, simulated failures and latency, and the answer engine. `tests/mock.test.ts` checks the `MockSettings` types.
-- Because the mock is the default in `development` and `test`, a test that needs a real or fake HTTP endpoint selects a kind explicitly.
+- `tests/mock-core.test.cjs` tests the mock core that `MockService` and the server share: option checks, fixture loading and the order of `fail`, rules and engine.
+- `tests/mock-server.test.cjs` tests the HTTP mock server with plain `fetch`: the request and failure tables, the Cloudflare format, the token, latency and disconnects, the options, and loading without `@sap/cds`. `tests/mock-server-cap.test.cjs` runs temporary CAP apps in the production profile against it, with the generic and Cloudflare kinds. `tests/mock-server-cli.test.cjs` runs the `cap-jev-mock` command line in child processes. `tests/mock-server.test.ts` checks the `MockServerOptions` types.
+- `tests/release-scripts.test.cjs` tests the release scripts `scripts/release-check.cjs` and `scripts/release-notes.cjs` in temporary directories.
+- Because the mock is the default in `development` and `test`, a test that needs a real or fake HTTP endpoint selects a kind explicitly. The HTTP mock server can serve as that endpoint, so a test needs no fake server of its own.
 - `tests/example-app.test.cjs` and `tests/example-app-failure.test.cjs` run `examples/cap-app` with `cds.test` on the mock, without a fake server.
-- `tests/cap-integration.test.cjs` installs the packed package in a copy of the example app, using the npm cache when available and the registry otherwise. It makes its server calls in the production profile and one call in development on the mock.
+- `tests/cap-integration.test.cjs` installs the packed package in a copy of the example app, using the npm cache when available and the registry otherwise. It makes its server calls in the production profile and one call in development on the mock, and checks that the installed `cap-jev-mock` command runs.
 - `npm run typecheck` also checks the types in `tests/*.test.ts`: answer inference, choice labels, exports and the subclass hooks.
 - `npm run build` emits CommonJS JavaScript and declarations in `dist/`.
 
 To test against CAP 9, run `npm install --no-save @sap/cds@^9` and then `npm test`.
 
-[CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck (CAP 10 only), tests (including the build) and `npm pack --dry-run` on Node.js 22, 24 and 26 with CAP 9 and CAP 10, for pushes and pull requests.
+`npm run release:check` checks that the version in `package.json` matches `package-lock.json`, the example app's `cap-jev` range, the release archive URLs in both READMEs and a heading in `CHANGELOG.md`. `npm run release:check -- --tag v<x.y.z>` also checks the tag.
+
+[CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck (CAP 10 only), tests (including the build) and `npm pack --dry-run` on Node.js 22, 24 and 26 with CAP 9 and CAP 10, for pushes to branches and for pull requests. Pushing a tag `v<x.y.z>` runs the [release workflow](.github/workflows/release.yml), which runs CI on the tagged commit, checks the release with `npm run release:check` and creates the GitHub release with the `npm pack` archive and the changelog section as notes.
 
 Design decisions are recorded in [docs/decisions/](docs/decisions/).
 

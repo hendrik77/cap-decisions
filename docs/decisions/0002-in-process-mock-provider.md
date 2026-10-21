@@ -17,7 +17,7 @@ On CAP 10.1.1 and 9.9.3, a plugin-level `"[development]"` default for `systemone
 
 | Option | Outcome | Verdict |
 | --- | --- | --- |
-| **A.** An HTTP mock server only | A second process for every developer; slower and harder to control in tests | Deferred: useful later for the HTTP path and non-CAP clients |
+| **A.** An HTTP mock server only | A second process for every developer; slower and harder to control in tests | Deferred; adopted in 0.7.0 as [ADR 0003](0003-http-mock-server.md) |
 | **B.** Random answers | Unstable tests and snapshots | Rejected |
 | **C.** Require Laya or a provider token for local work | Setup, network access and secrets before the first run | Rejected |
 | **D.** An in-process `systemone-mock` kind, opt-in per application | Works, but every application has to configure it | Rejected in favour of E |

@@ -1,10 +1,13 @@
 {
   "name": "cap-jev",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Internal System One decision service for SAP CAP",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "cap-jev-mock": "dist/mock-server-cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -17,6 +20,10 @@
     "./providers/mock": {
       "types": "./dist/providers/mock.d.ts",
       "default": "./dist/providers/mock.js"
+    },
+    "./mock-server": {
+      "types": "./dist/mock-server.d.ts",
+      "default": "./dist/mock-server.js"
     },
     "./package.json": "./package.json",
     "./cds-plugin": "./cds-plugin.js",
@@ -70,9 +77,10 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "format": "prettier --write src tests examples/cap-app/srv",
+    "release:check": "node scripts/release-check.cjs",
+    "format": "prettier --write src tests scripts examples/cap-app/srv",
     "typecheck": "tsc --noEmit && tsc -p tests/tsconfig.json && tsc -p examples/cap-app/tsconfig.json",
-    "build": "tsc",
+    "build": "tsc && node -e \"require('fs').chmodSync('dist/mock-server-cli.js', 0o755)\"",
     "test": "npm run build && node --test tests/*.test.cjs",
     "prepack": "npm run build"
   },
