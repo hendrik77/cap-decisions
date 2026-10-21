@@ -75,6 +75,13 @@ test('installed package registers an internal CAP service with decide()', { time
       timeout: 120_000,
     });
     assert.equal(install.status, 0, install.error?.message ?? install.stderr);
+    const bin = spawnSync(path.join(fixture, 'node_modules', '.bin', 'cap-jev-mock'), ['--version'], {
+      cwd: fixture,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    assert.equal(bin.status, 0, bin.error?.message ?? bin.stderr);
+    assert.equal(bin.stdout.trim(), require('../package.json').version);
     const script = `
       const cds = require('@sap/cds');
       (async () => {

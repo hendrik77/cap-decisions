@@ -5,6 +5,9 @@
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "cap-jev-mock": "dist/mock-server-cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
