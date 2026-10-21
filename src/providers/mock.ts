@@ -1,31 +1,16 @@
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import cds from '@sap/cds';
 import { SystemOneService } from '../index';
 import type { DecideOptions } from '../index';
-import type { Answer, DecisionRequest, MockSettings } from '../types';
+import type { DecisionRequest, MockSettings } from '../types';
 import { SystemOneError } from '../validation';
-import { mockResult } from './mock-engine';
 import type { MockStrategy } from './mock-engine';
-import { findRule, parseFixtures, ruleAnswer, ruleError } from './mock-fixtures';
+import { DEFAULT_FIXTURES, loadFixtures, mockDecision, parseMockOptions } from './mock-core';
 import type { MockRule } from './mock-fixtures';
 
-const DEFAULT_FIXTURES = 'test/data/systemone.json';
-const FAIL_SOURCE = 'cds.requires.systemone.fail';
 const WARNING =
   'Using the mock provider: answers are simulated. Set a kind such as systemone-laya to use a real endpoint in development.';
 
-const invalidConfig = (message: string, cause?: unknown) => new SystemOneError('INVALID_CONFIG', message, { cause });
-const record = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-function parseFail(fail: unknown): MockRule {
-  if (typeof fail === 'string') return parseFixtures([{ fail }], FAIL_SOURCE)[0];
-  if (!record(fail)) throw invalidConfig('fail must be an error code or an object with a code');
-  const unknown = Object.keys(fail).find((key) => !['code', 'status', 'providerCode'].includes(key));
-  if (unknown) throw invalidConfig(`Unknown property "${unknown}" in fail`);
-  return parseFixtures([{ fail: fail.code, status: fail.status, providerCode: fail.providerCode }], FAIL_SOURCE)[0];
-}
+const invalidConfig = (message: string) => new SystemOneError('INVALID_CONFIG', message);
 
 function wait(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -52,41 +37,18 @@ export default class MockService extends SystemOneService {
   private fixtureSource = DEFAULT_FIXTURES;
 
   protected override async setup(settings: MockSettings): Promise<void> {
-    const { fixtures, strategy = 'keywords', latencyMs = 0, fail, allowInProduction = false } = settings;
+    const { allowInProduction = false } = settings;
     if (typeof allowInProduction !== 'boolean') throw invalidConfig('allowInProduction must be a boolean');
     if (cds.env.profiles?.includes('production') && !allowInProduction) {
       throw invalidConfig('The mock provider is disabled in production; set allowInProduction: true to use it');
     }
-    if (strategy !== 'keywords' && strategy !== 'seeded') throw invalidConfig('strategy must be keywords or seeded');
-    if (!Number.isSafeInteger(latencyMs) || latencyMs < 0) {
-      throw invalidConfig('latencyMs must be a non-negative integer');
-    }
-    if (fixtures !== undefined && (typeof fixtures !== 'string' || !fixtures)) {
-      throw invalidConfig('fixtures must be a non-empty file path');
-    }
+    const { strategy, latencyMs, fixtures, fail } = parseMockOptions(settings);
     this.strategy = strategy;
     this.latencyMs = latencyMs;
-    if (fail !== undefined) this.fail = parseFail(fail);
+    this.fail = fail;
     this.fixtureSource = fixtures ?? DEFAULT_FIXTURES;
-    this.rules = await this.loadFixtures(fixtures !== undefined);
+    this.rules = await loadFixtures(cds.root, this.fixtureSource, fixtures !== undefined);
     cds.log('systemone').warn(WARNING);
-  }
-
-  private async loadFixtures(configured: boolean): Promise<MockRule[]> {
-    let text: string;
-    try {
-      text = await readFile(path.resolve(cds.root, this.fixtureSource), 'utf8');
-    } catch (error) {
-      if (!configured && (error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-      throw invalidConfig(`Cannot read the fixtures file ${this.fixtureSource}`, error);
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch (error) {
-      throw invalidConfig(`${this.fixtureSource} is not valid JSON`, error);
-    }
-    return parseFixtures(parsed, this.fixtureSource);
   }
 
   private async delay(signal?: AbortSignal): Promise<void> {
@@ -105,15 +67,8 @@ export default class MockService extends SystemOneService {
     options: DecideOptions,
   ): Promise<{ result: unknown; attempts: number }> {
     await this.delay(options.signal);
-    if (this.fail) throw ruleError(this.fail);
-    const answers: Record<string, Answer> = {};
-    for (const [id, question] of Object.entries(request.questions)) {
-      const match = findRule(this.rules, request.state, id);
-      if (!match) continue;
-      if (match.rule.fail) throw ruleError(match.rule);
-      answers[id] = ruleAnswer(match.rule, match.index, question, request.state, id, this.fixtureSource);
-    }
-    return { result: mockResult(request, this.strategy, answers), attempts: 1 };
+    const { strategy, rules, fail, fixtureSource: source } = this;
+    return { result: mockDecision(request, { strategy, rules, fail, source }), attempts: 1 };
   }
 }
 
