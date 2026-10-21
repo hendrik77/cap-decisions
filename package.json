@@ -18,6 +18,10 @@
       "types": "./dist/providers/mock.d.ts",
       "default": "./dist/providers/mock.js"
     },
+    "./mock-server": {
+      "types": "./dist/mock-server.d.ts",
+      "default": "./dist/mock-server.js"
+    },
     "./package.json": "./package.json",
     "./cds-plugin": "./cds-plugin.js",
     "./cds-plugin.js": "./cds-plugin.js"

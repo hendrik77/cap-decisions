@@ -97,7 +97,7 @@ HTTP behaviour:
 | `INVALID_RESPONSE` | 200 with a body that is not JSON | `INVALID_RESPONSE` |
 | `PROVIDER_ERROR` | `jev`: 500 with `{ "error": { "type": <providerCode or "provider_error"> } }`. `cloudflare`: 200 with `{ "success": false, "errors": [{ "code": <providerCode> }], "result": null }` | `jev`: `HTTP_ERROR` 500 (Jev has no provider-level error); `cloudflare`: `PROVIDER_ERROR` |
 
-`--format cloudflare` wraps every answer in `{ "success": true, "errors": [], "result": … }`, so `systemone-cloudflare` with `credentials.url` pointing at the server can be tried locally.
+`--format cloudflare` wraps every answer in `{ "success": true, "errors": [], "result": … }`, so `systemone-cloudflare` with `credentials.url` pointing at the server can be tried locally. In that format, error bodies use the Cloudflare envelope too, `{ "success": false, "errors": [{ "code": <type>, "message": … }], "result": null }`, so `CloudflareService` finds the code; the error types are the same.
 
 `latencyMs` delays each answer; a client that disconnects ends the wait.
 

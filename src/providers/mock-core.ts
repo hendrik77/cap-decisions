@@ -21,16 +21,17 @@ const invalidConfig = (message: string, cause?: unknown) => new SystemOneError('
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-function parseFail(fail: unknown): MockRule {
-  if (typeof fail === 'string') return parseFixtures([{ fail }], FAIL_SOURCE)[0];
+function parseFail(fail: unknown, source: string): MockRule {
+  if (typeof fail === 'string') return parseFixtures([{ fail }], source)[0];
   if (!record(fail)) throw invalidConfig('fail must be an error code or an object with a code');
   const unknown = Object.keys(fail).find((key) => !['code', 'status', 'providerCode'].includes(key));
   if (unknown) throw invalidConfig(`Unknown property "${unknown}" in fail`);
-  return parseFixtures([{ fail: fail.code, status: fail.status, providerCode: fail.providerCode }], FAIL_SOURCE)[0];
+  return parseFixtures([{ fail: fail.code, status: fail.status, providerCode: fail.providerCode }], source)[0];
 }
 
 export function parseMockOptions(
   settings: Pick<MockSettings, 'fixtures' | 'strategy' | 'latencyMs' | 'fail'>,
+  failSource = FAIL_SOURCE,
 ): MockOptions {
   const { fixtures, strategy = 'keywords', latencyMs = 0, fail } = settings;
   if (strategy !== 'keywords' && strategy !== 'seeded') throw invalidConfig('strategy must be keywords or seeded');
@@ -42,7 +43,7 @@ export function parseMockOptions(
   }
   const options: MockOptions = { strategy, latencyMs };
   if (fixtures !== undefined) options.fixtures = fixtures;
-  if (fail !== undefined) options.fail = parseFail(fail);
+  if (fail !== undefined) options.fail = parseFail(fail, failSource);
   return options;
 }
 
