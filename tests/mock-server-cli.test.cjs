@@ -325,4 +325,9 @@ describe('other behavior', () => {
   test('the built file starts with a node shebang', () => {
     assert.ok(fs.readFileSync(cli, 'utf8').startsWith('#!/usr/bin/env node\n'));
   });
+
+  // npm cannot mark the bin executable when it links the workspace before the first build.
+  test('the build makes the file executable', { skip: process.platform === 'win32' }, () => {
+    assert.equal(fs.statSync(cli).mode & 0o111, 0o111);
+  });
 });

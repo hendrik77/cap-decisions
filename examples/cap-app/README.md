@@ -30,15 +30,25 @@ curl -u alice: -X POST http://localhost:4004/odata/v4/decision/classify \
 
 ### Use a real Jev server
 
-An explicit `kind` always wins over the mock. To try a real server in development, select the kind from the environment, with Laya (or another Jev-compatible server) running at `http://127.0.0.1:8000`:
+An explicit `kind` always wins over the mock. To send the app's requests over HTTP in development, select the kind from the environment and run a Jev-compatible server at `http://127.0.0.1:8000`.
+
+The easiest server is the HTTP mock server of `cap-jev`. It needs no model, token or network access and gives the same answers as the in-process mock, so the app's behaviour stays the same while its HTTP transport runs. Use two terminals. In the first, start the server in this directory, so that it reads the fixture rule in [`test/data/systemone.json`](test/data/systemone.json). Starting it in the repository root works too, but then it has no fixture rule and answers from keywords alone:
+
+```sh
+npx cap-jev-mock
+```
+
+In the second, start the app with the kind that matches the server's defaults:
 
 ```sh
 CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya CDS_TYPESCRIPT=true npm start
 ```
 
-Start such a server, for example [Laya](https://github.com/WhoIsMrSentry/laya-system-one#self-hosting-http-server-jev-compatible), or point `systemone-laya` at another endpoint with `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_URL`. The URL alone does not leave the mock; the kind must be set too.
+The server logs each request. Options such as `--fail HTTP_ERROR --status 503`, `--latency-ms` and `--format cloudflare` simulate slow and failing providers; see [HTTP mock server](../../docs/local-development.md#http-mock-server).
 
-In production (`CDS_TYPESCRIPT=true npm start -- --production`), [`package.json`](package.json) selects `systemone-laya`, which needs a Jev-compatible server and a real authentication strategy (see below). The mock refuses to run in production.
+For answers from a real model, run [Laya](https://github.com/WhoIsMrSentry/laya-system-one#self-hosting-http-server-jev-compatible) or another Jev-compatible server instead, and start the app the same way. To use another endpoint with `systemone-laya`, set `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_URL`. The URL alone does not leave the mock; the kind must be set too.
+
+In production (`CDS_TYPESCRIPT=true npm start -- --production`), [`package.json`](package.json) selects `systemone-laya`, which needs a Jev-compatible server and a real authentication strategy (see below). The HTTP mock server serves for this too, as a stand-in for Laya, if you run it as above and configure authentication. The in-process mock refuses to run in production.
 
 ### Outside this repository
 

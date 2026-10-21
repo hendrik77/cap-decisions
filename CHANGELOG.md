@@ -2,6 +2,33 @@
 
 This changelog starts with 0.5.0. Earlier versions are described in the [GitHub releases](https://github.com/hendrik77/cap-jev/releases) up to v0.4.3.
 
+## 0.7.0: HTTP mock server and automated releases
+
+### Breaking changes
+
+None.
+
+### Added
+
+- An HTTP mock server, `startMockServer`, on `node:http`. It answers like a Jev server and gives the same answer as the in-process mock for the same request, fixtures and settings. It accepts and ignores `model`, and answers 404, 405, 413, 400, 401 and 500 (`mock_fixture_error`) as the guide describes. It imports no CAP code. It is experimental until the first npm publication.
+- Failures simulated on the HTTP level, so the client's own transport produces the error code: a status code with the retry statuses 429, 502, 503, 504 and 529, a closed connection, no answer, an invalid body, and the provider error. `latencyMs` delays each answer.
+- The `cap-jev-mock` command line (`npx cap-jev-mock`) with the options `--port`, `--host`, `--path`, `--fixtures`, `--strategy`, `--latency-ms`, `--fail`, `--status`, `--provider-code`, `--token` (or `CAP_JEV_MOCK_TOKEN`), `--format`, `--quiet`, `--help` and `--version`. The defaults match `systemone-laya`, so `npx cap-jev-mock` and `CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya npm start` work together. Invalid options exit with code 2, a failed listen with code 1. The server listens on the loopback address by default and warns on any other host.
+- The `cap-jev/mock-server` export with `startMockServer` and the types `MockServerOptions` and `MockServer`.
+- `--format cloudflare` (option `format`), which wraps answers and errors in the Cloudflare envelope, so `systemone-cloudflare` can be tried locally with `credentials.url`.
+- An optional bearer token for the server, for kinds with `requiresToken`.
+- `npm run release:check` (`scripts/release-check.cjs`), which checks that the version in `package.json` appears in `package-lock.json`, the example app's `cap-jev` range, the release archive URLs of both READMEs and the changelog headings, and with `--tag` that the tag is `v<version>`.
+- `scripts/release-notes.cjs`, which prints the release title and extracts the changelog section as release notes.
+- The release workflow `.github/workflows/release.yml`: pushing a tag `v<x.y.z>` runs CI on the tagged commit, then checks the release and creates the GitHub release with the archive and the changelog section as notes. Only the release job has write permission.
+- Guide section "HTTP mock server" in `docs/local-development.md`: the command, the options, the request and failure tables, `systemone-laya`, `systemone-cloudflare`, fixtures and the programmatic API.
+- Architecture decision records `docs/decisions/0003-http-mock-server.md` and `docs/decisions/0004-tag-triggered-releases.md`.
+
+### Changed
+
+- `MockService` uses a shared mock core (`src/providers/mock-core.ts`) for the settings checks, fixture loading and the decision order. Its behaviour is unchanged, and the core has no CAP imports.
+- CI runs on pushes to branches and on pull requests, and as a reusable workflow, but no longer on pushes of tags. The release workflow calls it for the tagged commit.
+- Changelog headings carry the release title, `## <x.y.z>: <title>`, which becomes the title of the GitHub release. The release steps in `AGENTS.md` add `npm run release:check` and let the tag push create the release.
+- New tests cover the mock core, the mock server (the request and failure tables, the Cloudflare format, the token, latency and disconnects, the options, loading without `@sap/cds`), the server against temporary CAP apps in the production profile, the command line in child processes, the `MockServerOptions` types, the release scripts, and the installed `cap-jev-mock` command in `tests/cap-integration.test.cjs`.
+
 ## 0.6.0: Local-first mock provider
 
 ### Breaking changes
