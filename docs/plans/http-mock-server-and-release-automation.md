@@ -220,7 +220,7 @@ A detailed plan follows when 0.7.x is done. Scope:
 | Task | Status |
 | --- | --- |
 | R1–R7 | Released in 0.7.0 |
-| P1 (0.7.1) | Open |
+| P1 | Released in 0.7.1 |
 
 Found during the work and fixed before release: in a fresh clone, npm links the workspace's `cap-jev-mock` before the first build and cannot mark it executable, so `npx cap-jev-mock` failed with "Permission denied"; `npm run build` now sets the mode (0.7.0).
 

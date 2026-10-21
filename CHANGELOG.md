@@ -2,6 +2,21 @@
 
 This changelog starts with 0.5.0. Earlier versions are described in the [GitHub releases](https://github.com/hendrik77/cap-jev/releases) up to v0.4.3.
 
+## 0.7.1: No machine paths
+
+### Breaking changes
+
+None.
+
+### Added
+
+- `npm run release:check` fails when a tracked text file contains a path from a developer's machine: a home directory (`/Users/<name>/`, `/home/<name>/`, `C:\Users\<name>`) or a temporary directory (`/private/tmp/`, `/private/var/`, `/var/folders/`). It names the file and line.
+- `npm run release:check -- --archive <file.tgz>` extracts a packed archive and applies the same check to its files. The release workflow runs it after `npm pack`.
+
+### Fixed
+
+- No committed file or file in the release archive contained a machine path, so nothing had to be replaced. The checks keep it that way.
+
 ## 0.7.0: HTTP mock server and automated releases
 
 ### Breaking changes
