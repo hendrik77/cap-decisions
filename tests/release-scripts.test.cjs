@@ -3,12 +3,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { spawnSync, execFileSync } = require('node:child_process');
 
 const repository = path.join(__dirname, '..');
 const checkScript = path.join(repository, 'scripts', 'release-check.cjs');
 const notesScript = path.join(repository, 'scripts', 'release-notes.cjs');
-const { checkRelease } = require(checkScript);
+const { checkRelease, findMachinePaths, checkArchive } = require(checkScript);
 const { releaseNotes } = require(notesScript);
 
 const url = (a, b = a) => `https://github.com/hendrik77/cap-jev/releases/download/v${a}/cap-jev-${b}.tgz`;
@@ -146,6 +146,134 @@ describe('release-check command line', () => {
     assert.equal(result.status, 1);
     assert.equal(result.stdout, '');
     assert.equal(result.stderr.trim().split('\n').length, 2);
+  });
+});
+
+const machinePaths = {
+  'macOS home': '/Us' + 'ers/alice/project/file.md',
+  'Linux home': '/ho' + 'me/bob.smith/work',
+  'macOS temp': '/pri' + 'vate/tmp/abc123',
+  'macOS private var': '/pri' + 'vate/var/x',
+  'macOS var folders': '/va' + 'r/folders/zz/T',
+  'Windows home': 'C:' + '\\Us' + 'ers\\alice\\x',
+  'Windows home with slashes': 'd:' + '/uSe' + 'rs/alice/x',
+};
+
+describe('findMachinePaths', () => {
+  for (const [name, sample] of Object.entries(machinePaths)) {
+    test(`finds a ${name} path with its line`, () => {
+      const root = tree({ 'docs/a.md': `first\nsee ${sample} here\n` });
+      const hits = findMachinePaths({ root, files: ['docs/a.md'] });
+      assert.equal(hits.length, 1);
+      assert.equal(hits[0].file, 'docs/a.md');
+      assert.equal(hits[0].line, 2);
+      assert.ok(sample.startsWith(hits[0].text));
+      assert.ok(hits[0].text.length > 8);
+    });
+  }
+
+  test('ignores placeholders and bare directory names', () => {
+    const text = [
+      'a /Us' + 'ers/<name>/ b',
+      'a /ho' + 'me/<name>/ b',
+      'a /Us' + 'ers/ b',
+      'a `/pri' + 'vate/tmp/` b',
+      'a /va' + 'r/folders/ b',
+      'a C:' + '\\Us' + 'ers\\<name> b',
+      'a /home b',
+    ].join('\n');
+    const root = tree({ 'a.md': text });
+    assert.deepEqual(findMachinePaths({ root, files: ['a.md'] }), []);
+  });
+
+  test('reports several hits on several lines', () => {
+    const root = tree({ 'a.md': `${machinePaths['macOS home']}\nok\n${machinePaths['Linux home']}\n` });
+    assert.deepEqual(
+      findMachinePaths({ root, files: ['a.md'] }).map((hit) => hit.line),
+      [1, 3],
+    );
+  });
+
+  test('skips binary and missing files', () => {
+    const root = tree({ 'a.md': 'clean\n' });
+    const binary = Buffer.concat([Buffer.from([0, 1, 2]), Buffer.from(machinePaths['macOS home'])]);
+    fs.writeFileSync(path.join(root, 'b.bin'), binary);
+    assert.deepEqual(findMachinePaths({ root, files: ['b.bin', 'missing.md', 'a.md'] }), []);
+  });
+
+  test('walks the root outside a repository and skips node_modules, dist, .git and coverage', () => {
+    const dirty = machinePaths['macOS home'];
+    const root = tree({
+      'src/a.md': dirty,
+      'node_modules/x/a.md': dirty,
+      'dist/a.md': dirty,
+      '.git/a.md': dirty,
+      'coverage/a.md': dirty,
+    });
+    assert.deepEqual(
+      findMachinePaths({ root }).map((hit) => hit.file),
+      ['src/a.md'],
+    );
+  });
+
+  test('lists only the tracked files in a repository', () => {
+    const root = tree({ 'tracked.md': machinePaths['Linux home'], 'untracked.md': machinePaths['Linux home'] });
+    execFileSync('git', ['init', '-q'], { cwd: root });
+    execFileSync('git', ['add', 'tracked.md'], { cwd: root });
+    assert.deepEqual(
+      findMachinePaths({ root }).map((hit) => hit.file),
+      ['tracked.md'],
+    );
+  });
+
+  test('checkRelease reports a hit with file, line and advice', () => {
+    const root = tree({ 'docs/guide.md': `a\nb ${machinePaths['macOS home']}\n` });
+    const failures = checkRelease({ root });
+    assert.equal(failures.length, 1);
+    assert.match(failures[0], /^docs\/guide\.md:2: machine path \/Us/);
+    assert.match(failures[0], /; use a relative path$/);
+  });
+});
+
+const packArchive = (files) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-archive-'));
+  dirs.push(dir);
+  fs.mkdirSync(path.join(dir, 'package'));
+  for (const [name, content] of Object.entries(files)) fs.writeFileSync(path.join(dir, 'package', name), content);
+  const file = path.join(dir, 'cap-jev-1.2.3.tgz');
+  execFileSync('tar', ['-czf', file, '-C', dir, 'package']);
+  return file;
+};
+
+describe('checkArchive', () => {
+  test('reports exactly the dirty file, with archive, path and line', () => {
+    const file = packArchive({ 'clean.md': 'clean\n', 'dirty.md': `ok\n${machinePaths['macOS home']}\n` });
+    const failures = checkArchive(file);
+    assert.equal(failures.length, 1);
+    assert.ok(failures[0].startsWith(`${file}:package/dirty.md:2: machine path /Us`), failures[0]);
+    assert.match(failures[0], /; use a relative path$/);
+  });
+
+  test('reports an unreadable archive', () => {
+    const failures = checkArchive(path.join(os.tmpdir(), 'cap-jev-no-such-archive.tgz'));
+    assert.equal(failures.length, 1);
+    assert.match(failures[0], /cap-jev-no-such-archive\.tgz/);
+  });
+});
+
+describe('release-check --archive', () => {
+  const run = (...args) => spawnSync(process.execPath, [checkScript, ...args], { encoding: 'utf8' });
+
+  test('exits with 1 on a dirty archive and prints the hit', () => {
+    const result = run('--archive', packArchive({ 'a.md': `${machinePaths['Linux home']}\n` }));
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /package\/a\.md:1: machine path/);
+  });
+
+  test('exits with 0 on a clean archive and checks only the archive', () => {
+    const result = run('--archive', packArchive({ 'a.md': 'clean\n' }), '--root', tree({ 'README.md': '' }));
+    assert.equal(result.status, 0);
+    assert.equal(result.stderr, '');
   });
 });
 
