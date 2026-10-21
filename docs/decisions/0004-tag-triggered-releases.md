@@ -38,5 +38,5 @@ The commit convention is short imperative subjects; release commits end with the
 
 ## References
 
-- [Plan](../plans/http-mock-server-and-release-automation.md), tasks R4, R5 and R7
+- [Plan](../plans/completed/http-mock-server-and-release-automation.md), tasks R4, R5 and R7
 - GitHub: [Reusing workflows](https://docs.github.com/en/actions/sharing-automations/reusing-workflows), [`gh release create`](https://cli.github.com/manual/gh_release_create)
