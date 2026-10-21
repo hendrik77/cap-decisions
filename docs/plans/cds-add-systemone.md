@@ -142,17 +142,14 @@ Every Markdown file is read against the code and updated, not only for the facet
 
 | Task | Status |
 | --- | --- |
-| F1 | Done |
-| F2 | Done |
-| F3 | Done |
-| F4 | Open |
+| F1–F4 | Released in 0.8.0 |
 
 ### Found during the work
 
 - `cds add --help` runs as the command `help`, not `add`. It loads the plugins, so `cds-plugin.js` registers the facet for `help` as well; otherwise `cds add --help` would not list `systemone` and its options. Other commands still load no facet code.
 - With npm 12 or later, which blocks install scripts, `npm install --no-save @sap/cds@^9 @sap/cds-dk@^9` leaves `better-sqlite3` of `@sap/cds-dk` 9 without its native binding, and the example-app tests hang. Running `npx --no-install prebuild-install` in `node_modules/better-sqlite3` fixes it. `npm install` restores CAP 10 afterwards. `AGENTS.md` and the README describe both.
 - The planner takes the raw texts of `package.json` and `.cdsrc-private.json` (`packageJsonText`, `cdsrcPrivateText`), not parsed objects, because it keeps their indentation and line endings.
-- The task F3 review found install commands in both READMEs that named `cap-jev-0.6.0.tgz` after downloading 0.7.1. They are corrected, and `AGENTS.md` lists the file names among the places to update.
+- The task F3 review found install commands in both READMEs that named `cap-jev-0.6.0.tgz` after downloading 0.7.1. They are corrected, `npm run release:check` now fails on an archive file name with another version, and `AGENTS.md` lists the file names among the places to update.
 
 ## Blocked tests
 

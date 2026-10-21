@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "@sap/cds": ">=9",
-    "cap-jev": "^0.7.1"
+    "cap-jev": "^0.8.0"
   },
   "cds": {
     "requires": {
