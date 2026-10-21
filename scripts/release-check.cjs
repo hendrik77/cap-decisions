@@ -1,9 +1,91 @@
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+const { execFileSync, spawnSync } = require('node:child_process');
 const { parseArgs } = require('node:util');
 const { releaseNotes } = require('./release-notes.cjs');
 
 const ARCHIVE = /releases\/download\/v([^/\s)"'`]+)\/cap-jev-([^/\s)"'`]+?)\.tgz/g;
+
+const NAME = '[A-Za-z0-9._-]';
+const MACHINE_PATHS = [
+  new RegExp(`(?<!${NAME})/Users/${NAME}+/`, 'g'),
+  new RegExp(`(?<!${NAME})/home/${NAME}+/`, 'g'),
+  new RegExp(`/private/(?:tmp|var)/${NAME}+|(?<!${NAME})/var/folders/${NAME}+`, 'g'),
+  new RegExp(`[A-Za-z]:[\\\\/]Users[\\\\/]${NAME}+`, 'gi'),
+];
+const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', '.git', 'coverage']);
+
+function walk(root, directory = '') {
+  const found = [];
+  let entries;
+  try {
+    entries = fs.readdirSync(path.join(root, directory), { withFileTypes: true });
+  } catch {
+    return found;
+  }
+  for (const entry of entries) {
+    const relative = directory ? `${directory}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      if (!SKIPPED_DIRECTORIES.has(entry.name)) found.push(...walk(root, relative));
+    } else if (entry.isFile()) found.push(relative);
+  }
+  return found;
+}
+
+function listFiles(root) {
+  try {
+    const output = execFileSync('git', ['ls-files', '-z'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return output.split('\0').filter(Boolean);
+  } catch {
+    return walk(root);
+  }
+}
+
+function findMachinePaths({ root, files }) {
+  const hits = [];
+  for (const file of files ?? listFiles(root)) {
+    let buffer;
+    try {
+      buffer = fs.readFileSync(path.join(root, file));
+    } catch {
+      continue;
+    }
+    if (buffer.subarray(0, 8192).includes(0)) continue;
+    buffer
+      .toString('utf8')
+      .split(/\r?\n/)
+      .forEach((text, index) => {
+        const found = MACHINE_PATHS.flatMap((pattern) => [...text.matchAll(pattern)]);
+        for (const match of found.sort((a, b) => a.index - b.index)) {
+          hits.push({ file, line: index + 1, text: match[0] });
+        }
+      });
+  }
+  return hits;
+}
+
+const describeHit = (prefix, { line, text }) => `${prefix}:${line}: machine path ${text}; use a relative path`;
+
+function checkArchive(archive) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-archive-'));
+  try {
+    const result = spawnSync('tar', ['-xzf', archive, '-C', directory], { encoding: 'utf8' });
+    if (result.status !== 0) {
+      const reason = (result.error?.message ?? result.stderr ?? '').trim();
+      return [`${archive}: cannot be extracted (${reason || `tar exited with ${result.status}`})`];
+    }
+    return findMachinePaths({ root: directory, files: walk(directory) }).map((hit) =>
+      describeHit(`${archive}:${hit.file}`, hit),
+    );
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
 
 function checkRelease({ root, tag }) {
   const failures = [];
@@ -63,20 +145,28 @@ function checkRelease({ root, tag }) {
     }
   }
 
+  for (const hit of findMachinePaths({ root })) failures.push(describeHit(hit.file, hit));
+
   if (tag !== undefined) expect('tag', 'tag', `v${version}`, tag);
   return failures;
 }
 
 if (require.main === module) {
-  const { values } = parseArgs({ options: { root: { type: 'string' }, tag: { type: 'string' } } });
+  const { values } = parseArgs({
+    options: { root: { type: 'string' }, tag: { type: 'string' }, archive: { type: 'string' } },
+  });
   const root = values.root ?? path.join(__dirname, '..');
-  const failures = checkRelease({ root, tag: values.tag });
+  const failures = values.archive ? checkArchive(values.archive) : checkRelease({ root, tag: values.tag });
   if (failures.length) {
     for (const failure of failures) process.stderr.write(`${failure}\n`);
     process.exit(1);
+  }
+  if (values.archive) {
+    process.stdout.write(`archive check passed for ${values.archive}\n`);
+    process.exit(0);
   }
   const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   process.stdout.write(`release check passed for ${version}\n`);
 }
 
-module.exports = { checkRelease };
+module.exports = { checkRelease, findMachinePaths, checkArchive };

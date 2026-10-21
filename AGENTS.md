@@ -24,7 +24,7 @@ TypeScript uses the strict `tsconfig.json` configuration and two-space indentati
 
 ## Paths
 
-Paths in documentation and code are relative: links relative to the file, commands relative to the project root. Absolute paths, such as a path from a developer's machine, are not committed.
+Paths in documentation and code are relative: links relative to the file, commands relative to the project root. Absolute paths, such as a path from a developer's machine, are not committed. `npm run release:check` enforces this: it fails on a path under a home, temporary or user directory (macOS, Linux or Windows) in any tracked text file, and the release workflow runs the same check on the packed archive (`npm run release:check -- --archive <file.tgz>`).
 
 ## Providers
 
