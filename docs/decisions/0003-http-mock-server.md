@@ -38,6 +38,6 @@ The mock's answer engine and fixture rules import no CAP code. The code that com
 
 ## References
 
-- [Plan](../plans/http-mock-server-and-release-automation.md), tasks R1–R3
+- [Plan](../plans/completed/http-mock-server-and-release-automation.md), tasks R1–R3
 - [ADR 0002: In-process mock provider](0002-in-process-mock-provider.md)
 - Node.js: [`http.createServer`](https://nodejs.org/api/http.html#httpcreateserveroptions-requestlistener), [`util.parseArgs`](https://nodejs.org/api/util.html#utilparseargsconfig)

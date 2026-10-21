@@ -12,7 +12,7 @@ Acme wraps the Jev answer in `{ "data": <result> }` and addresses its API by reg
 
 ```json
 {
-  "dependencies": { "cap-jev": "^0.5.0", "cap-jev-provider-acme": "^1.0.0" },
+  "dependencies": { "cap-jev": "^0.8.0", "cap-jev-provider-acme": "^1.0.0" },
   "cds": {
     "requires": {
       "systemone": { "kind": "systemone-acme", "credentials": { "region": "eu", "token": "…" } }
@@ -20,6 +20,8 @@ Acme wraps the Jev answer in `{ "data": <result> }` and addresses its API by reg
   }
 }
 ```
+
+Put the token in a secret source instead of this file (see [Provider configuration](../../README.md#provider-configuration)). With `@sap/cds-dk`, `cds add systemone --kind systemone-acme` selects the package's kind for the `production` profile: it finds `systemone-acme` among the installed kinds, writes it to `cds.requires.systemone["[production]"].kind`, and, because the kind requires a token, adds an empty `credentials.token` to `.cdsrc-private.json` and the `.gitignore` line. Set `credentials.region` yourself. `tests/cds-add.test.cjs` does this with this package.
 
 ## Rules for provider packages
 

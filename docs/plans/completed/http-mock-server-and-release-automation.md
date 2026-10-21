@@ -1,4 +1,4 @@
-# Plan: HTTP mock server and automated releases (0.7.0), and the road to 1.0.0
+# Plan: HTTP mock server and automated releases (0.7.0), and no machine paths (0.7.1)
 
 Written on 2026-10-21 against `main` at v0.6.0 (`f0416a3`).
 
@@ -6,8 +6,10 @@ Written on 2026-10-21 against `main` at v0.6.0 (`f0416a3`).
 
 The reasoning lives in two draft ADRs:
 
-- [ADR 0003: HTTP mock server in the same package](../decisions/0003-http-mock-server.md), accepted when 0.7.0 is merged.
-- [ADR 0004: Tag-triggered release workflow](../decisions/0004-tag-triggered-releases.md), accepted when 0.7.0 is merged.
+- [ADR 0003: HTTP mock server in the same package](../../decisions/0003-http-mock-server.md), accepted when 0.7.0 is merged.
+- [ADR 0004: Tag-triggered release workflow](../../decisions/0004-tag-triggered-releases.md), accepted when 0.7.0 is merged.
+
+Completed with 0.7.1; the road after it continues in [the 0.8 plan](../cds-add-systemone.md).
 
 ## Contents
 
@@ -15,10 +17,7 @@ The reasoning lives in two draft ADRs:
 - [How the work is done](#how-the-work-is-done)
 - [0.7.0: HTTP mock server and automated releases](#070-http-mock-server-and-automated-releases)
 - [0.7.1: no absolute paths](#071-no-absolute-paths)
-- [0.8.0: `cds add systemone`](#080-cds-add-systemone)
-- [0.9.x: hardening for 1.0.0](#09x-hardening-for-100)
-- [1.0.0: npm publication](#100-npm-publication)
-- [Later](#later)
+- [After 0.7.1](#after-071)
 - [Progress](#progress)
 - [Blocked tests](#blocked-tests)
 
@@ -31,7 +30,7 @@ The reasoning lives in two draft ADRs:
 
 ## How the work is done
 
-As for 0.5.0 and 0.6.0 (see [the completed plan](completed/provider-kinds-and-mock.md#how-the-work-is-done)), with these changes:
+As for 0.5.0 and 0.6.0 (see [the completed plan](provider-kinds-and-mock.md#how-the-work-is-done)), with these changes:
 
 - **Worktree.** The release branch `release-0.7.0` is checked out in its own worktree (`.claude/worktrees/release-0.7.0`), so `main` stays untouched until the merge.
 - **Subagents** (Sonnet) take the tasks marked *agent*, one at a time in the worktree. The main session reviews each result, runs the full suite and commits.
@@ -180,40 +179,17 @@ Files: `scripts/release-check.cjs`, `scripts/release-notes.cjs` (CommonJS, expor
 
 Reported on 2026-10-21: an absolute path from the developer's machine in an example README. A search of the tracked files, the git history and the release notes on `release-0.7.0` found none, so the source still has to be found (a rendered page, the release archive, an untracked file).
 
+Outcome: the path was never in the file. A Markdown viewer had shown the relative link resolved to an absolute path; the raw file was correct. The check was kept as a guard.
+
 #### P1 Find and replace absolute paths (*agent*, red-green)
 
 1. Tests first: `scripts/release-check.cjs` gets a check that no tracked text file (`git ls-files`, without `package-lock.json`) contains a machine path: `/Users/<name>/`, `/home/<name>/`, `/private/tmp/`, `/var/folders/`, or `C:\Users\`. It fails naming the file and line. `tests/release-scripts.test.cjs` covers each pattern and the clean repository.
 2. Replace every hit with a path relative to the file (links) or to the project root (commands), and check the unpacked release archive (`npm pack`, then search its files) the same way.
 3. `AGENTS.md`: paths in documentation and code are relative; absolute paths are not committed.
 
-## 0.8.0: `cds add systemone`
+## After 0.7.1
 
-A detailed plan follows when 0.7.x is done. Scope:
-
-- A facet for `cds add systemone`, registered from `cds-plugin.js` through `cds.add?.register?.()` and loaded only for `cds add`, so normal starts stay unaffected and `cds-plugin.js` still never throws.
-- Writes `cds.requires.systemone` with a production `kind` (option `--kind`, default `systemone-laya`), keeps the mock in development, and writes a `.cdsrc-private.json` placeholder for a token when the kind needs one. It never overwrites existing settings and adds `.cdsrc-private.json` to `.gitignore`.
-- Optionally (`--with-fixtures`) an example `test/data/systemone.json`.
-- Tests on CAP 9 and 10 in temporary apps; first a probe of CAP's `cds add` plugin interface on both versions, because it is thinly documented.
-- Release task: review and update all Markdown files (README, CHANGELOG, AGENTS, guides, example READMEs, ADRs, plans) for 0.8.0.
-
-## 0.9.x: hardening for 1.0.0
-
-- Reviews: a full code review at high effort, a security review (transport, destinations, mock server, release workflow), and a documentation review of every Markdown file against the code.
-- Tests: coverage report (`node --test --experimental-test-coverage`) with a target per file, and tests for the gaps found; a test run against a real Laya server, by hand and documented.
-- Decide the hook API that becomes stable in 1.0.0 (`setup`, `call`, `endpoint`, `unwrap`, `errorCode`, `settingsKeys`, `credentialKeys`) and the mock server API, as an ADR.
-- A provider test kit (`cap-jev/testing`) that provider packages run against their kind, used by `examples/provider-package`.
-
-## 1.0.0: npm publication
-
-- Publish `cap-jev` on npm (the name is free as of 2026-10-21) with provenance from the release workflow (`npm publish --provenance`, `id-token: write`, an npm token as a repository secret).
-- The install instructions switch to `npm add cap-jev`; the release archives stay attached to GitHub releases.
-- The stability table marks the hooks stable; semantic versioning applies from here.
-
-## Later
-
-- A Laya `docker compose` setup as the "real model on the developer's machine" option, documented only, without CI.
-- Separate provider packages (ADR 0001, option D), when a provider needs heavy dependencies.
-- The mock refusing `credentials.url` without a `kind` in development, if the warning proves insufficient.
+0.8.0 (`cds add systemone`), 0.9.x (hardening) and 1.0.0 (npm publication) continue in [the 0.8 plan](../cds-add-systemone.md).
 
 ## Progress
 

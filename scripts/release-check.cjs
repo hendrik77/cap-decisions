@@ -6,6 +6,8 @@ const { parseArgs } = require('node:util');
 const { releaseNotes } = require('./release-notes.cjs');
 
 const ARCHIVE = /releases\/download\/v([^/\s)"'`]+)\/cap-jev-([^/\s)"'`]+?)\.tgz/g;
+// An archive file name outside a URL, such as `npm install ./cap-jev-1.2.3.tgz`.
+const ARCHIVE_FILE = /(?<!releases\/download\/v[^/\s]+\/)(?<![\w-])cap-jev-(\d+\.\d+\.\d+[^/\s)"'`]*?)\.tgz/g;
 
 const NAME = '[A-Za-z0-9._-]';
 const MACHINE_PATHS = [
@@ -134,6 +136,10 @@ function checkRelease({ root, tag }) {
       if (directory !== version || name !== version) {
         failures.push(`${file}: expected archive URL for v${version}/cap-jev-${version}.tgz, found ${url}`);
       }
+    }
+    for (const [name, fileVersion] of text.matchAll(ARCHIVE_FILE)) {
+      if (fileVersion !== version)
+        failures.push(`${file}: expected archive file cap-jev-${version}.tgz, found ${name}`);
     }
   }
 

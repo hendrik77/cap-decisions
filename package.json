@@ -1,6 +1,6 @@
 {
   "name": "cap-jev",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Internal System One decision service for SAP CAP",
   "license": "MIT",
   "main": "dist/index.js",
@@ -69,6 +69,7 @@
     "@cap-js/cds-test": "^1.0.2",
     "@cap-js/cds-types": "^0.20.0",
     "@sap/cds": "^10.0.0",
+    "@sap/cds-dk": "^10",
     "@types/node": "^22.0.0",
     "eslint": "^10.13.0",
     "prettier": "^3.9.10",
