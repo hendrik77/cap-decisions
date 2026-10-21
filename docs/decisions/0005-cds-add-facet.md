@@ -1,7 +1,7 @@
 # 5. `cds add systemone` facet in the plugin
 
 **Date:** 2026-10-21
-**Status:** Proposed
+**Status:** Accepted (0.8.0)
 
 ## Context
 
@@ -10,7 +10,7 @@ An application that installs `cap-jev` gets the mock in `development` and `test`
 CAP's command line has a plugin interface for `cds add` in `@sap/cds-dk` ([`cds add` plugin API](https://cap.cloud.sap/docs/tools/apis/cds-add)). A probe on 2026-10-21 against `@sap/cds-dk` 9.9.6 with CAP 9.9.4 and `@sap/cds-dk` 10.1.0 with CAP 10.1.1 found the same interface on both:
 
 - `cds.add` exists only when the command line of `@sap/cds-dk` runs; under `cds-serve`, `cds.test` and plain Node it is `undefined`.
-- For `cds add`, the command line sets `cds.cli.command` to `add` and loads the plugins (`cds-plugin.js`) before it parses the options, so a facet registered there contributes its own options and appears in `cds add --help`.
+- For `cds add`, the command line sets `cds.cli.command` to `add` and loads the plugins (`cds-plugin.js`) before it parses the options, so a facet registered there contributes its own options. `cds add --help` runs as the command `help`, not `add`; it loads the plugins too, so a facet registered for `help` as well appears in `cds add --help` with its options.
 - A facet is a class that extends `cds.add.Plugin` and is registered with `cds.add.register(name, class)`. `options()` returns `{ name: { type, help, short? } }`. `run()` reads `cds.cli.options` (including the global `--for` and `--force`).
 - `cds add` runs in the `development` profile. `cds.env.requires.kinds` contains the kinds of all installed plugins, but `cds.env.requires.systemone` shows the mock, not what the application configured.
 - `cds.add.merge(...).into(file)` keeps existing values; it cannot report what it kept.
@@ -26,7 +26,7 @@ CAP's command line has a plugin interface for `cds add` in `@sap/cds-dk` ([`cds 
 
 ## Decision
 
-1. **`cds add systemone`** is a facet in `cap-jev`. `cds-plugin.js` registers it only when `cds.cli.command` is `add` and `cds.add.register` is a function. Registration is wrapped so that `cds-plugin.js` never throws; other commands and the runtime never load the facet code.
+1. **`cds add systemone`** is a facet in `cap-jev`. `cds-plugin.js` registers it only when `cds.cli.command` is `add` or `help` and `cds.add.register` is a function. The command is checked first, so that other commands never touch the lazy `cds.add` of `@sap/cds-dk`. Registration is wrapped so that `cds-plugin.js` never throws; other commands and the runtime never load the facet code.
 2. **A pure planner** (`src/add-core.ts`, no CAP imports, no file access) takes the parsed files and options and returns the files to write and the messages to print. The facet (`src/add.ts`) reads and writes the files. The planner reads the application's own `package.json`, never the resolved `cds.env.requires.systemone`.
 3. **The production kind goes into a profile.** The facet writes `cds.requires.systemone["[production]"].kind`, so the mock stays active in `development` and `test`. `--kind` selects the kind (default `systemone-laya`); `--for <profile>` selects another profile. The kind must be one of the installed kinds; `systemone-defaults` and the mock are refused.
 4. **Nothing existing is overwritten without `--force`**, and existing credentials never are. A kind that needs a token gets an empty `credentials.token` placeholder in `.cdsrc-private.json` in the same profile; an empty token counts as missing, so connecting fails with `INVALID_CONFIG` until a real one is set. `.cdsrc-private.json` is added to `.gitignore`.
@@ -39,7 +39,7 @@ CAP's command line has a plugin interface for `cds add` in `@sap/cds-dk` ([`cds 
 - Setting up production is `npm add cap-jev` (or the release archive), then `cds add systemone --kind <kind>`, then the token.
 - `cds add systemone` needs `@sap/cds-dk`, as every `cds add` does. Without it, the manual configuration in the README still works.
 - `cds-plugin.js` gains a second job; its rule that it never throws now covers the registration.
-- The development dependency on `@sap/cds-dk` makes `npm ci` larger; the published package is unchanged.
+- The development dependency on `@sap/cds-dk` makes `npm ci` larger; the published package gains `dist/add.js` and `dist/add-core.js` but no dependency.
 - After npm publication, `cds add systemone -p cap-jev` installs the package and runs the facet in one step.
 
 ## References

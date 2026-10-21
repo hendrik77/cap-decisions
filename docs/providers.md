@@ -37,7 +37,7 @@ Define a kind that extends `systemone-generic` in your application's `package.js
 }
 ```
 
-The kind can set `modelId`, `timeoutMs`, `requiresToken`, `limits` and a default `credentials.url`. Keep tokens out of this file; see [Provider configuration](../README.md#provider-configuration) in the README.
+The kind can set `modelId`, `timeoutMs`, `requiresToken`, `limits` and a default `credentials.url`. Keep tokens out of this file; see [Provider configuration](../README.md#provider-configuration) in the README. A kind defined this way is also selectable with `cds add systemone --kind systemone-internal`, which writes it into a profile instead of the base level.
 
 ## Level 2: an app-local subclass
 
@@ -122,6 +122,8 @@ An application installs `cap-jev` and the provider package, then selects the kin
   }
 }
 ```
+
+Instead of editing `package.json`, you can run `cds add systemone --kind systemone-acme`. The command lists the kinds of all installed packages as selectable, except `systemone-defaults` and the mock. It writes the kind into the `[production]` profile (or the profile of `--for`) and, because the kind has `requiresToken`, an empty `credentials.token` into `.cdsrc-private.json` and the `.gitignore` line (see [Set up with `cds add systemone`](../README.md#set-up-with-cds-add-systemone)). The `region` credential is not written; set it yourself.
 
 The kind requires a token, so supply `credentials.token` from a secret source such as `.cdsrc-private.json` or a service binding (see [Provider configuration](../README.md#provider-configuration)). The `region` credential works because the subclass lists it in `static credentialKeys`. Without that, the connection fails with `INVALID_CONFIG`.
 

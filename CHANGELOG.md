@@ -2,6 +2,38 @@
 
 This changelog starts with 0.5.0. Earlier versions are described in the [GitHub releases](https://github.com/hendrik77/cap-jev/releases) up to v0.4.3.
 
+## 0.8.0: cds add systemone
+
+### Breaking changes
+
+None.
+
+### Added
+
+- `cds add systemone`, a facet of CAP's `cds add` command, in `src/add.ts` and `dist/add.js`. It sets up an application for production without turning off the mock in development: it writes the kind into a profile, not at the base level. It needs `@sap/cds-dk` (9 or 10), as every `cds add` does; the package does not depend on it. It is experimental until the first npm publication.
+- The options `--kind <kind>` (default `systemone-laya`) and `--with-fixtures`, and CAP's own `--for <profile>` (default `production`) and `--force`. `--kind` accepts every installed kind that extends `systemone-defaults`, including the kinds of provider packages, except `systemone-defaults` and the mock. An unknown or refused kind fails, lists the selectable kinds and writes nothing. A profile name may contain letters, digits, `_` and `-`.
+- The files it writes, with `P` the target profile:
+  - `package.json`: `cds.requires.systemone["[P]"].kind`. Other keys and the indentation stay as they are.
+  - `.cdsrc-private.json`: for a kind with `requiresToken` only, an empty `credentials.token` under `requires.systemone["[P]"]`. An existing token is never replaced, also with `--force`.
+  - `.gitignore`: the line `.cdsrc-private.json`, when that file is written or exists and the line is missing.
+  - `test/data/systemone.json`: with `--with-fixtures`, an example with two rules, a fixed `choice` answer and a simulated 503. An existing file is kept unless `--force` is set.
+- Messages, one line each with the prefix `[systemone]`, that say what was written or kept, warn about a base-level `kind` in `package.json` (it applies to every profile and turns off the mock in development and test), and end with the next steps: fill in the token, set `credentials.url` for a kind without a URL, or start `npx cap-jev-mock` for a kind with a local URL. A different kind in the profile is kept unless `--force` is set. A second run with the same options changes nothing. Errors, such as a Java project or an invalid `package.json`, `.cdsrc-private.json` or `.gitignore`, print a message without a stack trace and write nothing.
+- `src/add-core.ts`, the pure planner (`planSystemOne`, `resolveKind`, `exampleFixtures`). It imports no CAP code, touches no files and is not exported.
+- `@sap/cds-dk` `^10` as a development dependency.
+- Section "Set up with `cds add systemone`" in `README.md`, and the facet in the stability table. `docs/local-development.md`, `docs/providers.md` and both example READMEs describe it where it applies.
+- Architecture decision record `docs/decisions/0005-cds-add-facet.md` and the plan `docs/plans/cds-add-systemone.md`.
+
+### Changed
+
+- `cds-plugin.js` has a second job: when `cds.cli.command` is `add` or `help` and `cds.add` exists, it registers the facet with `cds.add.register`. `cds add --help` runs as the command `help`, so the facet and its options appear there too. For every other command and at runtime it loads no facet code. It still never throws; a failed registration is logged.
+- CI installs `@sap/cds-dk@^9` together with `@sap/cds@^9` in the CAP 9 jobs; the CAP 10 jobs use the `@sap/cds-dk` 10 development dependency.
+- New tests cover the planner (`tests/add-core.test.cjs`), the real `cds add systemone` command line of `@sap/cds-dk` in temporary apps (`tests/cds-add.test.cjs`), the registration in `cds-plugin.js` (`tests/plugin.test.cjs`), and the facet from the installed archive in `tests/cap-integration.test.cjs`.
+- To test against CAP 9 locally, `AGENTS.md` and the README now use `npm install --no-save @sap/cds@^9 @sap/cds-dk@^9` and describe the `better-sqlite3` workaround for npm 12.
+
+### Fixed
+
+- The install commands in `README.md` and `examples/cap-app/README.md` named the archive `cap-jev-0.6.0.tgz` after downloading `cap-jev-0.7.1.tgz`. `npm run release:check` now also checks these file names, and `AGENTS.md` lists them among the places to update for a release.
+
 ## 0.7.1: No machine paths
 
 ### Breaking changes

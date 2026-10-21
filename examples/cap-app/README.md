@@ -56,8 +56,10 @@ For a copy of the app outside this repository, install `cap-jev` from a release 
 
 ```sh
 curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.7.1/cap-jev-0.7.1.tgz
-npm install ./cap-jev-0.6.0.tgz
+npm install ./cap-jev-0.7.1.tgz
 ```
+
+The [`package.json`](package.json) of this app already contains what `cds add systemone` writes with its default options: `cds.requires.systemone["[production]"].kind` is `systemone-laya`. `systemone-laya` needs no token, so there is no `.cdsrc-private.json`. In an application of your own, run `cds add systemone` after the installation (it needs `@sap/cds-dk`; see [Set up with `cds add systemone`](../../README.md#set-up-with-cds-add-systemone)). `--with-fixtures` writes an example `test/data/systemone.json`; this app keeps its own rule file there.
 
 ## Authentication
 
@@ -69,4 +71,4 @@ The repository checks this app in three tests, which run on every CI run:
 
 - `tests/example-app.test.cjs` runs it with `cds.test` in development on the mock provider, including the fixture rule and the authentication check.
 - `tests/example-app-failure.test.cjs` simulates a provider failure (`CDS_REQUIRES_SYSTEMONE_FAIL=NETWORK_ERROR`) and checks the 502 response.
-- `tests/cap-integration.test.cjs` packs the plugin, installs it in a copy of this app and calls `classify` in the production profile against a local fake server, plus once in development on the mock.
+- `tests/cap-integration.test.cjs` packs the plugin, installs it in a copy of this app and calls `classify` in the production profile against a local fake server, plus once in development on the mock. It also runs `cds add systemone` in the copy, with and without `--force`, to check that the facet works from the installed archive.

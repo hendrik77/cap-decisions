@@ -86,7 +86,7 @@ A second run with the same options changes nothing.
 
 File: `src/add-core.ts` (no CAP imports, no `node:fs`). Not exported in `package.json`.
 
-1. `planSystemOne(input)` with `input = { packageJson, cdsrcPrivate, gitignore, fixturesExist, kinds, options: { kind?, for?, force?, withFixtures? } }`: `packageJson` and `cdsrcPrivate` are parsed objects or `undefined`, `gitignore` is the text or `undefined`, `kinds` is `cds.env.requires.kinds`. Returns `{ writes: [{ file, content }], messages: string[] }`; `content` is the full new file text (JSON with the original indentation, detected from the input text, which is passed as `packageJsonText` and `cdsrcPrivateText`, and a final newline). Throws `Error` with the user message for every error in the target behaviour.
+1. `planSystemOne(input)` with `input = { packageJsonText, cdsrcPrivateText, gitignore, fixturesExist, kinds, options: { kind?, for?, force?, withFixtures? } }`: the three file inputs are the raw texts or `undefined` for a missing file, `kinds` is `cds.env.requires.kinds`. Returns `{ writes: [{ file, content }], messages: string[] }`; `content` is the full new file text (JSON with the original indentation, detected from the input text, and a final newline). Throws `Error` with the user message for every error in the target behaviour.
 2. `resolveKind(kinds, name)`: follows `kind` references (with a cycle guard) and deep-merges the settings, as CAP does, to read `requiresToken`, `impl` and `credentials.url`.
 3. `exampleFixtures()`: the rule file content.
 4. Tests first (`tests/add-core.test.cjs`, against `dist/add-core.js`): every row of the option, file and existing-configuration tables; the refused kinds and the message listing the selectable kinds; a provider-package kind (`kind: 'systemone-generic'` plus own settings) with and without `requiresToken`; indentation of 2, 4 and tabs is kept; a second plan on the result writes nothing; the example fixtures load with `parseFixtures` from `dist/providers/mock-fixtures.js` and the failure rule produces its error through `mockDecision`; the module loads without `@sap/cds` (check `require.cache` in a child process).
@@ -96,8 +96,8 @@ File: `src/add-core.ts` (no CAP imports, no `node:fs`). Not exported in `package
 Files: `src/add.ts` (the facet class, `extends cds.add.Plugin`, CommonJS `export =`), `cds-plugin.js`, `package.json` (`@sap/cds-dk` `^10` as a development dependency), `.github/workflows/ci.yml` (the CAP 9 step installs `@sap/cds@^9 @sap/cds-dk@^9`).
 
 1. Facet: `static help()` returns a one-line description; `options()` returns `kind` (string) and `with-fixtures` (boolean) with help texts; `run()` refuses Java projects (`cds.add.readProject().isJava`), reads the four inputs relative to `cds.root`, calls `planSystemOne` with `cds.env.requires.kinds` and `cds.cli.options`, writes the files (creating `test/data`), and prints the messages. A local minimal type for `cds.add` and `cds.cli`, since `@cap-js/cds-types` has none.
-2. `cds-plugin.js`: when `cds.cli?.command === 'add'` and `typeof cds.add?.register === 'function'`, register `require('./dist/add.js')` as `systemone`, inside `try`; a failure logs one error through `cds.log('systemone')` and does not throw.
-3. Tests first, plugin (`tests/plugin.test.cjs`, child processes with a stubbed `cds.add` and `cds.cli`): registers under `add`; does not register and does not load `dist/add.js` for other commands or without `cds.add`; a throwing `register` is logged, not thrown.
+2. `cds-plugin.js`: when `cds.cli?.command` is `add` or `help` (`cds add --help` runs as `help`) and `typeof cds.add?.register === 'function'`, register `require('./dist/add.js')` as `systemone`, inside `try`; a failure logs one error through `cds.log('systemone')` and does not throw.
+3. Tests first, plugin (`tests/plugin.test.cjs`, child processes with a stubbed `cds.add` and `cds.cli`): registers under `add` and under `help`; does not register and does not load `dist/add.js` for other commands or without `cds.add`; a throwing `register` is logged, not thrown.
 4. Tests first, command line (`tests/cds-add.test.cjs`, temporary apps from `tests/helpers/app.cjs`, `node <@sap/cds-dk>/bin/cds.js add systemone ...` in a child process): the default run; `--kind systemone-typesafe` writes the placeholder and `.gitignore`; `--for hybrid`; `--with-fixtures`; `--force`; an unknown kind exits non-zero, prints the message and writes nothing; a second run changes nothing; `cds add --help` lists the facet and `--kind`; after the run, the app connects in development to the mock and in production to the kind (with the HTTP mock server for `systemone-laya`, with `INVALID_CONFIG` for the empty TypeSafe token); a provider package's kind, linked as in `tests/extension.test.cjs`, is selectable.
 5. `tests/cap-integration.test.cjs`: after installing the packed archive, `cds add systemone` works in the copy of the example app (checks that `dist/add.js` is in the archive).
 
@@ -142,10 +142,17 @@ Every Markdown file is read against the code and updated, not only for the facet
 
 | Task | Status |
 | --- | --- |
-| F1 | Open |
-| F2 | Open |
-| F3 | Open |
+| F1 | Done |
+| F2 | Done |
+| F3 | Done |
 | F4 | Open |
+
+### Found during the work
+
+- `cds add --help` runs as the command `help`, not `add`. It loads the plugins, so `cds-plugin.js` registers the facet for `help` as well; otherwise `cds add --help` would not list `systemone` and its options. Other commands still load no facet code.
+- With npm 12 or later, which blocks install scripts, `npm install --no-save @sap/cds@^9 @sap/cds-dk@^9` leaves `better-sqlite3` of `@sap/cds-dk` 9 without its native binding, and the example-app tests hang. Running `npx --no-install prebuild-install` in `node_modules/better-sqlite3` fixes it. `npm install` restores CAP 10 afterwards. `AGENTS.md` and the README describe both.
+- The planner takes the raw texts of `package.json` and `.cdsrc-private.json` (`packageJsonText`, `cdsrcPrivateText`), not parsed objects, because it keeps their indentation and line endings.
+- The task F3 review found install commands in both READMEs that named `cap-jev-0.6.0.tgz` after downloading 0.7.1. They are corrected, and `AGENTS.md` lists the file names among the places to update.
 
 ## Blocked tests
 

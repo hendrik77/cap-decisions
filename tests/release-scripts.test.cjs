@@ -103,6 +103,21 @@ describe('checkRelease', () => {
     assert.match(failures[0], /^README\.md/);
   });
 
+  test('fails on an archive file name with the wrong version', () => {
+    const readme = `curl -fLO ${url('1.2.3')}\nnpm install ./cap-jev-1.2.2.tgz\n\nIt records \`file:cap-jev-1.2.2.tgz\`.\n`;
+    const failures = checkRelease({ root: tree({ 'README.md': readme }) });
+    assert.equal(failures.length, 2);
+    for (const failure of failures) {
+      assert.match(failure, /^README\.md/);
+      assert.match(failure, /cap-jev-1\.2\.2\.tgz/);
+    }
+  });
+
+  test('accepts the placeholder archive name', () => {
+    const readme = `curl -fLO ${url('1.2.3')}\nInstall the resulting \`cap-jev-<version>.tgz\` file.\n`;
+    assert.deepEqual(checkRelease({ root: tree({ 'README.md': readme }) }), []);
+  });
+
   test('fails on a changelog without the version', () => {
     const failures = checkRelease({ root: tree({ 'CHANGELOG.md': '# Changelog\n\n## 1.2.30\n\n## 1.2.2: Old\n' }) });
     assert.equal(failures.length, 1);

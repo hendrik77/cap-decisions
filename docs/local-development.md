@@ -15,6 +15,8 @@ The plugin's `package.json` selects `systemone-mock` in the `development` and `t
 | `"[production]": { "kind": "systemone-typesafe" }` | Mock | TypeSafe |
 | Only `credentials.url`, no `kind` | Mock | Generic with that URL |
 
+`cds add systemone` writes the configuration of the third row: the kind goes into `"[production]"` (or the profile of `--for`), so the mock stays active in `development` and `test`. If `package.json` has a base-level `kind`, the command leaves it and warns that it turns off the mock. See [Set up with `cds add systemone`](../README.md#set-up-with-cds-add-systemone).
+
 The last row catches many applications: a URL alone does not select a real endpoint in development. Set a `kind` to use one. For a local Jev-compatible server, set `"kind": "systemone-generic"` together with the URL.
 
 The mock logs one warning when it connects. The warning says that answers are simulated and that you must set a `kind` to use a real endpoint in development.
@@ -72,6 +74,8 @@ This is the rule file of the example app. It routes refund messages to `billing`
   }
 ]
 ```
+
+`cds add systemone --with-fixtures` writes an example file at the default place, with two rules: a fixed `choice` answer for the question `department` when the state contains `refund` or `money back`, and an `HTTP_ERROR` with status 503 when the state contains `simulate outage`. An existing file is kept unless `--force` is set.
 
 A failure rule looks like this:
 

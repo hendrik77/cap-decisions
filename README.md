@@ -2,7 +2,7 @@
 
 `cap-jev` adds an internal System One decision service to SAP CAP Node.js applications. It evaluates `choice`, `score`, and `noul` questions against one text or JSON state. It works with any Jev-compatible System One HTTP endpoint that accepts the same request and response schema. The package creates no OData endpoint and produces no text.
 
-Requirements: Node.js 22 or newer and `@sap/cds` 9 or 10 (the peer range is `>=9`). CI tests Node.js 22, 24 and 26 against CAP 9 and CAP 10.
+Requirements: Node.js 22 or newer and `@sap/cds` 9 or 10 (the peer range is `>=9`). CI tests Node.js 22, 24 and 26 against CAP 9 and CAP 10. The `cds add systemone` command (see below) needs `@sap/cds-dk` 9 or 10, like every `cds add`; the package itself does not depend on it.
 
 ## Install and use
 
@@ -17,16 +17,16 @@ or download the archive and install the file, which works with every npm version
 
 ```sh
 curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.7.1/cap-jev-0.7.1.tgz
-npm install ./cap-jev-0.6.0.tgz
+npm install ./cap-jev-0.7.1.tgz
 ```
 
-The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.6.0.tgz`; keep the archive in the project.
+The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.7.1.tgz`; keep the archive in the project.
 
 To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-jev-<version>.tgz` file.
 
 After npm publication, use `npm install cap-jev`.
 
-CAP loads the package's `cds-plugin.js` and adds the `systemone` required service. Select a provider kind in your application's `package.json`, supply its secrets through a runtime configuration source, then connect from a service handler:
+CAP loads the package's `cds-plugin.js` and adds the `systemone` required service. Select a provider kind for production, either with [`cds add systemone`](#set-up-with-cds-add-systemone) or by hand (see [Provider configuration](#provider-configuration)), supply its secrets through a runtime configuration source, then connect from a service handler:
 
 ```ts
 import cds from '@sap/cds';
@@ -95,11 +95,48 @@ The [example CAP application](examples/cap-app) shows a TypeScript action handle
 
 `decide()` sends an internal CAP `decide` event. Applications can register `before` and `after` handlers on the connected service. Configuration is checked when `cds.connect.to('systemone')` runs; invalid settings or a missing endpoint reject that connection with `INVALID_CONFIG`. Pass `{ signal }` (type `DecideOptions`) as the second argument to cancel a call. Successful calls emit a `systemone` debug log with latency, attempt count, model and input/output token counts.
 
+## Set up with `cds add systemone`
+
+After installation, `cds add systemone` configures the production kind in your application. It is a facet of CAP's `cds add` command and needs `@sap/cds-dk`, as every `cds add` does. Run it in the root of the application (`npx cds add systemone` if `@sap/cds-dk` is a local dependency):
+
+```sh
+cds add systemone                                          # systemone-laya in the production profile
+cds add systemone --kind systemone-typesafe               # also a token placeholder
+cds add systemone --kind systemone-laya --with-fixtures   # also example fixtures for the mock
+cds add systemone --kind systemone-typesafe --for hybrid  # another profile
+```
+
+| Option | Meaning |
+| --- | --- |
+| `--kind <kind>` | The kind for the target profile. Default `systemone-laya`. Any installed kind, including a provider package's (see [docs/providers.md](docs/providers.md)), except `systemone-defaults` and the mock. An unknown or refused kind fails and lists the selectable kinds |
+| `--for <profile>` | CAP's option. The target profile. Default `production` |
+| `--force` | CAP's option. Replaces a different kind in the target profile and an existing fixture file. It never replaces a token |
+| `--with-fixtures` | Writes an example `test/data/systemone.json` for the mock |
+
+With `P` the target profile, it writes:
+
+| File | Change |
+| --- | --- |
+| `package.json` | `cds.requires.systemone["[P]"].kind` is the kind. Other keys and the indentation stay as they are |
+| `.cdsrc-private.json` | Only for a kind with `requiresToken`: an empty `credentials.token` under `requires.systemone["[P]"]`, unless a token is set there |
+| `.gitignore` | The line `.cdsrc-private.json`, when that file is written or exists and the line is missing |
+| `test/data/systemone.json` | Only with `--with-fixtures`: two rules, a fixed `choice` answer for refund messages and a simulated 503 for the text `simulate outage`. An existing file is kept unless `--force` is set |
+
+The kind goes into a profile, so the mock stays active in `development` and `test` (see [Local development](#local-development)). Nothing that is already set is overwritten without `--force`. The command prints one line per step, each starting with `[systemone]`, and ends with the next steps: filling in the token, setting `credentials.url` for a kind without a URL, or starting `npx cap-jev-mock` for a kind with a local URL. It warns about a base-level `kind` in `package.json`, which applies to every profile and turns off the mock in development. A second run with the same options changes nothing. Errors, such as a Java project, an unknown kind or an invalid `package.json`, print a message and write nothing.
+
+Without `@sap/cds-dk`, write the same by hand. For `systemone-laya` in production, add this to `package.json`:
+
+```json
+{ "cds": { "requires": { "systemone": { "[production]": { "kind": "systemone-laya" } } } } }
+```
+
+For a kind with a token, also set `credentials.token` for the same profile from a secret source, for example `.cdsrc-private.json`, which stays out of Git (see [Provider configuration](#provider-configuration)).
+
 ## Local development
 
 In the `development` and `test` profiles, an application without an explicit `kind` gets the `systemone-mock` kind. It answers in-process, deterministically and without a server, a token or network access, so `cds watch`, `cds serve` and `cds.test` work out of the box.
 
-- Fixtures in `test/data/systemone.json` give fixed answers or simulated failures for matching input.
+- Fixtures in `test/data/systemone.json` give fixed answers or simulated failures for matching input. `cds add systemone --with-fixtures` writes an example file.
 - The settings `latencyMs` and `fail` simulate slow and failing providers for error-handling tests.
 - To use a real endpoint in development, set a `kind`, for example `CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya`. An explicit kind always wins.
 - The mock refuses the `production` profile unless `allowInProduction` is `true`.
@@ -109,7 +146,7 @@ In the `development` and `test` profiles, an application without an explicit `ki
 
 ## Provider configuration
 
-Select a provider kind under `cds.requires.systemone` with its full name. Settings sit at service level, except credentials, which sit under `credentials`. If an application sets no `kind`, the plugin uses `systemone-mock` in the `development` and `test` profiles and `systemone-generic` in production. The generic kind has no URL, so a production installation without a kind cannot send data and fails with `INVALID_CONFIG` when it connects. See [Local development](#local-development).
+Select a provider kind under `cds.requires.systemone` with its full name; `cds add systemone` writes this for a profile (see [Set up with `cds add systemone`](#set-up-with-cds-add-systemone)). Settings sit at service level, except credentials, which sit under `credentials`. If an application sets no `kind`, the plugin uses `systemone-mock` in the `development` and `test` profiles and `systemone-generic` in production. The generic kind has no URL, so a production installation without a kind cannot send data and fails with `INVALID_CONFIG` when it connects. See [Local development](#local-development).
 
 | Kind | Endpoint | `modelId` | `requiresToken` | `limits` |
 | --- | --- | --- | --- | --- |
@@ -218,7 +255,7 @@ You can add a provider at three levels:
 
 - A Jev-compatible server that needs only a URL, limits or a token flag: define a kind in your `package.json` that extends `systemone-generic`.
 - A provider with its own protocol: write a subclass of `SystemOneService` in your application and point a kind's `impl` at it.
-- A provider shared between applications: ship the kind and the subclass in a provider package.
+- A provider shared between applications: ship the kind and the subclass in a provider package. Its kind is selectable with `cds add systemone --kind <kind>`.
 
 [docs/providers.md](docs/providers.md) shows each level, the subclass hooks and the rules for subclasses. The subclass hooks are experimental (see [Stability](#stability)).
 
@@ -232,6 +269,7 @@ You can add a provider at three levels:
 | The kind names and the settings, including the `systemone-mock` kind and its settings (`MockSettings`) | Stable |
 | The subclass hooks: `setup`, `call`, `endpoint`, `unwrap`, `errorCode`, and the static `settingsKeys` and `credentialKeys` | Experimental until the first npm publication |
 | The HTTP mock server: `cap-jev/mock-server` (`startMockServer`, `MockServerOptions`, `MockServer`) and the `cap-jev-mock` command line | Experimental until the first npm publication |
+| The `cds add systemone` facet and its options (`--kind` and `--with-fixtures`; `--for` and `--force` are CAP's) | Experimental until the first npm publication |
 
 `MockSettings` is exported as a type; `MockServerOptions` and `MockServer` come from `cap-jev/mock-server`. `SystemOneTransport` is internal and not exported.
 
@@ -247,24 +285,26 @@ npm pack --dry-run
 npm run release:check
 ```
 
-Tests use Node's built-in test runner and need no external API key; HTTP tests run against local servers. `npm test` builds the package and runs `tests/*.test.cjs`. To run one file: `node --test tests/transport.test.cjs`.
+Tests use Node's built-in test runner and need no external API key; HTTP tests run against local servers. `npm test` builds the package and runs `tests/*.test.cjs`. To run one file: `node --test tests/transport.test.cjs`. `@sap/cds-dk` is a development dependency (`^10`); the `cds add` tests run its real command line.
 
 - CAP-level tests create temporary CAP apps with `tests/helpers/app.cjs`. The apps use the repository's `cap-jev` and `@sap/cds`, so one copy of each is loaded.
 - `tests/mock.test.cjs`, `tests/mock-engine.test.cjs` and `tests/mock-fixtures.test.cjs` test the mock provider: activation in each profile, production refusal, fixtures, simulated failures and latency, and the answer engine. `tests/mock.test.ts` checks the `MockSettings` types.
 - `tests/mock-core.test.cjs` tests the mock core that `MockService` and the server share: option checks, fixture loading and the order of `fail`, rules and engine.
 - `tests/mock-server.test.cjs` tests the HTTP mock server with plain `fetch`: the request and failure tables, the Cloudflare format, the token, latency and disconnects, the options, and loading without `@sap/cds`. `tests/mock-server-cap.test.cjs` runs temporary CAP apps in the production profile against it, with the generic and Cloudflare kinds. `tests/mock-server-cli.test.cjs` runs the `cap-jev-mock` command line in child processes. `tests/mock-server.test.ts` checks the `MockServerOptions` types.
+- `tests/add-core.test.cjs` tests the planner of the `cds add systemone` facet (`dist/add-core.js`): the options, the files and messages for each existing configuration, the refused kinds, indentation, a second run that writes nothing, the example fixtures, and loading without `@sap/cds`.
+- `tests/cds-add.test.cjs` runs the real `cds add systemone` of `@sap/cds-dk` in temporary apps: the default run, `--kind`, `--for`, `--force`, `--with-fixtures`, an unknown kind, a Java project, a second run, `cds add --help`, a provider package's kind, and the configured app connecting in development (mock) and production (HTTP mock server). `tests/plugin.test.cjs` checks in child processes with a stubbed `cds.add` that `cds-plugin.js` registers the facet for `cds add` and `cds help` only, and never throws.
 - `tests/release-scripts.test.cjs` tests the release scripts `scripts/release-check.cjs` and `scripts/release-notes.cjs` in temporary directories.
 - Because the mock is the default in `development` and `test`, a test that needs a real or fake HTTP endpoint selects a kind explicitly. The HTTP mock server can serve as that endpoint, so a test needs no fake server of its own.
 - `tests/example-app.test.cjs` and `tests/example-app-failure.test.cjs` run `examples/cap-app` with `cds.test` on the mock, without a fake server.
-- `tests/cap-integration.test.cjs` installs the packed package in a copy of the example app, using the npm cache when available and the registry otherwise. It makes its server calls in the production profile and one call in development on the mock, and checks that the installed `cap-jev-mock` command runs.
+- `tests/cap-integration.test.cjs` installs the packed package in a copy of the example app, using the npm cache when available and the registry otherwise. It makes its server calls in the production profile and one call in development on the mock, checks that the installed `cap-jev-mock` command runs, and runs `cds add systemone` from the installed package.
 - `npm run typecheck` also checks the types in `tests/*.test.ts`: answer inference, choice labels, exports and the subclass hooks.
 - `npm run build` emits CommonJS JavaScript and declarations in `dist/`.
 
-To test against CAP 9, run `npm install --no-save @sap/cds@^9` and then `npm test`.
+To test against CAP 9, run `npm install --no-save @sap/cds@^9 @sap/cds-dk@^9` and then `npm test`. Run `npm install` afterwards to restore CAP 10. With npm 12 or later, which blocks install scripts, `@sap/cds-dk` 9 leaves `better-sqlite3` without its native binding; run `npx --no-install prebuild-install` in `node_modules/better-sqlite3`, or the example-app tests hang.
 
-`npm run release:check` checks that the version in `package.json` matches `package-lock.json`, the example app's `cap-jev` range, the release archive URLs in both READMEs and a heading in `CHANGELOG.md`. `npm run release:check -- --tag v<x.y.z>` also checks the tag. It fails on a machine path (such as a home or temporary directory of a developer) in any tracked text file; `npm run release:check -- --archive <file.tgz>` runs only that check on a packed archive, as the release workflow does.
+`npm run release:check` checks that the version in `package.json` matches `package-lock.json`, the example app's `cap-jev` range, the release archive URLs and archive file names in both READMEs and a heading in `CHANGELOG.md`. `npm run release:check -- --tag v<x.y.z>` also checks the tag. It fails on a machine path (such as a home or temporary directory of a developer) in any tracked text file; `npm run release:check -- --archive <file.tgz>` runs only that check on a packed archive, as the release workflow does.
 
-[CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck (CAP 10 only), tests (including the build) and `npm pack --dry-run` on Node.js 22, 24 and 26 with CAP 9 and CAP 10, for pushes to branches and for pull requests. Pushing a tag `v<x.y.z>` runs the [release workflow](.github/workflows/release.yml), which runs CI on the tagged commit, checks the release with `npm run release:check` and creates the GitHub release with the `npm pack` archive and the changelog section as notes.
+[CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck (CAP 10 only), tests (including the build) and `npm pack --dry-run` on Node.js 22, 24 and 26 with CAP 9 and CAP 10 (and `@sap/cds-dk` 9 and 10, matching CAP), for pushes to branches and for pull requests. Pushing a tag `v<x.y.z>` runs the [release workflow](.github/workflows/release.yml), which runs CI on the tagged commit, checks the release with `npm run release:check` and creates the GitHub release with the `npm pack` archive and the changelog section as notes.
 
 Design decisions are recorded in [docs/decisions/](docs/decisions/).
 
