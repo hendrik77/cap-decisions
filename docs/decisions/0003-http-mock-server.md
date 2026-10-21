@@ -1,7 +1,7 @@
 # 3. HTTP mock server in the same package
 
 **Date:** 2026-10-21
-**Status:** Proposed (0.7.0)
+**Status:** Accepted (0.7.0)
 
 ## Context
 

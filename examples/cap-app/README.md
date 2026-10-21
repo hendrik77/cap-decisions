@@ -55,7 +55,7 @@ In production (`CDS_TYPESCRIPT=true npm start -- --production`), [`package.json`
 For a copy of the app outside this repository, install `cap-jev` from a release archive as described in the [main README](../../README.md#install-and-use), for example:
 
 ```sh
-curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.6.0/cap-jev-0.6.0.tgz
+curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.7.0/cap-jev-0.7.0.tgz
 npm install ./cap-jev-0.6.0.tgz
 ```
 
