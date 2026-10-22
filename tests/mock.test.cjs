@@ -439,3 +439,16 @@ describe('startup warning', () => {
     assert.ok(result.warnings.some((warning) => /bogus/.test(warning)));
   });
 });
+
+test('a signal that is never aborted does not disturb the delay', async () => {
+  const result = await inApp(
+    { kind: 'systemone-mock', latencyMs: 40, timeoutMs: 1000 },
+    `${connect}
+     const controller = new AbortController();
+     const started = performance.now();
+     const result = await srv.decide(request, { signal: controller.signal });
+     out({ model: result.model, elapsed: performance.now() - started });`,
+  );
+  assert.equal(result.model, 'mock');
+  assert.ok(result.elapsed >= 39, `elapsed ${result.elapsed}`);
+});

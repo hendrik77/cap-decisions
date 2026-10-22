@@ -575,3 +575,196 @@ test('timeout and caller cancellation interrupt response body reading without re
     assert.equal(calls, 1);
   }
 });
+
+test('caller abort during a retry pause cancels the wait with the abort cause', async () => {
+  let calls = 0;
+  handler = (_req, res) => {
+    calls++;
+    res.writeHead(503, { 'retry-after': '0.4' });
+    res.end();
+  };
+  const controller = new globalThis.AbortController();
+  const started = Date.now();
+  const pending = new SystemOneTransport({ timeoutMs: 5000, credentials: { url: await endpoint() } }).post(
+    { state: 'x', questions },
+    { signal: controller.signal },
+  );
+  setTimeout(() => controller.abort(new Error('caller stopped')), 60);
+  await assert.rejects(pending, (error) => {
+    assert.equal(error.code, 'ABORTED');
+    assert.equal(error.cause.message, 'caller stopped');
+    return true;
+  });
+  assert.ok(Date.now() - started < 300, 'should not wait for the whole pause');
+  assert.equal(calls, 1);
+});
+
+test('a destination resolver failure during post is INVALID_CONFIG and sends nothing', async () => {
+  const original = globalThis.fetch;
+  let fetched = 0;
+  globalThis.fetch = async () => {
+    fetched++;
+    return new globalThis.Response('{}');
+  };
+  try {
+    const transport = new SystemOneTransport(
+      { timeoutMs: 1000, credentials: { destination: 'broken' } },
+      {
+        destinationResolver: async () => {
+          throw new Error('resolver down');
+        },
+      },
+    );
+    await assert.rejects(
+      transport.post({ state: 'x', questions }),
+      (error) => error.code === 'INVALID_CONFIG' && error.cause.message === 'resolver down',
+    );
+    assert.equal(fetched, 0);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('an endpoint with another protocol than HTTP or HTTPS is INVALID_CONFIG', () => {
+  for (const url of ['ftp://example.com/post', 'file:///tmp/post']) {
+    assert.throws(
+      () => new SystemOneTransport({ timeoutMs: 1000, credentials: { url } }),
+      (error) => error.code === 'INVALID_CONFIG' && /HTTP or HTTPS/.test(error.message),
+    );
+  }
+});
+
+test('a destination name must be a non-empty string', () => {
+  for (const destination of ['  ', 42, {}]) {
+    assert.throws(
+      () => new SystemOneTransport({ timeoutMs: 1000, credentials: { destination } }),
+      (error) => error.code === 'INVALID_CONFIG' && /non-empty name/.test(error.message),
+    );
+  }
+});
+
+test('an already aborted caller signal fails with ABORTED before anything is sent', async () => {
+  const original = globalThis.fetch;
+  let fetched = 0;
+  globalThis.fetch = async () => {
+    fetched++;
+    return new globalThis.Response('{}');
+  };
+  try {
+    const transport = new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com/post' } });
+    await assert.rejects(
+      transport.post({ state: 'x', questions }, { signal: globalThis.AbortSignal.abort(new Error('before')) }),
+      (error) => error.code === 'ABORTED' && error.cause.message === 'before',
+    );
+    assert.equal(fetched, 0);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('a caller abort while the destination resolves fails with ABORTED and sends nothing', async () => {
+  const original = globalThis.fetch;
+  let fetched = 0;
+  globalThis.fetch = async () => {
+    fetched++;
+    return new globalThis.Response('{}');
+  };
+  try {
+    const controller = new globalThis.AbortController();
+    const transport = new SystemOneTransport(
+      { timeoutMs: 1000, credentials: { destination: 'aborting' } },
+      {
+        destinationResolver: async () => {
+          controller.abort();
+          return { url: 'https://example.com/post' };
+        },
+      },
+    );
+    await assert.rejects(
+      transport.post({ state: 'x', questions }, { signal: controller.signal }),
+      (error) => error.code === 'ABORTED',
+    );
+    assert.equal(fetched, 0);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('a caller abort while a retriable response is released stops before the pause', async () => {
+  const original = globalThis.fetch;
+  const controller = new globalThis.AbortController();
+  let fetched = 0;
+  globalThis.fetch = async () => {
+    fetched++;
+    return {
+      ok: false,
+      status: 503,
+      headers: new globalThis.Headers({ 'retry-after': '0.01' }),
+      body: { cancel: async () => controller.abort() },
+    };
+  };
+  try {
+    const transport = new SystemOneTransport({ timeoutMs: 5000, credentials: { url: 'https://example.com/post' } });
+    await assert.rejects(
+      transport.post({ state: 'x', questions }, { signal: controller.signal }),
+      (error) => error.code === 'ABORTED',
+    );
+    assert.equal(fetched, 1);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('an error response without a body is an HTTP_ERROR without a provider code', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => new globalThis.Response(null, { status: 500 });
+  try {
+    const transport = new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com/post' } });
+    await assert.rejects(
+      transport.post({ state: 'x', questions }),
+      (error) => error.code === 'HTTP_ERROR' && error.status === 500 && error.providerCode === undefined,
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('an error body larger than the read limit is not parsed', async () => {
+  handler = (_req, res) => {
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: { type: 'overloaded' }, padding: 'x'.repeat(9000) }));
+  };
+  await assert.rejects(
+    decide(),
+    (error) => error.code === 'HTTP_ERROR' && error.status === 500 && error.providerCode === undefined,
+  );
+  handler = (_req, res) => {
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: { type: 'overloaded' } }));
+  };
+  await assert.rejects(decide(), (error) => error.providerCode === 'overloaded');
+});
+
+test('an error response whose body breaks while it is read is INVALID_RESPONSE with the cause', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new globalThis.Response(
+      new globalThis.ReadableStream({
+        pull(controller) {
+          controller.error(new Error('body broke'));
+        },
+      }),
+      { status: 500 },
+    );
+  try {
+    const transport = new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com/post' } });
+    await assert.rejects(transport.post({ state: 'x', questions }), (error) => {
+      assert.equal(error.code, 'INVALID_RESPONSE');
+      assert.equal(error.message, 'Failed reading System One error response');
+      assert.equal(error.cause.message, 'body broke');
+      return true;
+    });
+  } finally {
+    globalThis.fetch = original;
+  }
+});

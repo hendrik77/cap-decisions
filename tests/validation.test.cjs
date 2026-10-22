@@ -333,3 +333,20 @@ describe('validateRequest content', () => {
 test('SystemOneError is exported from validation', () => {
   assert.ok(new SystemOneError('INVALID_CONFIG', 'x') instanceof Error);
 });
+
+describe('validateRequest question shapes', () => {
+  test('rejects an empty question id and a question that is not an object', () => {
+    for (const questions of [{ '': { type: 'noul', instructions: 'Yes?' } }, { answer: null }, { answer: 'Yes?' }]) {
+      assert.throws(() => validateRequest(request(questions)), {
+        ...invalidRequest,
+        message: 'Each question needs an id and instructions',
+      });
+    }
+  });
+
+  test('accepts noul criteria for the labels true and false', () => {
+    validateRequest(
+      request({ answer: { type: 'noul', instructions: 'Yes?', criteria: { true: 'Yes', false: 'No' } } }),
+    );
+  });
+});

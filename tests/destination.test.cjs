@@ -151,3 +151,68 @@ test('the endpoint hook is not used when a destination is configured', async () 
   );
   await assert.doesNotReject(transport.validateDestination());
 });
+
+// Makes `require('@sap-cloud-sdk/connectivity')` inside dist/transport.js resolve to a stub module.
+function withStubbedSdk(sdkSource, run) {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const Module = require('node:module');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-sdk-'));
+  const file = path.join(dir, 'index.js');
+  fs.writeFileSync(file, `module.exports = ${sdkSource};`);
+  const resolve = Module._resolveFilename;
+  Module._resolveFilename = function (name, ...rest) {
+    return name === '@sap-cloud-sdk/connectivity' ? file : resolve.call(this, name, ...rest);
+  };
+  const cleanup = () => {
+    Module._resolveFilename = resolve;
+    delete Module._cache[file];
+    fs.rmSync(dir, { recursive: true, force: true });
+  };
+  return run().finally(cleanup);
+}
+
+test('the installed Cloud SDK resolves the destination by name', () =>
+  withStubbedSdk(
+    `{ getDestination: async ({ destinationName }) => ({ url: 'https://example.com/' + destinationName, headers: { Authorization: 'Bearer sdk' } }) }`,
+    async () => {
+      const original = globalThis.fetch;
+      const seen = [];
+      globalThis.fetch = async (url, options) => {
+        seen.push({ url: String(url), authorization: options.headers.authorization });
+        return new globalThis.Response(JSON.stringify(result));
+      };
+      try {
+        const transport = new SystemOneTransport({
+          timeoutMs: 1000,
+          requiresToken: true,
+          credentials: { destination: 'from-sdk' },
+        });
+        assert.deepEqual((await transport.post(request)).payload, result);
+        assert.deepEqual(seen, [{ url: 'https://example.com/from-sdk', authorization: 'Bearer sdk' }]);
+      } finally {
+        globalThis.fetch = original;
+      }
+    },
+  ));
+
+test('a Cloud SDK without getDestination is INVALID_CONFIG', () =>
+  withStubbedSdk(`{}`, async () => {
+    const transport = new SystemOneTransport({ timeoutMs: 1000, credentials: { destination: 'x' } });
+    await assert.rejects(
+      transport.validateDestination(),
+      (error) => error.code === 'INVALID_CONFIG' && /does not expose getDestination/.test(error.message),
+    );
+  }));
+
+test('destination headers must be strings', async () => {
+  const transport = new SystemOneTransport(
+    { timeoutMs: 1000, credentials: { destination: 'x' } },
+    { destinationResolver: async () => ({ url: 'https://example.com/post', headers: { 'X-Count': 3 } }) },
+  );
+  await assert.rejects(
+    transport.validateDestination(),
+    (error) => error.code === 'INVALID_CONFIG' && /headers must be strings/.test(error.message),
+  );
+});

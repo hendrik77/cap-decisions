@@ -91,6 +91,7 @@
     "typecheck": "tsc --noEmit && tsc -p tests/tsconfig.json && tsc -p examples/cap-app/tsconfig.json",
     "build": "tsc && node -e \"require('fs').chmodSync('dist/mock-server-cli.js', 0o755)\"",
     "test": "npm run build && node --test tests/*.test.cjs examples/provider-package/test/*.test.cjs",
+    "coverage": "npm run build && node --test --experimental-test-coverage --test-coverage-include='dist/**' --test-coverage-lines=98 --test-coverage-branches=96 --test-coverage-functions=98 tests/*.test.cjs examples/provider-package/test/*.test.cjs",
     "prepack": "npm run build"
   },
   "cds": {

@@ -573,3 +573,79 @@ test('the module loads without @sap/cds', () => {
   const output = execFileSync(process.execPath, ['-e', script], { encoding: 'utf8' });
   assert.equal(output.trim(), 'false');
 });
+
+test('options must be an object', async () => {
+  for (const options of [null, [], 'port', 5]) {
+    await assert.rejects(startMockServer(options), rejectsWith('INVALID_CONFIG', /options must be an object/));
+  }
+});
+
+test('a client that closes the connection in the middle of the body gets no answer and the server keeps working', async () => {
+  const net = require('node:net');
+  const lines = [];
+  await withServer({ log: (line) => lines.push(line) }, async (server) => {
+    const socket = net.connect(server.port, '127.0.0.1');
+    await new Promise((resolve) => socket.once('connect', resolve));
+    const received = [];
+    socket.on('data', (chunk) => received.push(chunk));
+    socket.on('error', () => undefined);
+    socket.write(
+      'POST /v1/systemone HTTP/1.1\r\nhost: localhost\r\ncontent-type: application/json\r\ncontent-length: 500\r\n\r\n{"state"',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    socket.destroy();
+    for (let i = 0; i < 50 && lines.length < 1; i++) await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(received.length, 0);
+    assert.equal(lines.length, 1);
+    assert.match(lines[0], /^POST \/v1\/systemone - \d+ms$/);
+    assert.equal((await post(server, request)).status, 200);
+  });
+});
+
+test('an unknown option name is INVALID_CONFIG', async () => {
+  await assert.rejects(
+    startMockServer({ port: 0, latency: 5 }),
+    rejectsWith('INVALID_CONFIG', /Unknown mock server option "latency"/),
+  );
+});
+
+test('a body far beyond the limit is answered 413 and the server keeps working', async () => {
+  await withServer({}, async (server) => {
+    const outcome = await new Promise((resolve) => {
+      const req = http.request(server.url, { method: 'POST', headers: { 'transfer-encoding': 'chunked' } });
+      req.on('response', (res) => {
+        res.resume();
+        res.on('end', () => resolve(res.statusCode));
+      });
+      req.on('error', (error) => resolve(error.code));
+      const chunk = Buffer.alloc(1024 * 1024, 32);
+      let sent = 0;
+      const write = () => {
+        while (sent < 12) {
+          sent++;
+          if (!req.write(chunk)) return void req.once('drain', write);
+        }
+        req.end();
+      };
+      write();
+    });
+    assert.ok([413, 'ECONNRESET', 'EPIPE'].includes(outcome), String(outcome));
+    assert.equal((await post(server, request)).status, 200);
+  });
+});
+
+test('an IPv6 host is written in brackets in the URL', async () => {
+  let server;
+  try {
+    server = await startMockServer({ port: 0, host: '::1' });
+  } catch (error) {
+    if (error.code === 'EADDRNOTAVAIL') return;
+    throw error;
+  }
+  try {
+    assert.match(server.url, /^http:\/\/\[::1\]:\d+\/v1\/systemone$/);
+    assert.equal((await post(server, request)).status, 200);
+  } finally {
+    await server.close();
+  }
+});

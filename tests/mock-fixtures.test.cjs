@@ -253,3 +253,19 @@ describe('ruleError', () => {
     }
   });
 });
+
+describe('rules without the optional parts', () => {
+  test('ruleAnswer treats a rule without an answer as an answer that does not fit', () => {
+    assert.throws(() => ruleAnswer({}, 0, urgent, 'state', 'q', 'my.json'), {
+      name: 'SystemOneError',
+      code: 'INVALID_CONFIG',
+      message: 'my.json rule 0: answer does not fit question q',
+    });
+  });
+
+  test('ruleError without a fail code is a PROVIDER_ERROR', () => {
+    const error = ruleError({});
+    assert.equal(error.code, 'PROVIDER_ERROR');
+    assert.equal(error.message, 'Simulated PROVIDER_ERROR from the mock provider');
+  });
+});

@@ -288,11 +288,14 @@ npm run lint
 npm run typecheck
 npm run build
 npm test
+npm run coverage
 npm pack --dry-run
 npm run release:check
 ```
 
 Tests use Node's built-in test runner and need no external API key; HTTP tests run against local servers. `npm test` builds the package and runs `tests/*.test.cjs` and the test of the example provider package. To run one file: `node --test tests/transport.test.cjs`. `@sap/cds-dk` is a development dependency (`^10`); the `cds add` tests run its real command line.
+
+`npm run coverage` runs the same tests with Node's built-in coverage of `dist/` and fails when the total falls below 98 % of lines, 96 % of branches or 98 % of functions (the thresholds are in the script in `package.json`). CI runs it instead of `npm test` in one job only, Node 24 with CAP 10; all other jobs run `npm test`. A child process is counted when it exits on its own, so the `cds add` facet and the CAP apps of the tests are included. Not counted: a process that a signal stops, so the run-until-stopped part of the `cap-jev-mock` command line (`dist/mock-server-cli.js`) looks weaker than it is; `cds-plugin.js`, which is outside `dist/`; and the CAP side of the test kit (`cap-jev/testing`), which runs from a string in a child process. Those parts are tested in child processes (see below).
 
 - CAP-level tests create temporary CAP apps with `tests/helpers/app.cjs`. The apps use the repository's `cap-jev` and `@sap/cds`, so one copy of each is loaded.
 - `tests/mock.test.cjs`, `tests/mock-engine.test.cjs` and `tests/mock-fixtures.test.cjs` test the mock provider: activation in each profile, production refusal, fixtures, simulated failures and latency, and the answer engine. `tests/mock.test.ts` checks the `MockSettings` types.
