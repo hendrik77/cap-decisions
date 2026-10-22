@@ -29,6 +29,10 @@
       "types": "./dist/mock-server.d.ts",
       "default": "./dist/mock-server.js"
     },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
     "./package.json": "./package.json",
     "./cds-plugin": "./cds-plugin.js",
     "./cds-plugin.js": "./cds-plugin.js"
@@ -86,7 +90,7 @@
     "format": "prettier --write src tests scripts examples/cap-app/srv",
     "typecheck": "tsc --noEmit && tsc -p tests/tsconfig.json && tsc -p examples/cap-app/tsconfig.json",
     "build": "tsc && node -e \"require('fs').chmodSync('dist/mock-server-cli.js', 0o755)\"",
-    "test": "npm run build && node --test tests/*.test.cjs",
+    "test": "npm run build && node --test tests/*.test.cjs examples/provider-package/test/*.test.cjs",
     "prepack": "npm run build"
   },
   "cds": {

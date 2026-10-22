@@ -24,8 +24,9 @@ The inventory below is taken from the code on 2026-10-22 (`release-0.9.0`, after
 | HTTP mock server | `cap-jev/mock-server`: `startMockServer(options)`, `MockServerOptions` (`port`, `host`, `path`, `fixtures` or `rules`, `root`, `strategy`, `latencyMs`, `fail`, `token`, `format`, `log`), `MockServer` (`url`, `port`, `host`, `close()`) | `src/mock-server.ts` |
 | `cap-jev-mock` | The options of `--help`, the environment variable `CAP_JEV_MOCK_TOKEN`, the line `cap-jev mock server listening on <url>`, the request log lines, the exit codes 0, 1 (cannot listen, unexpected error) and 2 (usage or configuration error) | `src/mock-server-cli.ts` |
 | `cds add systemone` | `--kind`, `--with-fixtures`, CAP's `--for` and `--force`; the files `package.json`, `.cdsrc-private.json`, `.gitignore`, `test/data/systemone.json` and the keys it writes; the message prefix `[systemone]` and the message texts | `src/add.ts`, `src/add-core.ts`, `cds-plugin.js` |
+| Test kit | From 0.9.0 `cap-jev/testing`: `testProviderKind(options)`, `ProviderKindTestOptions`, `WireError`, `WireErrorInput`; the checks it registers ([ADR 0007](0007-provider-test-kit.md)) | `src/testing.ts` |
 | Logging | The log channel `systemone`; the debug record `decision completed` with `latencyMs`, `attempts`, `model`, `usage` | `src/index.ts` |
-| Package | `exports` (`.`, `./providers/cloudflare`, `./providers/mock`, `./mock-server`, `./package.json`, `./cds-plugin`, `./cds-plugin.js`), `bin`, `engines` (`node >=22`), `peerDependencies` (`@sap/cds`, `@sap-cloud-sdk/connectivity`) | `package.json` |
+| Package | `exports` (`.`, `./providers/cloudflare`, `./providers/mock`, from 0.9.0 `./providers/subq` and `./testing`, `./mock-server`, `./package.json`, `./cds-plugin`, `./cds-plugin.js`), `bin`, `engines` (`node >=22`), `peerDependencies` (`@sap/cds`, `@sap-cloud-sdk/connectivity`) | `package.json` |
 | Not exported | `SystemOneTransport`, the validation functions, `machineCode`, `CAP_SETTINGS_KEYS`, `mock-core`, `mock-engine`, `mock-fixtures`, `add`, `add-core`, `mock-server-cli` as modules | `dist/` |
 
 ## Options considered

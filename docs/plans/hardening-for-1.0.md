@@ -228,7 +228,8 @@ The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.9.0 again 
 | --- | --- |
 | H1 | ADR 0006 proposed, waiting for the maintainer's review; CAP support policy implemented (`^9 \|\| ^10`, checked by `release:check`) |
 | H2 | Done: `systemone-subq` and `cap-jev/providers/subq` (`errorCode` only), 500 tests |
-| H3–H5 | Open |
+| H3 | Done: `cap-jev/testing` (`testProviderKind`), ADR 0007 proposed; run for the five built-in HTTP kinds and `systemone-acme` |
+| H4–H5 | Open |
 | H6–H9 | Open |
 | H10–H12 | Open |
 

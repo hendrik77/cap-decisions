@@ -262,6 +262,8 @@ You can add a provider at three levels:
 
 [docs/providers.md](docs/providers.md) shows each level, the subclass hooks and the rules for subclasses. The subclass hooks are experimental (see [Stability](#stability)).
 
+A provider package tests its kind with one call of `cap-jev/testing` (experimental): `testProviderKind({ kind, encode })` registers the checks every kind must pass as `node:test` tests. See [Testing a provider package](docs/providers.md#testing-a-provider-package).
+
 ## Stability
 
 | Area | Status |
@@ -274,6 +276,7 @@ You can add a provider at three levels:
 | The subclass hooks: `setup`, `call`, `endpoint`, `unwrap`, `errorCode`, and the static `settingsKeys` and `credentialKeys` | Experimental until the first npm publication |
 | The HTTP mock server: `cap-jev/mock-server` (`startMockServer`, `MockServerOptions`, `MockServer`) and the `cap-jev-mock` command line | Experimental until the first npm publication |
 | The `cds add systemone` facet and its options (`--kind` and `--with-fixtures`; `--for` and `--force` are CAP's) | Experimental until the first npm publication |
+| The provider test kit: `cap-jev/testing` (`testProviderKind`, `ProviderKindTestOptions`) | Experimental |
 
 `MockSettings` is exported as a type; `MockServerOptions` and `MockServer` come from `cap-jev/mock-server`. `SystemOneTransport` is internal and not exported.
 
@@ -289,7 +292,7 @@ npm pack --dry-run
 npm run release:check
 ```
 
-Tests use Node's built-in test runner and need no external API key; HTTP tests run against local servers. `npm test` builds the package and runs `tests/*.test.cjs`. To run one file: `node --test tests/transport.test.cjs`. `@sap/cds-dk` is a development dependency (`^10`); the `cds add` tests run its real command line.
+Tests use Node's built-in test runner and need no external API key; HTTP tests run against local servers. `npm test` builds the package and runs `tests/*.test.cjs` and the test of the example provider package. To run one file: `node --test tests/transport.test.cjs`. `@sap/cds-dk` is a development dependency (`^10`); the `cds add` tests run its real command line.
 
 - CAP-level tests create temporary CAP apps with `tests/helpers/app.cjs`. The apps use the repository's `cap-jev` and `@sap/cds`, so one copy of each is loaded.
 - `tests/mock.test.cjs`, `tests/mock-engine.test.cjs` and `tests/mock-fixtures.test.cjs` test the mock provider: activation in each profile, production refusal, fixtures, simulated failures and latency, and the answer engine. `tests/mock.test.ts` checks the `MockSettings` types.
@@ -297,6 +300,7 @@ Tests use Node's built-in test runner and need no external API key; HTTP tests r
 - `tests/mock-server.test.cjs` tests the HTTP mock server with plain `fetch`: the request and failure tables, the Cloudflare format, the token, latency and disconnects, the options, and loading without `@sap/cds`. `tests/mock-server-cap.test.cjs` runs temporary CAP apps in the production profile against it, with the generic and Cloudflare kinds. `tests/mock-server-cli.test.cjs` runs the `cap-jev-mock` command line in child processes. `tests/mock-server.test.ts` checks the `MockServerOptions` types.
 - `tests/add-core.test.cjs` tests the planner of the `cds add systemone` facet (`dist/add-core.js`): the options, the files and messages for each existing configuration, the refused kinds, indentation, a second run that writes nothing, the example fixtures, and loading without `@sap/cds`.
 - `tests/cds-add.test.cjs` runs the real `cds add systemone` of `@sap/cds-dk` in temporary apps: the default run, `--kind`, `--for`, `--force`, `--with-fixtures`, an unknown kind, a Java project, a second run, `cds add --help`, a provider package's kind, and the configured app connecting in development (mock) and production (HTTP mock server). `tests/plugin.test.cjs` checks in child processes with a stubbed `cds.add` that `cds-plugin.js` registers the facet for `cds add` and `cds help` only, and never throws.
+- `tests/testing.test.cjs` runs the provider test kit (`cap-jev/testing`) against the built-in token kinds and Cloudflare, checks that a provider package with a wrong `unwrap` fails it with the name of the failing check, that the kit works in an existing app (`appDir`), that requiring the kit loads no `@sap/cds`, and that `cds-plugin.js` does not load the kit. `examples/provider-package/test/provider.test.cjs` runs the kit for `systemone-acme`; `npm test` runs it too.
 - `tests/release-scripts.test.cjs` tests the release scripts `scripts/release-check.cjs` and `scripts/release-notes.cjs` in temporary directories.
 - Because the mock is the default in `development` and `test`, a test that needs a real or fake HTTP endpoint selects a kind explicitly. The HTTP mock server can serve as that endpoint, so a test needs no fake server of its own.
 - `tests/example-app.test.cjs` and `tests/example-app-failure.test.cjs` run `examples/cap-app` with `cds.test` on the mock, without a fake server.

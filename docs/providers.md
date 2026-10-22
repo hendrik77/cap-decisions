@@ -13,7 +13,7 @@ This guide has three levels. Use the lowest level that works.
 | 2. App-local subclass | The protocol differs, for example a response envelope or a different URL scheme | A file in your application |
 | 3. Provider package | Several applications use the provider, or another party maintains it | A separate npm package |
 
-The subclass hooks used by levels 2 and 3 are experimental until the first npm publication. See [Stability](../README.md#stability). The design is explained in [ADR 0001](decisions/0001-provider-kinds-as-cap-service-subclasses.md).
+The subclass hooks used by levels 2 and 3 and the test kit for provider packages are experimental; [ADR 0006](decisions/0006-public-api-for-1.0.md) proposes which of them become stable in 1.0.0. See [Stability](../README.md#stability). The design is explained in [ADR 0001](decisions/0001-provider-kinds-as-cap-service-subclasses.md).
 
 ## Level 1: an app kind
 
@@ -155,6 +155,58 @@ Three built-in providers show the hooks:
 - Throw `SystemOneError` with one of the documented codes (see [Errors](../README.md#errors) in the README): `INVALID_CONFIG` for settings, `INVALID_RESPONSE` for a malformed answer, `PROVIDER_ERROR` for a failure the provider reports, `HTTP_ERROR` with `status` for an HTTP failure.
 - Never log request data (`state`, `questions`) or credentials.
 - Import `SystemOneService` and `SystemOneError` from `cap-jev`, not from files inside its `dist` folder.
+
+## Testing a provider package
+
+`cap-jev/testing` (experimental) runs the checks that every kind must pass, so a provider package does not copy `cap-jev`'s tests. One call registers them as `node:test` tests; the kit uses no other test framework. Put it in a test file of the package and run `node --test`:
+
+```js
+// test/provider.test.cjs
+const { testProviderKind } = require('cap-jev/testing');
+
+testProviderKind({
+  kind: 'systemone-acme',
+  credentials: { region: 'eu' }, // credentials the kit does not know, listed in credentialKeys
+  encode: (response) => ({ data: response }), // the Jev answer in Acme's wire format
+});
+```
+
+[`examples/provider-package/test/provider.test.cjs`](../examples/provider-package/test/provider.test.cjs) is a working example, and `npm test` runs it.
+
+The kit links the package at `packageDir` (default `process.cwd()`, so run `node --test` from the package root or pass the option) into a temporary CAP app together with the `cap-jev` and `@sap/cds` that the package resolves, so that one copy of each is loaded. It runs CAP in a child process, starts a local HTTP server in the test process, and points the kind at it through `credentials.url`. The package must therefore have `cap-jev` and `@sap/cds` installed, as a peer dependency is in development. With `appDir` it uses an existing app instead.
+
+| Option | Meaning |
+| --- | --- |
+| `kind` | The kind under test. |
+| `packageDir` | The provider package. Default `process.cwd()`. |
+| `appDir` | An existing CAP app that has the package installed. Nothing is created or linked. |
+| `settings` | Further settings for the kind, applied over its resolved settings (`timeoutMs`, `limits`, `modelId`). |
+| `credentials` | Further credentials, such as `accountId` or `region`. The kit sets `url` and, when the kind has `requiresToken`, a test `token`, unless `token` is given. |
+| `encode(response, request)` | Turns a Jev response into the provider's wire format. Default: the response itself, for a server that speaks the Jev protocol. |
+| `encodeError({ code, status, message })` | Returns `{ status, body }`, the provider's error response carrying `code` as its machine-readable error. Default: `{ status, body: { error: { type: code } } }`. |
+
+For a provider that reports errors in another shape, pass `encodeError`. SubQ, for instance, answers `{ "detail": { "error_type": "..." } }`:
+
+```js
+testProviderKind({
+  kind: 'systemone-subq',
+  encodeError: ({ code, status, message }) => ({ status, body: { detail: { error_type: code, message } } }),
+});
+```
+
+The checks, each its own test:
+
+- connecting works with the kit's settings;
+- `noul`, `choice` and `score` answers come back typed, and several questions in one request come back under their ids;
+- the kind's `modelId` is sent as `model`;
+- each limit in the kind's `limits` (`questions`, `choiceOptions`, `scoreCriteria.min` and `max`) rejects a request beyond it with `INVALID_REQUEST` before anything is sent, and a request at the limit is sent. A limit the kind does not set is reported as skipped;
+- with `requiresToken`, a missing token is `INVALID_CONFIG` and the token is sent as `Authorization: Bearer <token>`;
+- an error response from `encodeError` is `HTTP_ERROR` with its `status` and `providerCode`, and the token is not in the message;
+- a 503 is retried;
+- a body that is not JSON, and a decision that does not match the questions, are `INVALID_RESPONSE`;
+- a closed port is `NETWORK_ERROR`, and a server that does not answer is `TIMEOUT`.
+
+The kit does not check whether the provider's real server accepts the requests, the content of the answers, `destination` credentials, or the provider's in-band error variants (such as Cloudflare's `success: false`). Test those next to the kit call with `node:test` and a local server. The design is explained in [ADR 0007](decisions/0007-provider-test-kit.md).
 
 ## When to make a separate package
 
