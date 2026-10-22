@@ -2,6 +2,31 @@
 
 This changelog starts with 0.5.0. Earlier versions are described in the [GitHub releases](https://github.com/hendrik77/cap-jev/releases) up to v0.4.3.
 
+## 0.9.0: SubQ Snap, provider test kit, coverage
+
+### Breaking changes
+
+- The `@sap/cds` peer range is `^9 || ^10` instead of `>=9`, in `package.json` and in `examples/provider-package`. `cap-jev` supports the last two stable CAP major versions; a CAP major that is not tested is no longer in the range. When CAP 11 is released, one release adds it and drops CAP 9.
+
+### Added
+
+- Kind `systemone-subq` for [SubQ Snap](https://docs.subq.ai/endpoints/decisions-api/): `https://api.subq.ai/v1/systemone`, `modelId` `subq-snap-preview`, a token, and the limits 16 questions, 255 choice options and 2 to 10 score criteria. Its subclass `cap-jev/providers/subq` (`SubqService`) overrides only `errorCode`, because SubQ reports its error type in `detail.error_type`. Both are experimental while SubQ's model is in preview. Images in a request are not supported.
+- `cap-jev/testing`, the provider test kit: `testProviderKind({ kind, packageDir?, appDir?, settings?, credentials?, encode?, encodeError? })` registers `node:test` checks that every kind must pass, from the three question types and the limits to tokens, error codes, retries, invalid responses, network errors and timeouts. CAP runs in a child process of a temporary app, the provider's wire format is described by `encode` and `encodeError`, and checks that do not apply to a kind are skipped with the reason. It does not load `@sap/cds` when required and is never loaded at runtime. Experimental.
+- `examples/provider-package/test/provider.test.cjs` runs the kit for `systemone-acme`; `npm test` runs it.
+- `npm run coverage`: the test suite with Node's coverage of `dist/` and the thresholds 98 % of lines, 96 % of branches and 98 % of functions.
+- `npm run release:check` fails when the `@sap/cds` peer range of `package.json` or `examples/provider-package/package.json` differs from the CAP majors of the CI matrix.
+- Architecture decision records `docs/decisions/0006-public-api-for-1.0.md` (the public API of 1.0.0: what is stable, experimental or internal, what counts as breaking, the CAP and Node support policies) and `docs/decisions/0007-provider-test-kit.md`, both proposed; the plan `docs/plans/hardening-for-1.0.md`.
+
+### Changed
+
+- CI runs `npm run coverage` instead of `npm test` in the Node 24 / CAP 10 job.
+- New tests close coverage gaps in the transport (aborts during retry pauses and destination resolution, endpoint schemes, error bodies), destinations, the HTTP mock server, the Cloudflare and mock providers, validation and the fixtures. 649 tests.
+- The README states the CAP support policy next to the requirements and lists the new kind, the kit and the coverage command; `docs/providers.md` has a section "Testing a provider package"; `AGENTS.md` describes the new files, the peer-range rule and coverage.
+
+### Fixed
+
+None.
+
 ## 0.8.0: cds add systemone
 
 ### Breaking changes

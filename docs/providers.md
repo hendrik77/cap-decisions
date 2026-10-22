@@ -94,7 +94,7 @@ module.exports = AcmeSystemOne;
   "main": "srv/acme-service.js",
   "peerDependencies": {
     "cap-jev": ">=0.5.0",
-    "@sap/cds": ">=9"
+    "@sap/cds": "^9 || ^10"
   },
   "cds": {
     "requires": {
