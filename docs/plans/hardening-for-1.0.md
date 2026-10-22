@@ -230,7 +230,7 @@ The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.9.0 again 
 | H2 | Done: `systemone-subq` and `cap-jev/providers/subq` (`errorCode` only), 500 tests |
 | H3 | Done: `cap-jev/testing` (`testProviderKind`), ADR 0007 proposed; run for the five built-in HTTP kinds and `systemone-acme` |
 | H4 | Done: `npm run coverage` at 98 / 96 / 98 (reached 99.0 / 96.2 / 98.1), run in the Node 24 / CAP 10 job; 649 tests. Child processes that exit on their own are counted after all; only signal-stopped ones, `cds-plugin.js` and the kit's CAP side are not |
-| H5 | Open |
+| H5 | Released 0.9.0 on 2026-10-22 (PR #10, merge `60e4fbe`, tag `v0.9.0`, release workflow run 39747500064). Smoke test from the published archive: the provider package runs the kit (14 pass, 4 skipped, 0 fail); `cds add systemone --kind systemone-subq` writes the profile kind and the token placeholder; development answers from the mock; production with the empty token fails with `INVALID_CONFIG`. ADR 0006 was not yet reviewed by the maintainer before the release, as step 4 of H1 asked; the review moves to 0.9.1 |
 | H6–H9 | Open |
 | H10–H12 | Open |
 
