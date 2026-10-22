@@ -141,9 +141,10 @@ The kind requires a token, so supply `credentials.token` from a secret source su
 | `settingsKeys` | `static settingsKeys: readonly string[]` | `[]` | The subclass adds service-level settings. Listed keys produce no warning. Read them from `this.settings` |
 | `credentialKeys` | `static credentialKeys: readonly string[]` | `[]` | The subclass adds credentials. Listed keys under `credentials` are accepted if their values are strings. Unlisted keys fail with `INVALID_CONFIG` |
 
-Two built-in providers show the hooks:
+Three built-in providers show the hooks:
 
 - [`src/providers/cloudflare.ts`](../src/providers/cloudflare.ts) overrides `endpoint`, `unwrap` and `errorCode`.
+- [`src/providers/subq.ts`](../src/providers/subq.ts) overrides only `errorCode`: SubQ speaks the Jev protocol, but reports its error type in `detail.error_type`. Its kind, `systemone-subq`, holds the URL, `modelId` and limits as data.
 - [`src/providers/mock.ts`](../src/providers/mock.ts) overrides `setup` and `call` and uses no HTTP. It has no transport. It answers from fixtures and a deterministic engine, honours `options.signal` and `settings.timeoutMs` in its simulated delay, and declares its settings in `static settingsKeys`. See [Local development](local-development.md).
 
 ## Rules for subclasses

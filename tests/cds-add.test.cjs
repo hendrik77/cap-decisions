@@ -143,6 +143,24 @@ describe('cds add systemone', { concurrency: true }, () => {
     });
   });
 
+  test('--kind systemone-subq writes a token placeholder and no URL reminder', { timeout: TIMEOUT }, async () => {
+    await withApp({}, async (dir) => {
+      const result = await add(dir, '--kind', 'systemone-subq');
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(readJson(dir, 'package.json').cds.requires.systemone['[production]'].kind, 'systemone-subq');
+      assert.deepEqual(readJson(dir, '.cdsrc-private.json'), {
+        requires: { systemone: { '[production]': { credentials: { token: '' } } } },
+      });
+      assert.match(read(dir, '.gitignore'), /^\.cdsrc-private\.json$/m);
+      assert.doesNotMatch(result.stdout + result.stderr, /credentials\.url/);
+
+      // The empty token counts as missing.
+      const production = await connect(dir, { env: { CDS_ENV: 'production' }, body: 'out({ ok: true });' });
+      assert.equal(production.error, 'INVALID_CONFIG', JSON.stringify(production));
+      assert.match(production.message, /token/);
+    });
+  });
+
   test('--for writes the kind into another profile', { timeout: TIMEOUT }, async () => {
     await withApp({}, async (dir) => {
       const result = await add(dir, '--for', 'hybrid');

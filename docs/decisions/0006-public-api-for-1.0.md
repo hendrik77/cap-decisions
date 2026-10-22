@@ -17,7 +17,7 @@ The inventory below is taken from the code on 2026-10-22 (`release-0.9.0`, after
 | Service API | `cds.connect.to('systemone')`, `decide(request, { signal })`, the `decide` event | `src/index.ts` |
 | Errors | `SystemOneError` with `code`, `status`, `providerCode`, `cause`; the codes `INVALID_CONFIG`, `INVALID_REQUEST`, `INVALID_RESPONSE`, `HTTP_ERROR`, `PROVIDER_ERROR`, `NETWORK_ERROR`, `TIMEOUT`, `ABORTED` | `src/validation.ts` |
 | Subclass hooks | `setup(settings)`, `call(request, options)`, `endpoint(credentials)`, `unwrap(payload)`, `errorCode(payload)`; `static settingsKeys`, `static credentialKeys`; the protected fields `settings` and `transport` | `src/index.ts` |
-| Provider entries | `cap-jev/providers/cloudflare` (`CloudflareService`, also default), `cap-jev/providers/mock` (`MockService`, also default) | `src/providers/` |
+| Provider entries | `cap-jev/providers/cloudflare` (`CloudflareService`, also default), `cap-jev/providers/mock` (`MockService`, also default), from 0.9.0 `cap-jev/providers/subq` (`SubqService`, also default) | `src/providers/` |
 | Kinds and settings | `systemone-defaults` (parent, not selectable), `systemone-generic`, `systemone-mock`, `systemone-typesafe`, `systemone-cloudflare`, `systemone-laya`, and from 0.9.0 `systemone-subq`; service-level `kind`, `impl`, `modelId`, `timeoutMs`, `requiresToken`, `limits` (`questions`, `choiceOptions`, `scoreCriteria.min`/`max`); `credentials.url`, `token`, `accountId`, `destination`; the mock's `fixtures`, `strategy`, `latencyMs`, `fail`, `allowInProduction` | `package.json` (`cds`), `src/validation.ts`, `src/providers/mock.ts` |
 | Profile defaults | `systemone-mock` in `development` and `test`, `systemone-generic` in production | `package.json` (`cds`) |
 | Fixtures | The file format and the default path `test/data/systemone.json` | `src/providers/mock-fixtures.ts`, `src/providers/mock-core.ts` |
@@ -84,7 +84,7 @@ Node 22 reaches its end of life in April 2027; under B, `cap-jev` 2.0.0 drops it
 | The HTTP mock server (`cap-jev/mock-server`) and `cap-jev-mock`: options, `MockServer`, exit codes, `listening on`, the fixture format | Stable | Tests and scripts of applications depend on them; they were added in 0.7.0 and have not changed incompatibly since |
 | `cds add systemone`: options and the files and keys it writes | Stable | Its result is configuration that applications commit |
 | `cap-jev/testing` (0.9.0) | Experimental | New in 0.9.0, without an external provider package using it yet |
-| `systemone-subq` (0.9.0) | Experimental | Its model `subq-snap-preview` is in public preview; its name and limits may change |
+| `systemone-subq` and `cap-jev/providers/subq` (0.9.0) | Experimental | Its model `subq-snap-preview` is in public preview; its name and limits may change |
 | The log channel `systemone` | Stable | Applications configure it (`cds.log.levels`) |
 | `./cds-plugin` and `./cds-plugin.js` in `exports` | Internal | They exist for CAP's plugin discovery, not for `require` by applications |
 
@@ -95,7 +95,7 @@ To be completed when the maintainer has reviewed the recommendations above. Unti
 1. Three levels, stable, experimental and internal, as in option B of the status levels.
 2. The CAP support policy as decided: the last two stable CAP majors, enforced by `npm run release:check`.
 3. Pending review: the hooks (recommended C), what counts as breaking (the table above), the release number of a CAP drop (recommended A), the Node range (recommended B), and the status of the tools and new parts (the table above).
-4. Pending the probe of 0.9.0, task H2: how the SubQ error body `{ "detail": { "error_type", "message" } }` is read.
+4. The SubQ error body `{ "detail": { "error_type", "message" } }` is read by a subclass, `cap-jev/providers/subq` (`SubqService`), whose only hook is `errorCode`. A probe in 0.9.0 (task H2) showed that the shared transport gives `HTTP_ERROR` with the status but without `providerCode` for this body. No other built-in provider is known to use the shape, so the shared transport stays without provider shapes. If the acceptance runs (H10) find the shape at another provider, the transport reads it instead and the subclass is removed before 1.0.0. The entry `cap-jev/providers/subq` is experimental, like the kind.
 
 ## Consequences
 

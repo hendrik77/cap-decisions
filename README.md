@@ -154,6 +154,7 @@ Select a provider kind under `cds.requires.systemone` with its full name; `cds a
 | `systemone-mock` | None; answers in-process, without network access. The default in `development` and `test`; refuses `production` unless `allowInProduction` is `true` | None | `false` | Protocol minimums only |
 | `systemone-typesafe` | `https://api.typesafe.ai/v1/systemone` | `jev-latest` | `true` | `choiceOptions`: 255; `scoreCriteria`: 2 to 10 |
 | `systemone-cloudflare` | Built from `credentials.accountId`, unless `credentials.url` is set | `clef` | `true` | `questions`: 64 |
+| `systemone-subq` | `https://api.subq.ai/v1/systemone` | `subq-snap-preview` | `true` | `questions`: 16; `choiceOptions`: 255; `scoreCriteria`: 2 to 10 |
 | `systemone-laya` | `http://127.0.0.1:8000/v1/systemone` | None | `false` | `choiceOptions`: 100 |
 
 `systemone-defaults` is the shared parent of these kinds (the package's service class and `timeoutMs: 10000`). Do not select it.
@@ -218,6 +219,8 @@ Keep tokens and account IDs out of committed files. CAP can inject them from the
 
 `systemone-cloudflare` needs `accountId` and a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS or to `127.0.0.1`, `localhost`, or `::1` over HTTP. The Cloudflare adapter requires `success: true` and unwraps `result`.
 
+`systemone-subq` talks to SubQ Snap, which is in public preview: `modelId` (`subq-snap-preview`) will change when SubQ releases the model, and an application can override it. A request without credits fails with `HTTP_ERROR` and status 402. SubQ stores decisions according to its [data retention](https://docs.subq.ai/using-the-api/data-retention/) policy. The kind selects a small subclass that reads SubQ's error type (`detail.error_type`) into `providerCode`. Images in a request are not supported.
+
 ### Destinations
 
 On SAP BTP, you can set `credentials.destination` to the name of a Destination service entry instead of supplying `url` and `token`. Install the optional peer package `@sap-cloud-sdk/connectivity` in the CAP application. Set the destination URL to the full POST endpoint and use a `NoAuthentication` destination with a `URL.headers.Authorization` property containing the bearer header. The plugin resolves the destination with `getDestination()` when the service is created and for each call; it uses the SDK's cache. The token transport rule also applies to destination headers. When `requiresToken` is `true`, the destination must supply an `Authorization` header (or a `token` must be set), or the connection fails with `INVALID_CONFIG`. This integration reads the destination URL and static headers; other destination authentication flows are outside its scope.
@@ -266,7 +269,8 @@ You can add a provider at three levels:
 | `cds.connect.to('systemone')`, `decide()` and its options (`DecideOptions`) | Stable |
 | The request, question and answer types | Stable |
 | `SystemOneError` and its codes | Stable |
-| The kind names and the settings, including the `systemone-mock` kind and its settings (`MockSettings`) | Stable |
+| The kind names (except `systemone-subq`, see below) and the settings, including the `systemone-mock` kind and its settings (`MockSettings`) | Stable |
+| The kind `systemone-subq`, its settings and its subclass `cap-jev/providers/subq` (`SubqService`), while SubQ's model is in preview | Experimental |
 | The subclass hooks: `setup`, `call`, `endpoint`, `unwrap`, `errorCode`, and the static `settingsKeys` and `credentialKeys` | Experimental until the first npm publication |
 | The HTTP mock server: `cap-jev/mock-server` (`startMockServer`, `MockServerOptions`, `MockServer`) and the `cap-jev-mock` command line | Experimental until the first npm publication |
 | The `cds add systemone` facet and its options (`--kind` and `--with-fixtures`; `--for` and `--force` are CAP's) | Experimental until the first npm publication |
@@ -311,6 +315,7 @@ Design decisions are recorded in [docs/decisions/](docs/decisions/).
 ## Protocol references
 
 - [TypeSafe System One API](https://docs.typesafe.ai/api)
+- [SubQ Decisions API](https://docs.subq.ai/endpoints/decisions-api/)
 - [Cloudflare Clef](https://developers.cloudflare.com/workers-ai/models/clef/)
 - [Laya HTTP server](https://github.com/WhoIsMrSentry/laya-system-one#self-hosting-http-server-jev-compatible)
 - [CAP plugin packages](https://cap.cloud.sap/docs/node.js/cds-plugins)

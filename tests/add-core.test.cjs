@@ -162,6 +162,13 @@ describe('planSystemOne: .cdsrc-private.json', () => {
     assert.match(next, /\[production\]/);
   });
 
+  test('systemone-subq gets the token placeholder and no URL reminder', () => {
+    const result = plan({}, { kind: 'systemone-subq' });
+    assert.deepEqual(files(result), ['.cdsrc-private.json', '.gitignore', 'package.json']);
+    assert.equal(jsonOf(result, '.cdsrc-private.json').requires.systemone['[production]'].credentials.token, '');
+    assert.ok(!result.messages.some((line) => line.includes('credentials.url')));
+  });
+
   test('adds the token to an existing file and keeps its other keys', () => {
     const existing = JSON.stringify({ requires: { db: { credentials: { url: 'x' } } } }, null, 4) + '\n';
     const result = plan({ cdsrcPrivateText: existing }, { kind: 'systemone-typesafe' });
@@ -378,7 +385,7 @@ describe('planSystemOne: provider-package kinds', () => {
 });
 
 describe('planSystemOne: errors', () => {
-  const selectable = 'systemone-cloudflare, systemone-generic, systemone-laya, systemone-typesafe';
+  const selectable = 'systemone-cloudflare, systemone-generic, systemone-laya, systemone-subq, systemone-typesafe';
   const fails = (input, options, pattern, message) => assert.throws(() => plan(input, options), pattern, message);
 
   test('an unknown kind lists the selectable kinds', () => {

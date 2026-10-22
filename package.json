@@ -17,6 +17,10 @@
       "types": "./dist/providers/cloudflare.d.ts",
       "default": "./dist/providers/cloudflare.js"
     },
+    "./providers/subq": {
+      "types": "./dist/providers/subq.d.ts",
+      "default": "./dist/providers/subq.js"
+    },
     "./providers/mock": {
       "types": "./dist/providers/mock.d.ts",
       "default": "./dist/providers/mock.js"
@@ -117,6 +121,23 @@
           },
           "credentials": {
             "url": "https://api.typesafe.ai/v1/systemone"
+          }
+        },
+        "systemone-subq": {
+          "kind": "systemone-defaults",
+          "impl": "cap-jev/providers/subq",
+          "modelId": "subq-snap-preview",
+          "requiresToken": true,
+          "limits": {
+            "questions": 16,
+            "choiceOptions": 255,
+            "scoreCriteria": {
+              "min": 2,
+              "max": 10
+            }
+          },
+          "credentials": {
+            "url": "https://api.subq.ai/v1/systemone"
           }
         },
         "systemone-cloudflare": {
