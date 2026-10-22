@@ -220,6 +220,16 @@ test('installed package registers an internal CAP service with decide()', { time
     // The facet is part of the archive and runs from the installed package.
     assert.ok(fs.existsSync(path.join(fixture, 'node_modules/cap-jev/dist/add.js')), 'dist/add.js is installed');
     assert.ok(fs.existsSync(path.join(fixture, 'node_modules/cap-jev/dist/add-core.js')), 'add-core.js is installed');
+    // The test kit for provider packages is part of the archive and loads without @sap/cds.
+    for (const file of ['dist/testing.js', 'dist/testing.d.ts']) {
+      assert.ok(fs.existsSync(path.join(fixture, 'node_modules/cap-jev', file)), `${file} is installed`);
+    }
+    const kit = await execFileAsync(
+      process.execPath,
+      ['-e', `const { testProviderKind } = require('cap-jev/testing'); console.log(typeof testProviderKind);`],
+      { cwd: fixture, encoding: 'utf8', timeout: 30_000 },
+    );
+    assert.equal(kit.stdout.trim(), 'function');
     const cdsBin = path.join(path.dirname(require.resolve('@sap/cds-dk/package.json')), 'bin/cds.js');
     const add = (...args) =>
       execFileAsync(process.execPath, [cdsBin, 'add', 'systemone', ...args], {

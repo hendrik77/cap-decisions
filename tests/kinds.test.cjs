@@ -35,6 +35,14 @@ const expected = {
     requiresToken: true,
     limits: { questions: 64 },
   },
+  'systemone-subq': {
+    impl: 'cap-jev/providers/subq',
+    timeoutMs: 10000,
+    modelId: 'subq-snap-preview',
+    requiresToken: true,
+    limits: { questions: 16, choiceOptions: 255, scoreCriteria: { min: 2, max: 10 } },
+    url: 'https://api.subq.ai/v1/systemone',
+  },
   'systemone-laya': {
     impl: 'cap-jev',
     timeoutMs: 10000,
@@ -124,6 +132,32 @@ test('cds.connect.to resolves Cloudflare with its subclass', async () => {
        })().catch((e) => console.log(JSON.stringify({ error: e.code || e.name, message: e.message })));`,
     );
     assert.deepEqual(result, { modelId: 'clef', instance: true, name: 'CloudflareService' });
+  } finally {
+    removeApp(dir);
+  }
+});
+
+test('cds.connect.to resolves SubQ with its subclass', async () => {
+  const dir = createApp({
+    name: 'subq-app',
+    private: true,
+    cds: { requires: { systemone: { kind: 'systemone-subq', credentials: { token: 't' } } } },
+  });
+  try {
+    const result = await runInApp(
+      dir,
+      `const cds = require('@sap/cds');
+       (async () => {
+         await cds.plugins;
+         const srv = await cds.connect.to('systemone');
+         console.log(JSON.stringify({
+           modelId: srv.options.modelId,
+           instance: srv instanceof require('cap-jev').SystemOneService,
+           name: srv.constructor.name,
+         }));
+       })().catch((e) => console.log(JSON.stringify({ error: e.code || e.name, message: e.message })));`,
+    );
+    assert.deepEqual(result, { modelId: 'subq-snap-preview', instance: true, name: 'SubqService' });
   } finally {
     removeApp(dir);
   }

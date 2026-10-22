@@ -9,6 +9,10 @@ const ARCHIVE = /releases\/download\/v([^/\s)"'`]+)\/cap-jev-([^/\s)"'`]+?)\.tgz
 // An archive file name outside a URL, such as `npm install ./cap-jev-1.2.3.tgz`.
 const ARCHIVE_FILE = /(?<!releases\/download\/v[^/\s]+\/)(?<![\w-])cap-jev-(\d+\.\d+\.\d+[^/\s)"'`]*?)\.tgz/g;
 
+const WORKFLOW = '.github/workflows/ci.yml';
+// The CAP majors CI tests: the `cds: [9, 10]` line of the matrix.
+const CDS_MATRIX = /^\s*cds:\s*\[([^\]]*)\]\s*(?:#.*)?$/m;
+
 const NAME = '[A-Za-z0-9._-]';
 const MACHINE_PATHS = [
   new RegExp(`(?<!${NAME})/Users/${NAME}+/`, 'g'),
@@ -107,11 +111,12 @@ function checkRelease({ root, tag }) {
       failures.push(`${file}: is not valid JSON (${error.message})`);
     }
   };
-  const expect = (file, what, expected, found) => {
-    if (found !== expected) failures.push(`${file}: expected ${what} ${expected}, found ${found ?? 'none'}`);
+  const expect = (file, what, expected, found, note = '') => {
+    if (found !== expected) failures.push(`${file}: expected ${what} ${expected}${note}, found ${found ?? 'none'}`);
   };
 
-  const version = readJson('package.json')?.version;
+  const rootPackage = readJson('package.json');
+  const version = rootPackage?.version;
   if (typeof version !== 'string') {
     failures.push('package.json: expected a string "version"');
     return failures;
@@ -126,6 +131,35 @@ function checkRelease({ root, tag }) {
   const example = readJson('examples/cap-app/package.json');
   if (example)
     expect('examples/cap-app/package.json', 'dependency cap-jev', `^${version}`, example.dependencies?.['cap-jev']);
+
+  // cap-jev supports the CAP majors that CI tests, and no others.
+  const workflow = read(WORKFLOW);
+  if (workflow !== undefined) {
+    const list = workflow.match(CDS_MATRIX)?.[1];
+    const majors = list?.split(',').map((major) => major.trim());
+    if (!majors?.length || !majors.every((major) => /^\d+$/.test(major))) {
+      failures.push(`${WORKFLOW}: expected a "cds: [<majors>]" matrix line, found none`);
+    } else {
+      const range = [...new Set(majors.map(Number))]
+        .sort((a, b) => a - b)
+        .map((major) => `^${major}`)
+        .join(' || ');
+      const peers = [
+        ['package.json', rootPackage],
+        ['examples/provider-package/package.json', readJson('examples/provider-package/package.json')],
+      ];
+      for (const [file, json] of peers) {
+        if (json)
+          expect(
+            file,
+            '@sap/cds peer range',
+            range,
+            json.peerDependencies?.['@sap/cds'],
+            ` (the CAP majors in ${WORKFLOW})`,
+          );
+      }
+    }
+  }
 
   for (const file of ['README.md', 'examples/cap-app/README.md']) {
     const text = read(file);

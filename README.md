@@ -2,7 +2,7 @@
 
 `cap-jev` adds an internal System One decision service to SAP CAP Node.js applications. It evaluates `choice`, `score`, and `noul` questions against one text or JSON state. It works with any Jev-compatible System One HTTP endpoint that accepts the same request and response schema. The package creates no OData endpoint and produces no text.
 
-Requirements: Node.js 22 or newer and `@sap/cds` 9 or 10 (the peer range is `>=9`). CI tests Node.js 22, 24 and 26 against CAP 9 and CAP 10. The `cds add systemone` command (see below) needs `@sap/cds-dk` 9 or 10, like every `cds add`; the package itself does not depend on it.
+Requirements: Node.js 22 or newer and `@sap/cds` 9 or 10 (the peer range is `^9 || ^10`). CI tests Node.js 22, 24 and 26 against CAP 9 and CAP 10. `cap-jev` supports the last two stable CAP major versions, currently CAP 9 and CAP 10; when a new CAP major is released, the oldest is dropped in the release that adds it. The `cds add systemone` command (see below) needs `@sap/cds-dk` 9 or 10, like every `cds add`; the package itself does not depend on it.
 
 ## Install and use
 
@@ -10,17 +10,17 @@ The package is not yet published to npm. Install a release archive from [GitHub 
 
 ```sh
 npm config set allow-remote root --location=project
-npm install https://github.com/hendrik77/cap-jev/releases/download/v0.8.0/cap-jev-0.8.0.tgz
+npm install https://github.com/hendrik77/cap-jev/releases/download/v0.9.0/cap-jev-0.9.0.tgz
 ```
 
 or download the archive and install the file, which works with every npm version:
 
 ```sh
-curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.8.0/cap-jev-0.8.0.tgz
-npm install ./cap-jev-0.8.0.tgz
+curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.0/cap-jev-0.9.0.tgz
+npm install ./cap-jev-0.9.0.tgz
 ```
 
-The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.8.0.tgz`; keep the archive in the project.
+The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.9.0.tgz`; keep the archive in the project.
 
 To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-jev-<version>.tgz` file.
 
@@ -154,6 +154,7 @@ Select a provider kind under `cds.requires.systemone` with its full name; `cds a
 | `systemone-mock` | None; answers in-process, without network access. The default in `development` and `test`; refuses `production` unless `allowInProduction` is `true` | None | `false` | Protocol minimums only |
 | `systemone-typesafe` | `https://api.typesafe.ai/v1/systemone` | `jev-latest` | `true` | `choiceOptions`: 255; `scoreCriteria`: 2 to 10 |
 | `systemone-cloudflare` | Built from `credentials.accountId`, unless `credentials.url` is set | `clef` | `true` | `questions`: 64 |
+| `systemone-subq` | `https://api.subq.ai/v1/systemone` | `subq-snap-preview` | `true` | `questions`: 16; `choiceOptions`: 255; `scoreCriteria`: 2 to 10 |
 | `systemone-laya` | `http://127.0.0.1:8000/v1/systemone` | None | `false` | `choiceOptions`: 100 |
 
 `systemone-defaults` is the shared parent of these kinds (the package's service class and `timeoutMs: 10000`). Do not select it.
@@ -218,6 +219,8 @@ Keep tokens and account IDs out of committed files. CAP can inject them from the
 
 `systemone-cloudflare` needs `accountId` and a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS or to `127.0.0.1`, `localhost`, or `::1` over HTTP. The Cloudflare adapter requires `success: true` and unwraps `result`.
 
+`systemone-subq` talks to SubQ Snap, which is in public preview: `modelId` (`subq-snap-preview`) will change when SubQ releases the model, and an application can override it. A request without credits fails with `HTTP_ERROR` and status 402. SubQ stores decisions according to its [data retention](https://docs.subq.ai/using-the-api/data-retention/) policy. The kind selects a small subclass that reads SubQ's error type (`detail.error_type`) into `providerCode`. Images in a request are not supported.
+
 ### Destinations
 
 On SAP BTP, you can set `credentials.destination` to the name of a Destination service entry instead of supplying `url` and `token`. Install the optional peer package `@sap-cloud-sdk/connectivity` in the CAP application. Set the destination URL to the full POST endpoint and use a `NoAuthentication` destination with a `URL.headers.Authorization` property containing the bearer header. The plugin resolves the destination with `getDestination()` when the service is created and for each call; it uses the SDK's cache. The token transport rule also applies to destination headers. When `requiresToken` is `true`, the destination must supply an `Authorization` header (or a `token` must be set), or the connection fails with `INVALID_CONFIG`. This integration reads the destination URL and static headers; other destination authentication flows are outside its scope.
@@ -259,6 +262,8 @@ You can add a provider at three levels:
 
 [docs/providers.md](docs/providers.md) shows each level, the subclass hooks and the rules for subclasses. The subclass hooks are experimental (see [Stability](#stability)).
 
+A provider package tests its kind with one call of `cap-jev/testing` (experimental): `testProviderKind({ kind, encode })` registers the checks every kind must pass as `node:test` tests. See [Testing a provider package](docs/providers.md#testing-a-provider-package).
+
 ## Stability
 
 | Area | Status |
@@ -266,10 +271,12 @@ You can add a provider at three levels:
 | `cds.connect.to('systemone')`, `decide()` and its options (`DecideOptions`) | Stable |
 | The request, question and answer types | Stable |
 | `SystemOneError` and its codes | Stable |
-| The kind names and the settings, including the `systemone-mock` kind and its settings (`MockSettings`) | Stable |
+| The kind names (except `systemone-subq`, see below) and the settings, including the `systemone-mock` kind and its settings (`MockSettings`) | Stable |
+| The kind `systemone-subq`, its settings and its subclass `cap-jev/providers/subq` (`SubqService`), while SubQ's model is in preview | Experimental |
 | The subclass hooks: `setup`, `call`, `endpoint`, `unwrap`, `errorCode`, and the static `settingsKeys` and `credentialKeys` | Experimental until the first npm publication |
 | The HTTP mock server: `cap-jev/mock-server` (`startMockServer`, `MockServerOptions`, `MockServer`) and the `cap-jev-mock` command line | Experimental until the first npm publication |
 | The `cds add systemone` facet and its options (`--kind` and `--with-fixtures`; `--for` and `--force` are CAP's) | Experimental until the first npm publication |
+| The provider test kit: `cap-jev/testing` (`testProviderKind`, `ProviderKindTestOptions`) | Experimental |
 
 `MockSettings` is exported as a type; `MockServerOptions` and `MockServer` come from `cap-jev/mock-server`. `SystemOneTransport` is internal and not exported.
 
@@ -281,11 +288,14 @@ npm run lint
 npm run typecheck
 npm run build
 npm test
+npm run coverage
 npm pack --dry-run
 npm run release:check
 ```
 
-Tests use Node's built-in test runner and need no external API key; HTTP tests run against local servers. `npm test` builds the package and runs `tests/*.test.cjs`. To run one file: `node --test tests/transport.test.cjs`. `@sap/cds-dk` is a development dependency (`^10`); the `cds add` tests run its real command line.
+Tests use Node's built-in test runner and need no external API key; HTTP tests run against local servers. `npm test` builds the package and runs `tests/*.test.cjs` and the test of the example provider package. To run one file: `node --test tests/transport.test.cjs`. `@sap/cds-dk` is a development dependency (`^10`); the `cds add` tests run its real command line.
+
+`npm run coverage` runs the same tests with Node's built-in coverage of `dist/` and fails when the total falls below 98 % of lines, 96 % of branches or 98 % of functions (the thresholds are in the script in `package.json`). CI runs it instead of `npm test` in one job only, Node 24 with CAP 10; all other jobs run `npm test`. A child process is counted when it exits on its own, so the `cds add` facet and the CAP apps of the tests are included. Not counted: a process that a signal stops, so the run-until-stopped part of the `cap-jev-mock` command line (`dist/mock-server-cli.js`) looks weaker than it is; `cds-plugin.js`, which is outside `dist/`; and the CAP side of the test kit (`cap-jev/testing`), which runs from a string in a child process. Those parts are tested in child processes (see below).
 
 - CAP-level tests create temporary CAP apps with `tests/helpers/app.cjs`. The apps use the repository's `cap-jev` and `@sap/cds`, so one copy of each is loaded.
 - `tests/mock.test.cjs`, `tests/mock-engine.test.cjs` and `tests/mock-fixtures.test.cjs` test the mock provider: activation in each profile, production refusal, fixtures, simulated failures and latency, and the answer engine. `tests/mock.test.ts` checks the `MockSettings` types.
@@ -293,6 +303,7 @@ Tests use Node's built-in test runner and need no external API key; HTTP tests r
 - `tests/mock-server.test.cjs` tests the HTTP mock server with plain `fetch`: the request and failure tables, the Cloudflare format, the token, latency and disconnects, the options, and loading without `@sap/cds`. `tests/mock-server-cap.test.cjs` runs temporary CAP apps in the production profile against it, with the generic and Cloudflare kinds. `tests/mock-server-cli.test.cjs` runs the `cap-jev-mock` command line in child processes. `tests/mock-server.test.ts` checks the `MockServerOptions` types.
 - `tests/add-core.test.cjs` tests the planner of the `cds add systemone` facet (`dist/add-core.js`): the options, the files and messages for each existing configuration, the refused kinds, indentation, a second run that writes nothing, the example fixtures, and loading without `@sap/cds`.
 - `tests/cds-add.test.cjs` runs the real `cds add systemone` of `@sap/cds-dk` in temporary apps: the default run, `--kind`, `--for`, `--force`, `--with-fixtures`, an unknown kind, a Java project, a second run, `cds add --help`, a provider package's kind, and the configured app connecting in development (mock) and production (HTTP mock server). `tests/plugin.test.cjs` checks in child processes with a stubbed `cds.add` that `cds-plugin.js` registers the facet for `cds add` and `cds help` only, and never throws.
+- `tests/testing.test.cjs` runs the provider test kit (`cap-jev/testing`) against the built-in token kinds and Cloudflare, checks that a provider package with a wrong `unwrap` fails it with the name of the failing check, that the kit works in an existing app (`appDir`), that requiring the kit loads no `@sap/cds`, and that `cds-plugin.js` does not load the kit. `examples/provider-package/test/provider.test.cjs` runs the kit for `systemone-acme`; `npm test` runs it too.
 - `tests/release-scripts.test.cjs` tests the release scripts `scripts/release-check.cjs` and `scripts/release-notes.cjs` in temporary directories.
 - Because the mock is the default in `development` and `test`, a test that needs a real or fake HTTP endpoint selects a kind explicitly. The HTTP mock server can serve as that endpoint, so a test needs no fake server of its own.
 - `tests/example-app.test.cjs` and `tests/example-app-failure.test.cjs` run `examples/cap-app` with `cds.test` on the mock, without a fake server.
@@ -302,7 +313,7 @@ Tests use Node's built-in test runner and need no external API key; HTTP tests r
 
 To test against CAP 9, run `npm install --no-save @sap/cds@^9 @sap/cds-dk@^9` and then `npm test`. Run `npm install` afterwards to restore CAP 10. With npm 12 or later, which blocks install scripts, `@sap/cds-dk` 9 leaves `better-sqlite3` without its native binding; run `npx --no-install prebuild-install` in `node_modules/better-sqlite3`, or the example-app tests hang.
 
-`npm run release:check` checks that the version in `package.json` matches `package-lock.json`, the example app's `cap-jev` range, the release archive URLs and archive file names in both READMEs and a heading in `CHANGELOG.md`. `npm run release:check -- --tag v<x.y.z>` also checks the tag. It fails on a machine path (such as a home or temporary directory of a developer) in any tracked text file; `npm run release:check -- --archive <file.tgz>` runs only that check on a packed archive, as the release workflow does.
+`npm run release:check` checks that the version in `package.json` matches `package-lock.json`, the example app's `cap-jev` range, the release archive URLs and archive file names in both READMEs and a heading in `CHANGELOG.md`. It also checks that the `@sap/cds` peer range in `package.json` and in `examples/provider-package/package.json` names exactly the CAP majors in the `cds` matrix of `.github/workflows/ci.yml` (`^9 || ^10` for `cds: [9, 10]`), so the supported and the tested CAP versions cannot differ. `npm run release:check -- --tag v<x.y.z>` also checks the tag. It fails on a machine path (such as a home or temporary directory of a developer) in any tracked text file; `npm run release:check -- --archive <file.tgz>` runs only that check on a packed archive, as the release workflow does.
 
 [CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck (CAP 10 only), tests (including the build) and `npm pack --dry-run` on Node.js 22, 24 and 26 with CAP 9 and CAP 10 (and `@sap/cds-dk` 9 and 10, matching CAP), for pushes to branches and for pull requests. Pushing a tag `v<x.y.z>` runs the [release workflow](.github/workflows/release.yml), which runs CI on the tagged commit, checks the release with `npm run release:check` and creates the GitHub release with the `npm pack` archive and the changelog section as notes.
 
@@ -311,6 +322,7 @@ Design decisions are recorded in [docs/decisions/](docs/decisions/).
 ## Protocol references
 
 - [TypeSafe System One API](https://docs.typesafe.ai/api)
+- [SubQ Decisions API](https://docs.subq.ai/endpoints/decisions-api/)
 - [Cloudflare Clef](https://developers.cloudflare.com/workers-ai/models/clef/)
 - [Laya HTTP server](https://github.com/WhoIsMrSentry/laya-system-one#self-hosting-http-server-jev-compatible)
 - [CAP plugin packages](https://cap.cloud.sap/docs/node.js/cds-plugins)

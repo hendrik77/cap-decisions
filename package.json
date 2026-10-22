@@ -1,6 +1,6 @@
 {
   "name": "cap-jev",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Internal System One decision service for SAP CAP",
   "license": "MIT",
   "main": "dist/index.js",
@@ -17,6 +17,10 @@
       "types": "./dist/providers/cloudflare.d.ts",
       "default": "./dist/providers/cloudflare.js"
     },
+    "./providers/subq": {
+      "types": "./dist/providers/subq.d.ts",
+      "default": "./dist/providers/subq.js"
+    },
     "./providers/mock": {
       "types": "./dist/providers/mock.d.ts",
       "default": "./dist/providers/mock.js"
@@ -24,6 +28,10 @@
     "./mock-server": {
       "types": "./dist/mock-server.d.ts",
       "default": "./dist/mock-server.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
     },
     "./package.json": "./package.json",
     "./cds-plugin": "./cds-plugin.js",
@@ -57,7 +65,7 @@
     "examples/provider-package"
   ],
   "peerDependencies": {
-    "@sap/cds": ">=9",
+    "@sap/cds": "^9 || ^10",
     "@sap-cloud-sdk/connectivity": "^4.9.1"
   },
   "peerDependenciesMeta": {
@@ -82,7 +90,8 @@
     "format": "prettier --write src tests scripts examples/cap-app/srv",
     "typecheck": "tsc --noEmit && tsc -p tests/tsconfig.json && tsc -p examples/cap-app/tsconfig.json",
     "build": "tsc && node -e \"require('fs').chmodSync('dist/mock-server-cli.js', 0o755)\"",
-    "test": "npm run build && node --test tests/*.test.cjs",
+    "test": "npm run build && node --test tests/*.test.cjs examples/provider-package/test/*.test.cjs",
+    "coverage": "npm run build && node --test --experimental-test-coverage --test-coverage-include='dist/**' --test-coverage-lines=98 --test-coverage-branches=96 --test-coverage-functions=98 tests/*.test.cjs examples/provider-package/test/*.test.cjs",
     "prepack": "npm run build"
   },
   "cds": {
@@ -117,6 +126,23 @@
           },
           "credentials": {
             "url": "https://api.typesafe.ai/v1/systemone"
+          }
+        },
+        "systemone-subq": {
+          "kind": "systemone-defaults",
+          "impl": "cap-jev/providers/subq",
+          "modelId": "subq-snap-preview",
+          "requiresToken": true,
+          "limits": {
+            "questions": 16,
+            "choiceOptions": 255,
+            "scoreCriteria": {
+              "min": 2,
+              "max": 10
+            }
+          },
+          "credentials": {
+            "url": "https://api.subq.ai/v1/systemone"
           }
         },
         "systemone-cloudflare": {

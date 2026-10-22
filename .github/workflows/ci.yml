@@ -33,5 +33,8 @@ jobs:
       - run: npm run lint
       - if: matrix.cds == 10
         run: npm run typecheck
-      - run: npm test
+      - if: matrix.node != 24 || matrix.cds != 10
+        run: npm test
+      - if: matrix.node == 24 && matrix.cds == 10
+        run: npm run coverage
       - run: npm pack --dry-run

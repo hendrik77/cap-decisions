@@ -1,19 +1,19 @@
-# Plan: `cds add systemone` (0.8.0), and the road to 1.0.0
+# Plan: `cds add systemone` (0.8.0)
 
-Written on 2026-10-21 against `main` at v0.7.1 (`4da7d58`). It continues the [0.7 plan](completed/http-mock-server-and-release-automation.md).
+Written on 2026-10-21 against `main` at v0.7.1 (`4da7d58`). It continues the [0.7 plan](http-mock-server-and-release-automation.md).
 
 `cap-jev` still has no users: it is development-only and unpublished on npm. Changes need no migration code, deprecation period or compatibility shims.
 
-The reasoning lives in [ADR 0005: `cds add systemone` facet in the plugin](../decisions/0005-cds-add-facet.md), accepted when 0.8.0 is merged. Its context section records the probe of CAP's `cds add` interface on `@sap/cds-dk` 9 and 10.
+The reasoning lives in [ADR 0005: `cds add systemone` facet in the plugin](../../decisions/0005-cds-add-facet.md), accepted when 0.8.0 is merged. Its context section records the probe of CAP's `cds add` interface on `@sap/cds-dk` 9 and 10.
+
+Completed with 0.8.0; the road after it continues in [the hardening plan](../hardening-for-1.0.md).
 
 ## Contents
 
 - [Starting point](#starting-point)
 - [How the work is done](#how-the-work-is-done)
 - [0.8.0: `cds add systemone`](#080-cds-add-systemone)
-- [0.9.x: hardening for 1.0.0](#09x-hardening-for-100)
-- [1.0.0: npm publication](#100-npm-publication)
-- [Later](#later)
+- [After 0.8.0](#after-080)
 - [Progress](#progress)
 - [Blocked tests](#blocked-tests)
 
@@ -26,7 +26,7 @@ The reasoning lives in [ADR 0005: `cds add systemone` facet in the plugin](../de
 
 ## How the work is done
 
-As for 0.7.0 (see [the 0.7 plan](completed/http-mock-server-and-release-automation.md#how-the-work-is-done)):
+As for 0.7.0 (see [the 0.7 plan](http-mock-server-and-release-automation.md#how-the-work-is-done)):
 
 - **Worktree.** The release branch `release-0.8.0` is checked out in its own worktree (`.claude/worktrees/release-0.7.0`, reused), so `main` stays untouched until the merge.
 - **Subagents** (Sonnet) take the tasks marked *agent*, one at a time in the worktree. The main session reviews each result, runs the full suite and commits.
@@ -118,25 +118,9 @@ Every Markdown file is read against the code and updated, not only for the facet
 2. Pull request, green CI, merge commit, tag `v0.8.0`, push the tag; the workflow creates the release.
 3. Smoke test: a fresh app from the published archive; `npx cds add systemone` writes the production kind; the app answers in development from the mock and in production through `npx cap-jev-mock`; `cds add systemone --kind systemone-typesafe` writes the placeholder and `.gitignore`.
 
-## 0.9.x: hardening for 1.0.0
+## After 0.8.0
 
-- Reviews: a full code review at high effort, a security review (transport, destinations, mock server, `cds add` facet, release workflow), and a documentation review of every Markdown file against the code.
-- Tests: coverage report (`node --test --experimental-test-coverage`) with a target per file, and tests for the gaps found; a test run against a real Laya server, by hand and documented.
-- Decide the hook API that becomes stable in 1.0.0 (`setup`, `call`, `endpoint`, `unwrap`, `errorCode`, `settingsKeys`, `credentialKeys`), the mock server API and the facet's options, as an ADR.
-- A provider test kit (`cap-jev/testing`) that provider packages run against their kind, used by `examples/provider-package`.
-
-## 1.0.0: npm publication
-
-- Publish `cap-jev` on npm (the name is free as of 2026-10-21) with provenance from the release workflow (`npm publish --provenance`, `id-token: write`, an npm token as a repository secret).
-- The install instructions switch to `npm add cap-jev`, or `cds add systemone -p cap-jev`, which installs and configures in one step; the release archives stay attached to GitHub releases.
-- The stability table marks the hooks stable; semantic versioning applies from here.
-
-## Later
-
-- A Laya `docker compose` setup as the "real model on the developer's machine" option, documented only, without CI.
-- Separate provider packages (ADR 0001, option D), when a provider needs heavy dependencies.
-- The mock refusing `credentials.url` without a `kind` in development, if the warning proves insufficient.
-- `cds add systemone` for `.cdsrc.json` projects and for credentials beyond the token (such as Cloudflare's `accountId`), if needed.
+0.9.x (hardening) and 1.0.0 (npm publication) continue in [the hardening plan](../hardening-for-1.0.md).
 
 ## Progress
 

@@ -110,3 +110,29 @@ test('an HTTP error reads errors[0].code into providerCode', async () => {
   assert.equal(result.providerCode, 10000);
   assert.equal(result.message.includes('secret'), false);
 });
+
+test('a failed request without usable errors has no provider code', async () => {
+  for (const body of [
+    { success: false },
+    { success: false, errors: 'bad' },
+    { success: false, errors: [] },
+    { success: false, errors: ['x'] },
+  ]) {
+    server.setHandler((_req, res) => res.end(JSON.stringify(body)));
+    const result = await inApp(withUrl(), decide);
+    assert.equal(result.error, 'PROVIDER_ERROR', JSON.stringify(body));
+    assert.equal(result.providerCode, undefined, JSON.stringify(body));
+  }
+});
+
+test('an HTTP error with a body that is not a Cloudflare envelope has no provider code', async () => {
+  for (const body of ['[]', '{"errors":[null]}', 'not json']) {
+    server.setHandler((_req, res) => {
+      res.writeHead(400);
+      res.end(body);
+    });
+    const result = await inApp(withUrl(), decide);
+    assert.equal(result.error, 'HTTP_ERROR', body);
+    assert.equal(result.providerCode, undefined, body);
+  }
+});
