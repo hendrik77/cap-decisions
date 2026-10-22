@@ -2,7 +2,7 @@
 
 `cap-jev` adds an internal System One decision service to SAP CAP Node.js applications. It evaluates `choice`, `score`, and `noul` questions against one text or JSON state. It works with any Jev-compatible System One HTTP endpoint that accepts the same request and response schema. The package creates no OData endpoint and produces no text.
 
-Requirements: Node.js 22 or newer and `@sap/cds` 9 or 10 (the peer range is `>=9`). CI tests Node.js 22, 24 and 26 against CAP 9 and CAP 10. The `cds add systemone` command (see below) needs `@sap/cds-dk` 9 or 10, like every `cds add`; the package itself does not depend on it.
+Requirements: Node.js 22 or newer and `@sap/cds` 9 or 10 (the peer range is `^9 || ^10`). CI tests Node.js 22, 24 and 26 against CAP 9 and CAP 10. `cap-jev` supports the last two stable CAP major versions, currently CAP 9 and CAP 10; when a new CAP major is released, the oldest is dropped in the release that adds it. The `cds add systemone` command (see below) needs `@sap/cds-dk` 9 or 10, like every `cds add`; the package itself does not depend on it.
 
 ## Install and use
 
@@ -302,7 +302,7 @@ Tests use Node's built-in test runner and need no external API key; HTTP tests r
 
 To test against CAP 9, run `npm install --no-save @sap/cds@^9 @sap/cds-dk@^9` and then `npm test`. Run `npm install` afterwards to restore CAP 10. With npm 12 or later, which blocks install scripts, `@sap/cds-dk` 9 leaves `better-sqlite3` without its native binding; run `npx --no-install prebuild-install` in `node_modules/better-sqlite3`, or the example-app tests hang.
 
-`npm run release:check` checks that the version in `package.json` matches `package-lock.json`, the example app's `cap-jev` range, the release archive URLs and archive file names in both READMEs and a heading in `CHANGELOG.md`. `npm run release:check -- --tag v<x.y.z>` also checks the tag. It fails on a machine path (such as a home or temporary directory of a developer) in any tracked text file; `npm run release:check -- --archive <file.tgz>` runs only that check on a packed archive, as the release workflow does.
+`npm run release:check` checks that the version in `package.json` matches `package-lock.json`, the example app's `cap-jev` range, the release archive URLs and archive file names in both READMEs and a heading in `CHANGELOG.md`. It also checks that the `@sap/cds` peer range in `package.json` and in `examples/provider-package/package.json` names exactly the CAP majors in the `cds` matrix of `.github/workflows/ci.yml` (`^9 || ^10` for `cds: [9, 10]`), so the supported and the tested CAP versions cannot differ. `npm run release:check -- --tag v<x.y.z>` also checks the tag. It fails on a machine path (such as a home or temporary directory of a developer) in any tracked text file; `npm run release:check -- --archive <file.tgz>` runs only that check on a packed archive, as the release workflow does.
 
 [CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck (CAP 10 only), tests (including the build) and `npm pack --dry-run` on Node.js 22, 24 and 26 with CAP 9 and CAP 10 (and `@sap/cds-dk` 9 and 10, matching CAP), for pushes to branches and for pull requests. Pushing a tag `v<x.y.z>` runs the [release workflow](.github/workflows/release.yml), which runs CI on the tagged commit, checks the release with `npm run release:check` and creates the GitHub release with the `npm pack` archive and the changelog section as notes.
 

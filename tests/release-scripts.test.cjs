@@ -14,8 +14,16 @@ const { releaseNotes } = require(notesScript);
 const url = (a, b = a) => `https://github.com/hendrik77/cap-jev/releases/download/v${a}/cap-jev-${b}.tgz`;
 const dirs = [];
 
+const workflow = (cds = '[9, 10]') =>
+  `name: CI\n\njobs:\n  checks:\n    strategy:\n      matrix:\n        node: [22, 24, 26]\n        cds: ${cds}\n    steps: []\n`;
+
 const files = (version) => ({
-  'package.json': JSON.stringify({ name: 'cap-jev', version }),
+  '.github/workflows/ci.yml': workflow(),
+  'package.json': JSON.stringify({ name: 'cap-jev', version, peerDependencies: { '@sap/cds': '^9 || ^10' } }),
+  'examples/provider-package/package.json': JSON.stringify({
+    name: 'cap-jev-acme',
+    peerDependencies: { 'cap-jev': '>=0.5.0', '@sap/cds': '^9 || ^10' },
+  }),
   'package-lock.json': JSON.stringify({ name: 'cap-jev', version, packages: { '': { name: 'cap-jev', version } } }),
   'examples/cap-app/package.json': JSON.stringify({ dependencies: { 'cap-jev': `^${version}` } }),
   'README.md': `# cap-jev\n\nnpm install ${url(version)}\n`,
@@ -140,6 +148,89 @@ describe('checkRelease', () => {
   test('reports every failure', () => {
     const failures = checkRelease({ root: tree({ 'README.md': '', 'CHANGELOG.md': '' }), tag: 'v9.9.9' });
     assert.equal(failures.length, 3);
+  });
+
+  describe('CAP support policy', () => {
+    const pkg = (range) =>
+      JSON.stringify({ name: 'cap-jev', version: '1.2.3', peerDependencies: { '@sap/cds': range } });
+    const provider = (range) =>
+      JSON.stringify({ name: 'cap-jev-acme', peerDependencies: { 'cap-jev': '>=0.5.0', '@sap/cds': range } });
+
+    test('passes when the peer ranges name the CAP majors of the CI matrix', () => {
+      assert.deepEqual(checkRelease({ root: tree() }), []);
+    });
+
+    test('sorts the majors of the matrix ascending', () => {
+      const root = tree({ '.github/workflows/ci.yml': workflow('[10, 9]') });
+      assert.deepEqual(checkRelease({ root }), []);
+    });
+
+    test('follows the matrix when it changes', () => {
+      const root = tree({
+        '.github/workflows/ci.yml': workflow('[10, 11]'),
+        'package.json': pkg('^10 || ^11'),
+        'examples/provider-package/package.json': provider('^10 || ^11'),
+      });
+      assert.deepEqual(checkRelease({ root }), []);
+    });
+
+    test('fails on an open peer range', () => {
+      const failures = checkRelease({ root: tree({ 'package.json': pkg('>=9') }) });
+      assert.deepEqual(failures, [
+        'package.json: expected @sap/cds peer range ^9 || ^10 (the CAP majors in .github/workflows/ci.yml), found >=9',
+      ]);
+    });
+
+    test('fails on a peer range with one major only', () => {
+      const failures = checkRelease({ root: tree({ 'package.json': pkg('^10') }) });
+      assert.equal(failures.length, 1);
+      assert.match(failures[0], /^package\.json: expected @sap\/cds peer range \^9 \|\| \^10 .*, found \^10$/);
+    });
+
+    test('fails on a peer range with a major that CI does not test', () => {
+      const failures = checkRelease({ root: tree({ 'package.json': pkg('^9 || ^10 || ^11') }) });
+      assert.equal(failures.length, 1);
+      assert.match(
+        failures[0],
+        /^package\.json: expected @sap\/cds peer range \^9 \|\| \^10 .*, found \^9 \|\| \^10 \|\| \^11$/,
+      );
+    });
+
+    test('fails on the peer range of the example provider package', () => {
+      const failures = checkRelease({ root: tree({ 'examples/provider-package/package.json': provider('>=9') }) });
+      assert.deepEqual(failures, [
+        'examples/provider-package/package.json: expected @sap/cds peer range ^9 || ^10 (the CAP majors in .github/workflows/ci.yml), found >=9',
+      ]);
+    });
+
+    test('fails on a missing peer range', () => {
+      const body = JSON.stringify({ name: 'cap-jev', version: '1.2.3' });
+      const failures = checkRelease({ root: tree({ 'package.json': body }) });
+      assert.equal(failures.length, 1);
+      assert.match(failures[0], /^package\.json: expected @sap\/cds peer range \^9 \|\| \^10 .*, found none$/);
+    });
+
+    test('fails when the workflow file is missing', () => {
+      const failures = checkRelease({ root: tree({ '.github/workflows/ci.yml': null }) });
+      assert.equal(failures.length, 1);
+      assert.match(failures[0], /^\.github\/workflows\/ci\.yml: cannot be read/);
+    });
+
+    test('fails when the workflow has no cds matrix line', () => {
+      const failures = checkRelease({ root: tree({ '.github/workflows/ci.yml': 'name: CI\n' }) });
+      assert.equal(failures.length, 1);
+      assert.match(
+        failures[0],
+        /^\.github\/workflows\/ci\.yml: expected a "cds: \[<majors>\]" matrix line, found none$/,
+      );
+    });
+
+    test('names the failure of the matrix line once, not once per package file', () => {
+      const root = tree({ '.github/workflows/ci.yml': workflow('[nine]') });
+      const failures = checkRelease({ root });
+      assert.equal(failures.length, 1);
+      assert.match(failures[0], /^\.github\/workflows\/ci\.yml: /);
+    });
   });
 
   test('passes on this repository', () => {

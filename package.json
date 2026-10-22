@@ -57,7 +57,7 @@
     "examples/provider-package"
   ],
   "peerDependencies": {
-    "@sap/cds": ">=9",
+    "@sap/cds": "^9 || ^10",
     "@sap-cloud-sdk/connectivity": "^4.9.1"
   },
   "peerDependenciesMeta": {

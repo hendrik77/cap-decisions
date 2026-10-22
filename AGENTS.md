@@ -49,6 +49,7 @@ Use Node's built-in test runner. Work red-green: write the test first and see it
 - The example app is tested with `cds.test` in `tests/example-app.test.cjs` and `tests/example-app-failure.test.cjs`, on the mock and without a fake server.
 - One test, `tests/cap-integration.test.cjs`, installs the packed package in a copy of the example app, also runs `cds add systemone` there, and checks that `dist/add.js` and `dist/add-core.js` are in the archive. Keep the example handler and that test's fake server in step.
 - Type-level behavior belongs in `tests/*.test.ts`, which `npm run typecheck` checks with positive assertions and `@ts-expect-error` cases.
+- `cap-jev` supports the last two stable CAP majors. The `@sap/cds` peer range (`package.json`, `examples/provider-package/package.json`) and the `cds` matrix of `.github/workflows/ci.yml` must name the same majors, as `^9 || ^10` for `cds: [9, 10]`; `npm run release:check` enforces it, tested in `tests/release-scripts.test.cjs`. A new CAP major is added to both in one release, and the oldest leaves both.
 - CI runs Node 22, 24 and 26 with CAP 9 and CAP 10; for CAP 9 it installs `@sap/cds@^9 @sap/cds-dk@^9`. To check CAP 9 locally, run `npm install --no-save @sap/cds@^9 @sap/cds-dk@^9` and then `npm test`; run `npm install` afterwards to restore CAP 10. With npm 12 or later, which blocks install scripts, `@sap/cds-dk` 9's `better-sqlite3` has no native binding: run `npx --no-install prebuild-install` in `node_modules/better-sqlite3`, otherwise the example-app tests hang.
 
 ## Commit & Pull Request Guidelines
@@ -61,7 +62,7 @@ Changelog headings are `## <x.y.z>: <title>`. The title becomes the title of the
 
 1. Work on a branch named `release-<x.y.z>`.
 2. Update the version in `package.json` and `package-lock.json` (`npm version <x.y.z> --no-git-tag-version`), the `cap-jev` range in `examples/cap-app/package.json`, the release archive URLs and the `cap-jev-<x.y.z>.tgz` file names in `README.md` and `examples/cap-app/README.md`, and `CHANGELOG.md`.
-3. Run `npm run lint`, `npm run typecheck`, `npm test`, `npm pack --dry-run` and `npm run release:check`, and run `npm test` on CAP 9 as described above.
+3. Run `npm run lint`, `npm run typecheck`, `npm test`, `npm pack --dry-run` and `npm run release:check` (which also compares the CAP peer range with the CI matrix), and run `npm test` on CAP 9 as described above.
 4. Open a pull request and merge it to `main` with a merge commit, after CI is green.
 5. Tag the merge commit `v<x.y.z>` and push the tag.
 6. The release workflow runs CI on the tag and creates the GitHub release with the archive and the changelog section as notes; check the run. If it fails, fix the cause and re-run it, or create the release by hand as before.
