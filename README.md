@@ -10,17 +10,17 @@ The package is not yet published to npm. Install a release archive from [GitHub 
 
 ```sh
 npm config set allow-remote root --location=project
-npm install https://github.com/hendrik77/cap-jev/releases/download/v0.9.0/cap-jev-0.9.0.tgz
+npm install https://github.com/hendrik77/cap-jev/releases/download/v0.9.1/cap-jev-0.9.1.tgz
 ```
 
 or download the archive and install the file, which works with every npm version:
 
 ```sh
-curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.0/cap-jev-0.9.0.tgz
-npm install ./cap-jev-0.9.0.tgz
+curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.1/cap-jev-0.9.1.tgz
+npm install ./cap-jev-0.9.1.tgz
 ```
 
-The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.9.0.tgz`; keep the archive in the project.
+The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.9.1.tgz`; keep the archive in the project.
 
 To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-jev-<version>.tgz` file.
 

@@ -15,7 +15,7 @@ None.
 
 ### Security
 
-- The transport no longer follows redirects, which sent the `Authorization` header to the target. A 3xx answer is an `HTTP_ERROR` with its status, without a retry.
+- The transport no longer follows redirects. A 307 or 308 sent the request body, with the state, and custom destination headers to the new location; `fetch` dropped only `Authorization`, and only across origins. A 3xx answer is an `HTTP_ERROR` with its status, without a retry.
 - A token or destination header with a character that is invalid in a header is refused as `INVALID_CONFIG` without echoing the value; before, the secret appeared in the message of a retried `NETWORK_ERROR`.
 - An endpoint URL with a user name or password is refused as `INVALID_CONFIG`, when the service connects or when a destination is resolved. The message does not contain the URL.
 - A success response larger than 1 MiB is `INVALID_RESPONSE`; it was read without a limit.
@@ -36,7 +36,7 @@ None.
 
 - CI runs on pushes to `main` and on pull requests, so a branch with an open pull request runs once.
 - `npm run release:check` also compares the `cap-jev` range in `examples/provider-package/README.md` and the `@sap/cds` range in `docs/providers.md`, and finds Linux temporary paths and short home paths.
-- New tests cover the changes above. TESTS_PLACEHOLDER
+- New tests cover the changes above: 678 tests in all.
 
 ### Documentation
 
