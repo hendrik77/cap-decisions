@@ -86,6 +86,10 @@ function toOptions(values: ReturnType<typeof parse>): MockServerOptions {
     if (status !== undefined || providerCode !== undefined) {
       throw new UsageError('--status and --provider-code need --fail');
     }
+  } else if (values.fail === 'HTTP_ERROR' && status === undefined) {
+    throw new UsageError('--fail HTTP_ERROR needs --status from 400 to 599');
+  } else if (status !== undefined && values.fail !== 'HTTP_ERROR') {
+    throw new UsageError('--status only goes with --fail HTTP_ERROR');
   } else if (status === undefined && providerCode === undefined) {
     options.fail = values.fail;
   } else {

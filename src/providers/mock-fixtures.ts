@@ -11,12 +11,41 @@ export interface MockRule {
   providerCode?: string;
 }
 
-const FAIL_CODES: readonly string[] = ['INVALID_RESPONSE', 'HTTP_ERROR', 'PROVIDER_ERROR', 'NETWORK_ERROR', 'TIMEOUT'];
+export const FAIL_CODES: readonly string[] = [
+  'INVALID_RESPONSE',
+  'HTTP_ERROR',
+  'PROVIDER_ERROR',
+  'NETWORK_ERROR',
+  'TIMEOUT',
+];
 const RULE_KEYS = ['when', 'answer', 'fail', 'status', 'providerCode'];
 const WHEN_KEYS = ['stateIncludes', 'question'];
 
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** Checks the failure part of a rule or of the `fail` setting; the caller names the source in the message. */
+export function parseFailure(raw: { fail?: unknown; status?: unknown; providerCode?: unknown }): MockRule {
+  const rule: MockRule = {};
+  if (typeof raw.fail !== 'string' || !FAIL_CODES.includes(raw.fail)) {
+    throw new Error(`fail must be one of ${FAIL_CODES.join(', ')}`);
+  }
+  rule.fail = raw.fail as SystemOneErrorCode;
+  if (raw.fail === 'HTTP_ERROR') {
+    const { status } = raw;
+    if (typeof status !== 'number' || !Number.isInteger(status) || status < 400 || status > 599) {
+      throw new Error('HTTP_ERROR needs a status from 400 to 599');
+    }
+    rule.status = status;
+  } else if (raw.status !== undefined) {
+    throw new Error('status only goes with HTTP_ERROR');
+  }
+  if (raw.providerCode !== undefined) {
+    if (typeof raw.providerCode !== 'string') throw new Error('providerCode must be a string');
+    rule.providerCode = raw.providerCode;
+  }
+  return rule;
+}
 
 function parseRule(raw: unknown): MockRule {
   if (!record(raw)) throw new Error('must be an object');
@@ -56,24 +85,7 @@ function parseRule(raw: unknown): MockRule {
     return rule;
   }
 
-  if (typeof raw.fail !== 'string' || !FAIL_CODES.includes(raw.fail)) {
-    throw new Error(`fail must be one of ${FAIL_CODES.join(', ')}`);
-  }
-  rule.fail = raw.fail as SystemOneErrorCode;
-  if (raw.fail === 'HTTP_ERROR') {
-    const { status } = raw;
-    if (typeof status !== 'number' || !Number.isInteger(status) || status < 400 || status > 599) {
-      throw new Error('HTTP_ERROR needs a status from 400 to 599');
-    }
-    rule.status = status;
-  } else if (raw.status !== undefined) {
-    throw new Error('status only goes with HTTP_ERROR');
-  }
-  if (raw.providerCode !== undefined) {
-    if (typeof raw.providerCode !== 'string') throw new Error('providerCode must be a string');
-    rule.providerCode = raw.providerCode;
-  }
-  return rule;
+  return Object.assign(rule, parseFailure(raw));
 }
 
 export function parseFixtures(raw: unknown, source = 'fixtures'): MockRule[] {

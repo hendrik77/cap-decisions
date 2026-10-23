@@ -4,7 +4,7 @@ import type { Answer, DecisionRequest, DecisionResult, MockSettings } from '../t
 import { SystemOneError } from '../validation';
 import { mockResult } from './mock-engine';
 import type { MockStrategy } from './mock-engine';
-import { findRule, parseFixtures, ruleAnswer, ruleError } from './mock-fixtures';
+import { FAIL_CODES, findRule, parseFailure, parseFixtures, ruleAnswer, ruleError } from './mock-fixtures';
 import type { MockRule } from './mock-fixtures';
 
 export const DEFAULT_FIXTURES = 'test/data/systemone.json';
@@ -22,11 +22,25 @@ const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 function parseFail(fail: unknown, source: string): MockRule {
-  if (typeof fail === 'string') return parseFixtures([{ fail }], source)[0];
-  if (!record(fail)) throw invalidConfig('fail must be an error code or an object with a code');
-  const unknown = Object.keys(fail).find((key) => !['code', 'status', 'providerCode'].includes(key));
-  if (unknown) throw invalidConfig(`Unknown property "${unknown}" in fail`);
-  return parseFixtures([{ fail: fail.code, status: fail.status, providerCode: fail.providerCode }], source)[0];
+  if (typeof fail !== 'string' && !record(fail)) {
+    throw invalidConfig('fail must be an error code or an object with a code');
+  }
+  if (record(fail)) {
+    const unknown = Object.keys(fail).find((key) => !['code', 'status', 'providerCode'].includes(key));
+    if (unknown) throw invalidConfig(`Unknown property "${unknown}" in fail`);
+    if (fail.code === undefined) throw invalidConfig(`${source} needs a code`);
+  }
+  const { code, status, providerCode } = record(fail)
+    ? fail
+    : { code: fail, status: undefined, providerCode: undefined };
+  if (typeof code !== 'string' || !FAIL_CODES.includes(code)) {
+    throw invalidConfig(`${source}: code must be one of ${FAIL_CODES.join(', ')}`);
+  }
+  try {
+    return parseFailure({ fail: code, status, providerCode });
+  } catch (error) {
+    throw invalidConfig(`${source}: ${(error as Error).message}`, error);
+  }
 }
 
 export function parseMockOptions(

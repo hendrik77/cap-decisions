@@ -540,10 +540,13 @@ describe('invalid options', () => {
     await assert.rejects(startMockServer({ port: 0, format: 'xml' }), rejectsWith('INVALID_CONFIG', /format/));
     await assert.rejects(startMockServer({ port: 0, strategy: 'random' }), rejectsWith('INVALID_CONFIG', /strategy/));
     await assert.rejects(startMockServer({ port: 0, latencyMs: -1 }), rejectsWith('INVALID_CONFIG', /latencyMs/));
-    await assert.rejects(startMockServer({ port: 0, fail: 'NOPE' }), rejectsWith('INVALID_CONFIG', /^fail rule 0:/));
+    await assert.rejects(
+      startMockServer({ port: 0, fail: 'NOPE' }),
+      rejectsWith('INVALID_CONFIG', /^fail: code must be one of/),
+    );
     await assert.rejects(
       startMockServer({ port: 0, fail: { code: 'HTTP_ERROR' } }),
-      rejectsWith('INVALID_CONFIG', /^fail rule 0:.*status/),
+      rejectsWith('INVALID_CONFIG', /^fail: HTTP_ERROR needs a status from 400 to 599$/),
     );
   });
 
