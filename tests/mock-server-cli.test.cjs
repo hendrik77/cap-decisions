@@ -184,6 +184,17 @@ describe('token', () => {
     });
   });
 
+  test('an empty CAP_JEV_MOCK_TOKEN means unset', async () => {
+    await withCli(['--port', '0'], { env: { CAP_JEV_MOCK_TOKEN: '' } }, async (url) => {
+      assert.equal((await post(url)).status, 200);
+    });
+  });
+
+  test('an explicit empty --token is a usage error', async () => {
+    const result = await fails(['--port', '0', '--token', '']);
+    assert.equal(result.code, 2);
+  });
+
   test('--token wins over CAP_JEV_MOCK_TOKEN', async () => {
     await withCli(['--port', '0', '--token', 'option'], { env: { CAP_JEV_MOCK_TOKEN: 'env' } }, async (url) => {
       assert.equal((await post(url, { authorization: 'Bearer env' })).status, 401);

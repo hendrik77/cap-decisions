@@ -184,7 +184,7 @@ The defaults match `systemone-laya`: `http://127.0.0.1:8000/v1/systemone`. The s
 | `--fail <CODE>` | None | Fails every request with this error code: `HTTP_ERROR`, `NETWORK_ERROR`, `TIMEOUT`, `INVALID_RESPONSE` or `PROVIDER_ERROR` (see [Failures](#failures)) |
 | `--status <n>` | None | HTTP status from 400 to 599 for `--fail HTTP_ERROR`, required there. Needs `--fail` |
 | `--provider-code <code>` | None | Provider error code for `--fail`. Needs `--fail` |
-| `--token <token>` | `CAP_JEV_MOCK_TOKEN` | Requires `Authorization: Bearer <token>`. The option wins over the environment variable |
+| `--token <token>` | `CAP_JEV_MOCK_TOKEN` | Requires `Authorization: Bearer <token>`. The option wins over the environment variable; an empty variable counts as unset |
 | `--format <name>` | `jev` | `jev` or `cloudflare` (see [Cloudflare format](#cloudflare-format)) |
 | `--quiet` | Off | Does not log requests |
 | `-h`, `--help` | | Shows the options |

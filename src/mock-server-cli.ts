@@ -77,7 +77,7 @@ function toOptions(values: ReturnType<typeof parse>): MockServerOptions {
   if (values.strategy !== undefined) options.strategy = values.strategy;
   if (values['latency-ms'] !== undefined) options.latencyMs = number('--latency-ms', values['latency-ms']);
   if (values.format !== undefined) options.format = values.format;
-  const token = values.token ?? process.env.CAP_JEV_MOCK_TOKEN;
+  const token = values.token ?? (process.env.CAP_JEV_MOCK_TOKEN || undefined);
   if (token !== undefined) options.token = token;
   if (!values.quiet) options.log = (line: string) => process.stdout.write(`${line}\n`);
   const status = values.status === undefined ? undefined : number('--status', values.status);
