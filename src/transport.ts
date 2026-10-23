@@ -236,7 +236,7 @@ export class SystemOneTransport {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       let response: Response;
       try {
-        response = await fetch(target.url, { method: 'POST', headers, body, signal });
+        response = await fetch(target.url, { method: 'POST', headers, body, signal, redirect: 'manual' });
       } catch (error) {
         await retryNetworkFailure(error, attempt, deadlineAt, signal, options.signal);
         continue;

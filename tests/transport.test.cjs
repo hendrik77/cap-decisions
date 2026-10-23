@@ -768,3 +768,25 @@ test('an error response whose body breaks while it is read is INVALID_RESPONSE w
     globalThis.fetch = original;
   }
 });
+
+test('a redirect is not followed and is an HTTP_ERROR without retry', async () => {
+  let hits = 0;
+  let redirected = 0;
+  handler = (req, res) => {
+    if (req.url.startsWith('/elsewhere')) {
+      redirected++;
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(result));
+      return;
+    }
+    hits++;
+    res.writeHead(307, { location: `${prefix}/elsewhere` });
+    res.end();
+  };
+  await assert.rejects(
+    decide({ token: 'secret' }),
+    (error) => error.code === 'HTTP_ERROR' && error.status === 307,
+  );
+  assert.equal(hits, 1);
+  assert.equal(redirected, 0);
+});
