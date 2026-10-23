@@ -353,12 +353,15 @@ describe('validateRequest question shapes', () => {
 
   test('a token with characters that are invalid in a header fails without echoing it', () => {
     for (const token of ['sec\nret', 'sec\u00e9ret', 'sec\x00ret']) {
-      assert.throws(() => validateSettings({ credentials: { token } }), (error) => {
-        assert.equal(error.code, 'INVALID_CONFIG');
-        assert.match(error.message, /token/);
-        assert.ok(!error.message.includes('sec'));
-        return true;
-      });
+      assert.throws(
+        () => validateSettings({ credentials: { token } }),
+        (error) => {
+          assert.equal(error.code, 'INVALID_CONFIG');
+          assert.match(error.message, /token/);
+          assert.ok(!error.message.includes('sec'));
+          return true;
+        },
+      );
     }
     assert.deepEqual(validateSettings({ credentials: { token: 'sk-abc 123\tx' } }), []);
   });
@@ -368,7 +371,17 @@ test('isLoopbackHost accepts localhost, 127.x.x.x and ::1 only', () => {
   for (const host of ['localhost', '127.0.0.1', '127.1.2.3', '127.255.255.255', '::1', '[::1]']) {
     assert.equal(isLoopbackHost(host), true, host);
   }
-  for (const host of ['', 'example.com', '127.0.0.1.example.com', '127.0.0', '127.0.0.256', '128.0.0.1', '0.0.0.0', '::2', 'localhost.example.com']) {
+  for (const host of [
+    '',
+    'example.com',
+    '127.0.0.1.example.com',
+    '127.0.0',
+    '127.0.0.256',
+    '128.0.0.1',
+    '0.0.0.0',
+    '::2',
+    'localhost.example.com',
+  ]) {
     assert.equal(isLoopbackHost(host), false, host);
   }
 });

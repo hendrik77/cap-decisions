@@ -38,7 +38,6 @@ const number = (name: string, value: string): number => {
   return Number(value);
 };
 
-
 function parse(argv: string[]) {
   let parsed;
   try {

@@ -783,10 +783,7 @@ test('a redirect is not followed and is an HTTP_ERROR without retry', async () =
     res.writeHead(307, { location: `${prefix}/elsewhere` });
     res.end();
   };
-  await assert.rejects(
-    decide({ token: 'secret' }),
-    (error) => error.code === 'HTTP_ERROR' && error.status === 307,
-  );
+  await assert.rejects(decide({ token: 'secret' }), (error) => error.code === 'HTTP_ERROR' && error.status === 307);
   assert.equal(hits, 1);
   assert.equal(redirected, 0);
 });
@@ -830,7 +827,8 @@ test('a destination header value that is invalid in a header is INVALID_CONFIG n
 
 test('a success body over 1 MiB is INVALID_RESPONSE without a retry, and one at the limit is read', async () => {
   let calls = 0;
-  const pad = (size) => JSON.stringify({ ...result, pad: 'x'.repeat(size - JSON.stringify({ ...result, pad: '' }).length) });
+  const pad = (size) =>
+    JSON.stringify({ ...result, pad: 'x'.repeat(size - JSON.stringify({ ...result, pad: '' }).length) });
   handler = (_req, res) => {
     calls++;
     res.writeHead(200, { 'content-type': 'application/json' });
@@ -854,9 +852,9 @@ test('a response body that cannot be cancelled before a retry does not escape as
   globalThis.fetch = async () => {
     calls++;
     if (calls === 1) {
-      const body = new ReadableStream({
+      const body = new globalThis.ReadableStream({
         pull(controller) {
-          controller.enqueue(new TextEncoder().encode('x'));
+          controller.enqueue(new globalThis.TextEncoder().encode('x'));
         },
         cancel() {
           throw new TypeError('cancel failed');
@@ -878,7 +876,9 @@ test('a response body that cannot be cancelled before a retry does not escape as
 
 test('an endpoint URL with a user name or password is INVALID_CONFIG without echoing it', async () => {
   const check = (error) =>
-    error.code === 'INVALID_CONFIG' && /user name or password/.test(error.message) && !error.message.includes('hunter2');
+    error.code === 'INVALID_CONFIG' &&
+    /user name or password/.test(error.message) &&
+    !error.message.includes('hunter2');
   for (const url of ['https://user:hunter2@example.com/x', 'https://hunter2@example.com/x']) {
     assert.throws(() => new SystemOneTransport({ timeoutMs: 1000, credentials: { url } }), check);
   }
@@ -895,6 +895,10 @@ test('a token is accepted over HTTP to any loopback address and refused to look-
     assert.doesNotThrow(() => make(url), url);
   }
   for (const url of ['http://example.com/x', 'http://127.0.0.1.example.com/x', 'http://128.0.0.1/x']) {
-    assert.throws(() => make(url), (error) => error.code === 'INVALID_CONFIG', url);
+    assert.throws(
+      () => make(url),
+      (error) => error.code === 'INVALID_CONFIG',
+      url,
+    );
   }
 });
