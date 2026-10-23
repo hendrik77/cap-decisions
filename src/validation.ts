@@ -28,6 +28,20 @@ function json(value: unknown, ancestors = new Set<object>()): boolean {
   }
 }
 
+/**
+ * The code of a {@link SystemOneError}.
+ *
+ * - `INVALID_CONFIG`: the settings, the token or the endpoint are invalid or missing.
+ * - `INVALID_REQUEST`: the request does not match the question schema or the limits; nothing was sent.
+ * - `INVALID_RESPONSE`: the response is malformed, too large or does not match the questions.
+ * - `HTTP_ERROR`: the endpoint answered with an error status (or a redirect); see `status`.
+ * - `PROVIDER_ERROR`: the provider reported a failure in a successful HTTP response.
+ * - `NETWORK_ERROR`: the connection or the body failed after all retries.
+ * - `TIMEOUT`: the call exceeded `timeoutMs`.
+ * - `ABORTED`: the caller's `signal` cancelled the call.
+ *
+ * The union may grow in a minor release (ADR 0006); code that switches over it needs a default branch.
+ */
 export type SystemOneErrorCode =
   | 'INVALID_CONFIG'
   | 'INVALID_REQUEST'
@@ -38,11 +52,15 @@ export type SystemOneErrorCode =
   | 'TIMEOUT'
   | 'ABORTED';
 
+/** The error every failure of `decide()` and of connecting the service is raised as. */
 export class SystemOneError extends Error {
+  /** The HTTP status of an `HTTP_ERROR`; otherwise usually unset. */
   readonly status?: number;
+  /** The provider's machine-readable error code, when the response had one. */
   readonly providerCode?: string | number;
 
   constructor(
+    /** What kind of failure this is; branch on it, not on the message. */
     public readonly code: SystemOneErrorCode,
     message: string,
     options: { status?: number; providerCode?: string | number; cause?: unknown } = {},

@@ -26,14 +26,21 @@ import type {
 // This module is the test kit for provider packages (cap-jev/testing). It must not load @sap/cds: CAP runs in a
 // child process of the test, in a temporary app. It is not loaded by cds-plugin.js or by any other module.
 
-/** An error response of a provider, as the kit's local server sends it. */
+/**
+ * An error response of a provider, as the kit's local server sends it.
+ * @experimental
+ */
 export interface WireError {
+  /** The HTTP status. */
   status: number;
   /** The body: an object is sent as JSON, a string as it is. */
   body: unknown;
 }
 
-/** What `encodeError` receives. */
+/**
+ * What `encodeError` receives.
+ * @experimental
+ */
 export interface WireErrorInput {
   /** A machine-readable error code that must come back as `providerCode`. */
   code: string;

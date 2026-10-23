@@ -16,25 +16,47 @@ const OPTION_KEYS = [
 ];
 
 interface CommonOptions {
+  /** TCP port, 0 to 65535 (default 8000; 0 picks a free port). */
   port?: number;
+  /** Host to listen on (default `127.0.0.1`). */
   host?: string;
+  /** URL path that accepts POST requests (default `/v1/systemone`). */
   path?: string;
+  /** Directory that `fixtures` is relative to (default the current directory). */
   root?: string;
+  /** How answers are made when no rule matches, as for `MockSettings`. */
   strategy?: MockSettings['strategy'];
+  /** Simulated latency in ms. */
   latencyMs?: number;
+  /** Makes every call fail, as for `MockSettings`. */
   fail?: MockSettings['fail'];
+  /** When set, requests need this bearer token. */
   token?: string;
+  /** The wire format: the Jev body (default) or the Cloudflare envelope. */
   format?: 'jev' | 'cloudflare';
+  /** Receives one line per request. */
   log?: (line: string) => void;
 }
 
+/**
+ * Options of {@link startMockServer}. Give either `fixtures` (a file) or `rules` (the rules themselves), not both.
+ * @experimental
+ */
 export type MockServerOptions = CommonOptions &
   ({ fixtures?: string; rules?: never } | { rules?: MockRule[]; fixtures?: never });
 
+/**
+ * A running mock server.
+ * @experimental
+ */
 export interface MockServer {
+  /** The full URL to use as `credentials.url`. */
   url: string;
+  /** The port it listens on. */
   port: number;
+  /** The host it listens on. */
   host: string;
+  /** Stops the server and ends open connections. */
   close(): Promise<void>;
 }
 
@@ -296,6 +318,11 @@ function serve(context: Context): Server {
   });
 }
 
+/**
+ * Starts a local HTTP mock of a Jev server that answers like `MockService`. Rejects with `INVALID_CONFIG` for
+ * invalid options.
+ * @experimental
+ */
 export async function startMockServer(options?: MockServerOptions): Promise<MockServer> {
   const { context, port, host } = await parseOptions(options);
   const server = serve(context);

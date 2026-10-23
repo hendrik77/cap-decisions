@@ -11,7 +11,10 @@ function firstErrorCode(payload: unknown): string | number | undefined {
   return record(first) ? machineCode(first.code) : undefined;
 }
 
-// Cloudflare Workers AI wraps the Jev answer in { success, errors, result }.
+/**
+ * The provider class of `systemone-cloudflare`. Cloudflare Workers AI wraps the Jev answer in
+ * `{ success, errors, result }`; this class builds the account URL, unwraps `result` and reads `errors[0].code`.
+ */
 export default class CloudflareService extends SystemOneService {
   protected override endpoint(credentials: SystemOneCredentials): string | undefined {
     if (credentials.url) return credentials.url;
