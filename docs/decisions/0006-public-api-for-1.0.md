@@ -5,7 +5,7 @@
 
 ## Context
 
-From 1.0.0, `cap-jev` follows semantic versioning. Today the README's stability table marks four areas stable and three experimental "until the first npm publication" (see [Stability](../../README.md#stability)). That leaves open which names are covered, what counts as a breaking change, and which CAP and Node versions a release supports. Until 1.0.0 nothing is published on npm and there are no users, so the surface can still change without migration.
+From 1.0.0, `cap-jev` follows semantic versioning. Today the README's stability table marks areas as stable or experimental (see [Stability](../../README.md#stability)). That leaves open which names are covered, what counts as a breaking change, and which CAP and Node versions a release supports. Until 1.0.0 nothing is published on npm and there are no users, so the surface can still change without migration.
 
 The inventory below is taken from the code on 2026-10-22 (`release-0.9.0`, after v0.8.0), not from the documentation.
 

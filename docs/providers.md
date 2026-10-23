@@ -84,7 +84,7 @@ module.exports = AcmeSystemOne;
 [`examples/provider-package`](../examples/provider-package) is a minimal provider package, `cap-jev-provider-acme`. It has these parts:
 
 - **A kind in its `package.json`.** The kind extends `systemone-defaults` and sets `impl` to the package itself. CAP loads the package's `main` file, which exports the subclass.
-- **`srv/acme-service.js`.** The subclass. It overrides `endpoint` and `unwrap`, and declares `static credentialKeys = ['region']`.
+- **`srv/acme-service.js`.** The subclass. It overrides `endpoint` and `unwrap`, overrides `init` to write a debug log before calling `super.init()`, and declares `static credentialKeys = ['region']`.
 - **`cds-plugin.js`.** CAP discovers a package's configuration through this file. In the example it holds only a comment.
 - **Peer dependencies on `cap-jev` and `@sap/cds`.** The application's single copies are used. A second copy breaks `instanceof` checks and CAP events.
 
@@ -183,7 +183,7 @@ The kit links the package at `packageDir` (default `process.cwd()`, so run `node
 | `settings` | Further settings for the kind, applied over its resolved settings (`timeoutMs`, `limits`, `modelId`). |
 | `credentials` | Further credentials, such as `accountId` or `region`. The kit sets `url` and, when the kind has `requiresToken`, a test `token`, unless `token` is given. |
 | `encode(response, request)` | Turns a Jev response into the provider's wire format. Default: the response itself, for a server that speaks the Jev protocol. |
-| `encodeError({ code, status, message })` | Returns `{ status, body }`, the provider's error response carrying `code` as its machine-readable error. Default: `{ status, body: { error: { type: code } } }`. |
+| `encodeError({ code, status, message })` | Takes a `WireErrorInput` and returns a `WireError`, `{ status, body }` (both types are exported from `cap-jev/testing`), the provider's error response carrying `code` as its machine-readable error. Default: `{ status, body: { error: { type: code } } }`. |
 
 For a provider that reports errors in another shape, pass `encodeError`. SubQ, for instance, answers `{ "detail": { "error_type": "..." } }`:
 

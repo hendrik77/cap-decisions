@@ -278,6 +278,17 @@ A provider package tests its kind with one call of `cap-jev/testing` (experiment
 | The `cds add systemone` facet and its options (`--kind` and `--with-fixtures`; `--for` and `--force` are CAP's) | Experimental until the first npm publication |
 | The provider test kit: `cap-jev/testing` (`testProviderKind`, `ProviderKindTestOptions`) | Experimental |
 
+The package has these entry points (`exports` in `package.json`):
+
+| Entry | Exports |
+| --- | --- |
+| `cap-jev` | `SystemOneService` (also the default), `SystemOneError`, `DecideOptions` and the types of settings, requests, questions and answers |
+| `cap-jev/providers/cloudflare` | `CloudflareService` (also the default) |
+| `cap-jev/providers/mock` | `MockService` (also the default) |
+| `cap-jev/providers/subq` | `SubqService` (also the default) |
+| `cap-jev/mock-server` | `startMockServer`, `MockServerOptions`, `MockServer` |
+| `cap-jev/testing` | `testProviderKind`, `ProviderKindTestOptions`, `WireError`, `WireErrorInput` |
+
 `MockSettings` is exported as a type; `MockServerOptions` and `MockServer` come from `cap-jev/mock-server`. `SystemOneTransport` is internal and not exported.
 
 ## Development
