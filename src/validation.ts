@@ -119,6 +119,16 @@ const positive = (value: unknown, max = Number.MAX_SAFE_INTEGER): value is numbe
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= max;
 /** True when `value` has a character that is not valid in an HTTP header value (visible ASCII, space, tab only). */
 export const isInvalidHeaderValue = (value: string): boolean => /[^\t\x20-\x7e]/.test(value);
+/** True for `localhost`, an IPv4 address 127.x.x.x and `::1` (also as `[::1]`, which `URL.hostname` returns). */
+export function isLoopbackHost(hostname: string): boolean {
+  if (hostname === 'localhost' || hostname === '::1' || hostname === '[::1]') return true;
+  const octets = hostname.split('.');
+  return (
+    octets.length === 4 &&
+    octets[0] === '127' &&
+    octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
+  );
+}
 const invalidConfig = (message: string) => new SystemOneError('INVALID_CONFIG', message);
 
 function validateLimits(limits: unknown): void {

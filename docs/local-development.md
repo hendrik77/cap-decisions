@@ -231,7 +231,7 @@ npx cap-jev-mock --fail HTTP_ERROR --status 503 --provider-code overloaded
 
 ### Cloudflare format
 
-`--format cloudflare` wraps every answer in the Cloudflare envelope, `{ "success": true, "errors": [], "result": … }`. Error responses use the envelope too, `{ "success": false, "errors": [{ "code": "<type>", "message": "…" }], "result": null }`, with the same error types as in the table above. This lets you try `systemone-cloudflare` locally. Point `credentials.url` at the server and set a token, because the kind requires one. The server accepts any token unless you start it with `--token`. A client sends a token over HTTP only to a loopback address, which the default `--host` is.
+`--format cloudflare` wraps every answer in the Cloudflare envelope, `{ "success": true, "errors": [], "result": … }`. Error responses use the envelope too, `{ "success": false, "errors": [{ "code": "<type>", "message": "…" }], "result": null }`, with the same error types as in the table above. This lets you try `systemone-cloudflare` locally. Point `credentials.url` at the server and set a token, because the kind requires one. The server accepts any token unless you start it with `--token`. A client sends a token over HTTP only to a loopback host (`localhost`, an IPv4 address `127.x.x.x` or `::1`), which the default `--host` is.
 
 ```sh
 npx cap-jev-mock --format cloudflare

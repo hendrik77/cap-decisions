@@ -217,7 +217,7 @@ Keep tokens and account IDs out of committed files. CAP can inject them from the
 | Kyma/Kubernetes | `servicebinding.io` Secret via `SERVICE_BINDING_ROOT` |
 | Any | `CDS_CONFIG` JSON or `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_TOKEN` |
 
-`systemone-cloudflare` needs `accountId` and a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS or to `127.0.0.1`, `localhost`, or `::1` over HTTP. The Cloudflare adapter requires `success: true` and unwraps `result`.
+`systemone-cloudflare` needs `accountId` and a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS, or over HTTP to a loopback host: `localhost`, an IPv4 address `127.x.x.x`, or `::1`. The Cloudflare adapter requires `success: true` and unwraps `result`.
 
 `systemone-subq` talks to SubQ Snap, which is in public preview: `modelId` (`subq-snap-preview`) will change when SubQ releases the model, and an application can override it. A request without credits fails with `HTTP_ERROR` and status 402. SubQ stores decisions according to its [data retention](https://docs.subq.ai/using-the-api/data-retention/) policy. The kind selects a small subclass that reads SubQ's error type (`detail.error_type`) into `providerCode`. Images in a request are not supported.
 

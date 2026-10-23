@@ -7,6 +7,7 @@ const {
   validateSettings,
   CAP_SETTINGS_KEYS,
 } = require('../dist/validation');
+const { isLoopbackHost } = require('../dist/validation');
 const { createApp, runInApp, removeApp } = require('./helpers/app.cjs');
 
 const choice = (count) => ({
@@ -361,4 +362,13 @@ describe('validateRequest question shapes', () => {
     }
     assert.deepEqual(validateSettings({ credentials: { token: 'sk-abc 123\tx' } }), []);
   });
+});
+
+test('isLoopbackHost accepts localhost, 127.x.x.x and ::1 only', () => {
+  for (const host of ['localhost', '127.0.0.1', '127.1.2.3', '127.255.255.255', '::1', '[::1]']) {
+    assert.equal(isLoopbackHost(host), true, host);
+  }
+  for (const host of ['', 'example.com', '127.0.0.1.example.com', '127.0.0', '127.0.0.256', '128.0.0.1', '0.0.0.0', '::2', 'localhost.example.com']) {
+    assert.equal(isLoopbackHost(host), false, host);
+  }
 });

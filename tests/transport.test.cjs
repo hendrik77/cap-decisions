@@ -888,3 +888,13 @@ test('an endpoint URL with a user name or password is INVALID_CONFIG without ech
   );
   await assert.rejects(transport.post({ state: 'x', questions }), check);
 });
+
+test('a token is accepted over HTTP to any loopback address and refused to look-alikes', () => {
+  const make = (url) => new SystemOneTransport({ timeoutMs: 1000, credentials: { url, token: 'secret' } });
+  for (const url of ['http://127.0.0.2:9/x', 'http://127.0.0.1:9/x', 'http://localhost:9/x', 'http://[::1]:9/x']) {
+    assert.doesNotThrow(() => make(url), url);
+  }
+  for (const url of ['http://example.com/x', 'http://127.0.0.1.example.com/x', 'http://128.0.0.1/x']) {
+    assert.throws(() => make(url), (error) => error.code === 'INVALID_CONFIG', url);
+  }
+});

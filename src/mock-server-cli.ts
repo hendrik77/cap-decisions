@@ -4,7 +4,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { startMockServer } from './mock-server';
 import type { MockServerOptions } from './mock-server';
-import { SystemOneError } from './validation';
+import { SystemOneError, isLoopbackHost } from './validation';
 
 const HELP = `Usage: cap-jev-mock [options]
 
@@ -38,7 +38,6 @@ const number = (name: string, value: string): number => {
   return Number(value);
 };
 
-const isLoopback = (host: string) => ['localhost', '::1', '[::1]'].includes(host) || /^127\.\d+\.\d+\.\d+$/.test(host);
 
 function parse(argv: string[]) {
   let parsed;
@@ -127,7 +126,7 @@ async function main(): Promise<void> {
   };
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
-  if (!isLoopback(server.host)) {
+  if (!isLoopbackHost(server.host)) {
     const open = options.token === undefined ? ' and unprotected' : '';
     process.stderr.write(`cap-jev-mock: warning: the server is reachable from the network${open}\n`);
   }

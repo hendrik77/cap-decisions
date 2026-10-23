@@ -4,6 +4,8 @@
  * touches no files, so the facet (`add.ts`) does the reading and writing.
  */
 
+import { isLoopbackHost } from './validation';
+
 export interface AddOptions {
   kind?: string;
   /** The target profile. Letters, digits, `_` and `-` only. Default `production`. */
@@ -41,7 +43,6 @@ const PACKAGE_JSON = 'package.json';
 const CDSRC_PRIVATE = '.cdsrc-private.json';
 const GITIGNORE = '.gitignore';
 const FIXTURES = 'test/data/systemone.json';
-const LOCAL_HOSTS = ['127.0.0.1', 'localhost', '[::1]'];
 
 const record = (value: unknown): value is Json => typeof value === 'object' && value !== null && !Array.isArray(value);
 const say = (text: string) => `[systemone] ${text}`;
@@ -170,7 +171,7 @@ export function exampleFixtures(): string {
 function isLocalUrl(url: unknown): boolean {
   if (typeof url !== 'string') return false;
   try {
-    return LOCAL_HOSTS.includes(new URL(url).hostname);
+    return isLoopbackHost(new URL(url).hostname);
   } catch {
     return false;
   }

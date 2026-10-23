@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import type { DecisionRequest, SystemOneCredentials, SystemOneSettings } from './types';
-import { MAX_TIMEOUT_MS, SystemOneError, isInvalidHeaderValue, machineCode } from './validation';
+import { MAX_TIMEOUT_MS, SystemOneError, isInvalidHeaderValue, isLoopbackHost, machineCode } from './validation';
 
 const MAX_RETRIES = 2;
 const RETRY_STATUSES = new Set([429, 502, 503, 504, 529]);
@@ -81,7 +81,7 @@ function endpoint(url: string | undefined, authorized: boolean): URL {
   if (parsed.username || parsed.password) {
     throw new SystemOneError('INVALID_CONFIG', 'Endpoint URL must not contain user name or password');
   }
-  if (authorized && parsed.protocol === 'http:' && !['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname)) {
+  if (authorized && parsed.protocol === 'http:' && !isLoopbackHost(parsed.hostname)) {
     throw new SystemOneError('INVALID_CONFIG', 'Token requires HTTPS or a loopback endpoint');
   }
   return parsed;
