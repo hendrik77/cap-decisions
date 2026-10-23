@@ -460,7 +460,7 @@ test('handles invalid JSON and provider codes without response messages', async 
   );
 });
 
-test('the errorCode hook supplies the provider code and its result is sanitised', async () => {
+test('the errorCode hook supplies the provider code and an unsafe result falls back to error.type', async () => {
   handler = (_req, res) => {
     res.writeHead(400);
     res.end(JSON.stringify({ errors: [{ code: 1001 }], error: { type: 'ignored' } }));
@@ -474,7 +474,7 @@ test('the errorCode hook supplies the provider code and its result is sanitised'
   for (const unsafe of ['has spaces', 'x'.repeat(101), 1.5, { code: 1 }]) {
     await assert.rejects(
       decide({}, undefined, code(unsafe)),
-      (error) => error.code === 'HTTP_ERROR' && error.providerCode === undefined,
+      (error) => error.code === 'HTTP_ERROR' && error.providerCode === 'ignored',
     );
   }
   const payloads = [];

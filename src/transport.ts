@@ -318,6 +318,6 @@ export class SystemOneTransport {
 
   private providerCode(payload: unknown): string | number | undefined {
     const hooked = payload === undefined ? undefined : this.hooks.errorCode?.(payload);
-    return hooked === undefined || hooked === null ? errorType(payload) : machineCode(hooked);
+    return (hooked === undefined || hooked === null ? undefined : machineCode(hooked)) ?? errorType(payload);
   }
 }
