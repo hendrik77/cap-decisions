@@ -137,6 +137,19 @@ function checkRelease({ root, tag }) {
   if (example)
     expect('examples/cap-app/package.json', 'dependency cap-jev', `^${version}`, example.dependencies?.['cap-jev']);
 
+  // The example provider package README quotes the range of an application that installs cap-jev.
+  const providerReadme = read('examples/provider-package/README.md');
+  for (const [, range] of providerReadme?.matchAll(/"cap-jev":\s*"([^"]*)"/g) ?? []) {
+    expect('examples/provider-package/README.md', 'dependency cap-jev', `^${version}`, range);
+  }
+
+  // docs/providers.md quotes the peer range of a provider package.
+  const providersGuide = read('docs/providers.md');
+  const peerRange = rootPackage.peerDependencies?.['@sap/cds'];
+  for (const [, range] of providersGuide?.matchAll(/"@sap\/cds":\s*"([^"]*)"/g) ?? []) {
+    expect('docs/providers.md', 'quoted @sap/cds peer range', peerRange, range, ' (the peer range in package.json)');
+  }
+
   // cap-jev supports the CAP majors that CI tests, and no others.
   const workflow = read(WORKFLOW);
   if (workflow !== undefined) {

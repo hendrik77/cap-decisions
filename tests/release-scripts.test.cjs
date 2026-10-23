@@ -26,6 +26,9 @@ const files = (version) => ({
   }),
   'package-lock.json': JSON.stringify({ name: 'cap-jev', version, packages: { '': { name: 'cap-jev', version } } }),
   'examples/cap-app/package.json': JSON.stringify({ dependencies: { 'cap-jev': `^${version}` } }),
+  'examples/provider-package/README.md': `# Acme\n\n{ "dependencies": { "cap-jev": "^${version}", "cap-jev-provider-acme": "^1.0.0" } }\n`,
+  'docs/providers.md': `# Providers
+`,
   'README.md': `# cap-jev\n\nnpm install ${url(version)}\n`,
   'examples/cap-app/README.md': `# Example\n\ncurl -fLO ${url(version)}\n`,
   'CHANGELOG.md': `# Changelog\n\n## ${version}: A title\n\n### Added\n\n- Something.\n\n## 0.0.1\n\n- Old.\n`,
@@ -90,6 +93,31 @@ describe('checkRelease', () => {
     assert.match(failures[0], /examples\/cap-app\/package\.json/);
     assert.match(failures[0], /\^1\.2\.3/);
     assert.match(failures[0], /\^1\.2\.2/);
+  });
+
+  test('fails on the cap-jev range quoted in the provider package README', () => {
+    const readme = '{ "dependencies": { "cap-jev": "^1.2.2" } }\n';
+    const failures = checkRelease({ root: tree({ 'examples/provider-package/README.md': readme }) });
+    assert.deepEqual(failures, [
+      'examples/provider-package/README.md: expected dependency cap-jev ^1.2.3, found ^1.2.2',
+    ]);
+  });
+
+  test('passes when the provider package README quotes no cap-jev range', () => {
+    assert.deepEqual(checkRelease({ root: tree({ 'examples/provider-package/README.md': '# Acme\n' }) }), []);
+  });
+
+  test('passes when docs/providers.md quotes the peer range of package.json', () => {
+    const guide = '"peerDependencies": { "@sap/cds": "^9 || ^10" }\n';
+    assert.deepEqual(checkRelease({ root: tree({ 'docs/providers.md': guide }) }), []);
+  });
+
+  test('fails on the @sap/cds peer range quoted in docs/providers.md', () => {
+    const guide = '"peerDependencies": { "@sap/cds": "^9" }\n';
+    const failures = checkRelease({ root: tree({ 'docs/providers.md': guide }) });
+    assert.deepEqual(failures, [
+      'docs/providers.md: expected quoted @sap/cds peer range ^9 || ^10 (the peer range in package.json), found ^9',
+    ]);
   });
 
   test('fails on a README without an archive URL', () => {

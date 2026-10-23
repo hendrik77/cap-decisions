@@ -65,7 +65,7 @@ Use short, imperative subjects that describe the change, such as `Add user valid
 Changelog headings are `## <x.y.z>: <title>`. The title becomes the title of the GitHub release, `<x.y.z>: <title>`.
 
 1. Work on a branch named `release-<x.y.z>`.
-2. Update the version in `package.json` and `package-lock.json` (`npm version <x.y.z> --no-git-tag-version`), the `cap-jev` range in `examples/cap-app/package.json`, the release archive URLs and the `cap-jev-<x.y.z>.tgz` file names in `README.md` and `examples/cap-app/README.md`, and `CHANGELOG.md`.
+2. Update the version in `package.json` and `package-lock.json` (`npm version <x.y.z> --no-git-tag-version`), the `cap-jev` range in `examples/cap-app/package.json` and the one quoted in `examples/provider-package/README.md`, the release archive URLs and the `cap-jev-<x.y.z>.tgz` file names in `README.md` and `examples/cap-app/README.md`, and `CHANGELOG.md`.
 3. Run `npm run lint`, `npm run typecheck`, `npm test`, `npm pack --dry-run` and `npm run release:check` (which also compares the CAP peer range with the CI matrix), and run `npm test` on CAP 9 as described above.
 4. Open a pull request and merge it to `main` with a merge commit, after CI is green.
 5. Tag the merge commit `v<x.y.z>` and push the tag.
