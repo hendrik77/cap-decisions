@@ -10,17 +10,17 @@ The package is not yet published to npm. Install a release archive from [GitHub 
 
 ```sh
 npm config set allow-remote root --location=project
-npm install https://github.com/hendrik77/cap-jev/releases/download/v0.9.0/cap-jev-0.9.0.tgz
+npm install https://github.com/hendrik77/cap-jev/releases/download/v0.9.1/cap-jev-0.9.1.tgz
 ```
 
 or download the archive and install the file, which works with every npm version:
 
 ```sh
-curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.0/cap-jev-0.9.0.tgz
-npm install ./cap-jev-0.9.0.tgz
+curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.1/cap-jev-0.9.1.tgz
+npm install ./cap-jev-0.9.1.tgz
 ```
 
-The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.9.0.tgz`; keep the archive in the project.
+The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.9.1.tgz`; keep the archive in the project.
 
 To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-jev-<version>.tgz` file.
 
@@ -194,7 +194,7 @@ Settings are deep-merged over the kind's settings, so an application overrides s
 { "cds": { "requires": { "systemone": { "kind": "systemone-typesafe", "limits": { "choiceOptions": 300 } } } } }
 ```
 
-Settings are validated when the service is created. These fail with `INVALID_CONFIG`: `model`; `token`, `url`, `accountId` or `destination` at service level instead of under `credentials`; an unknown `credentials` key; a malformed `modelId`, `requiresToken`, `limits` or `timeoutMs`; and a missing token when the kind requires one. An unknown service-level key only logs a warning. Settings are snapshotted when the service is created; restart the application to apply changes.
+Settings are validated when the service is created. These fail with `INVALID_CONFIG`: `model`; `token`, `url`, `accountId` or `destination` at service level instead of under `credentials`; an unknown `credentials` key; a truthy `queued`, `outboxed` or `outbox` (a decision needs an answer, so the service cannot be queued); a malformed `modelId`, `requiresToken`, `limits` or `timeoutMs`; and a missing token when the kind requires one. An unknown service-level key only logs a warning. Settings are snapshotted when the service is created; restart the application to apply changes.
 
 For a local or other Jev-compatible server, use the generic kind with an explicit endpoint:
 
@@ -217,13 +217,13 @@ Keep tokens and account IDs out of committed files. CAP can inject them from the
 | Kyma/Kubernetes | `servicebinding.io` Secret via `SERVICE_BINDING_ROOT` |
 | Any | `CDS_CONFIG` JSON or `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_TOKEN` |
 
-`systemone-cloudflare` needs `accountId` and a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS or to `127.0.0.1`, `localhost`, or `::1` over HTTP. The Cloudflare adapter requires `success: true` and unwraps `result`.
+`systemone-cloudflare` needs `accountId` and a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS, or over HTTP to a loopback host: `localhost`, an IPv4 address `127.x.x.x`, or `::1`. The Cloudflare adapter requires `success: true` and unwraps `result`.
 
 `systemone-subq` talks to SubQ Snap, which is in public preview: `modelId` (`subq-snap-preview`) will change when SubQ releases the model, and an application can override it. A request without credits fails with `HTTP_ERROR` and status 402. SubQ stores decisions according to its [data retention](https://docs.subq.ai/using-the-api/data-retention/) policy. The kind selects a small subclass that reads SubQ's error type (`detail.error_type`) into `providerCode`. Images in a request are not supported.
 
 ### Destinations
 
-On SAP BTP, you can set `credentials.destination` to the name of a Destination service entry instead of supplying `url` and `token`. Install the optional peer package `@sap-cloud-sdk/connectivity` in the CAP application. Set the destination URL to the full POST endpoint and use a `NoAuthentication` destination with a `URL.headers.Authorization` property containing the bearer header. The plugin resolves the destination with `getDestination()` when the service is created and for each call; it uses the SDK's cache. The token transport rule also applies to destination headers. When `requiresToken` is `true`, the destination must supply an `Authorization` header (or a `token` must be set), or the connection fails with `INVALID_CONFIG`. This integration reads the destination URL and static headers; other destination authentication flows are outside its scope.
+On SAP BTP, you can set `credentials.destination` to the name of a Destination service entry instead of supplying `url` and `token`. Install the optional peer package `@sap-cloud-sdk/connectivity` in the CAP application. Set the destination URL to the full POST endpoint and use a `NoAuthentication` destination with a `URL.headers.Authorization` property containing the bearer header. The plugin resolves the destination with `getDestination()` when the service is created and for each call; it uses the SDK's cache. If the resolver throws when the service is created (for example, the Destination service is briefly down), the plugin logs a warning and the connection succeeds; each call resolves the destination again. A destination that is not found, or that has a bad URL or bad headers, still fails the connection. The token transport rule also applies to destination headers. When `requiresToken` is `true`, the destination must supply an `Authorization` header (or a `token` must be set), or the connection fails with `INVALID_CONFIG`. This integration reads the destination URL and static headers; other destination authentication flows are outside its scope.
 
 ```json
 { "cds": { "requires": { "systemone": { "kind": "systemone-generic", "credentials": { "destination": "systemone-api" } } } } }
@@ -235,7 +235,7 @@ Responses must include a model identifier, one correctly typed answer per questi
 
 | Code | Cause |
 | --- | --- |
-| `INVALID_CONFIG` | Invalid settings (such as `model`, a secret outside `credentials`, an unknown `credentials` key, or a malformed limit or timeout), a missing token when the kind requires one, or a missing or invalid endpoint, reported by `cds.connect.to('systemone')`; also a destination that cannot be resolved for a call |
+| `INVALID_CONFIG` | Invalid settings (such as `model`, a secret outside `credentials`, an unknown `credentials` key, or a malformed limit or timeout), a missing token when the kind requires one, a token with a character other than visible ASCII, space or tab, or a missing or invalid endpoint (including a URL with a user name or password), reported by `cds.connect.to('systemone')`; also a destination that cannot be resolved for a call |
 | `INVALID_REQUEST` | The request does not match the question schema or the provider's limits; nothing is sent |
 | `INVALID_RESPONSE` | The response is malformed JSON or does not match the questions |
 | `HTTP_ERROR` | The endpoint returned an error status; `status` and, when available, `providerCode` are set |
@@ -246,7 +246,7 @@ Responses must include a model identifier, one correctly typed answer per questi
 
 `providerCode` is a safe machine-readable provider error code. Network and parse errors retain their original `cause`; HTTP errors omit the response object.
 
-HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, the failure is returned immediately: an HTTP failure as `HTTP_ERROR` with its status and provider code, a network failure as `NETWORK_ERROR` with its cause. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. Caller cancellation through the `signal` option throws `ABORTED`. Request state and credentials are never logged by this package.
+HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, the failure is returned immediately: an HTTP failure as `HTTP_ERROR` with its status and provider code, a network failure as `NETWORK_ERROR` with its cause. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. A successful response body larger than 1 MiB also fails with `INVALID_RESPONSE`, without a retry. A redirect (3xx) is not followed: it fails with `HTTP_ERROR` and its status, without a retry, and nothing is sent to the `location`. Caller cancellation through the `signal` option throws `ABORTED`. Request state and credentials are never logged by this package.
 
 ## Protecting actions that call a provider
 
@@ -277,6 +277,17 @@ A provider package tests its kind with one call of `cap-jev/testing` (experiment
 | The HTTP mock server: `cap-jev/mock-server` (`startMockServer`, `MockServerOptions`, `MockServer`) and the `cap-jev-mock` command line | Experimental until the first npm publication |
 | The `cds add systemone` facet and its options (`--kind` and `--with-fixtures`; `--for` and `--force` are CAP's) | Experimental until the first npm publication |
 | The provider test kit: `cap-jev/testing` (`testProviderKind`, `ProviderKindTestOptions`) | Experimental |
+
+The package has these entry points (`exports` in `package.json`):
+
+| Entry | Exports |
+| --- | --- |
+| `cap-jev` | `SystemOneService` (also the default), `SystemOneError`, `DecideOptions` and the types of settings, requests, questions and answers |
+| `cap-jev/providers/cloudflare` | `CloudflareService` (also the default) |
+| `cap-jev/providers/mock` | `MockService` (also the default) |
+| `cap-jev/providers/subq` | `SubqService` (also the default) |
+| `cap-jev/mock-server` | `startMockServer`, `MockServerOptions`, `MockServer` |
+| `cap-jev/testing` | `testProviderKind`, `ProviderKindTestOptions`, `WireError`, `WireErrorInput` |
 
 `MockSettings` is exported as a type; `MockServerOptions` and `MockServer` come from `cap-jev/mock-server`. `SystemOneTransport` is internal and not exported.
 
@@ -313,9 +324,9 @@ Tests use Node's built-in test runner and need no external API key; HTTP tests r
 
 To test against CAP 9, run `npm install --no-save @sap/cds@^9 @sap/cds-dk@^9` and then `npm test`. Run `npm install` afterwards to restore CAP 10. With npm 12 or later, which blocks install scripts, `@sap/cds-dk` 9 leaves `better-sqlite3` without its native binding; run `npx --no-install prebuild-install` in `node_modules/better-sqlite3`, or the example-app tests hang.
 
-`npm run release:check` checks that the version in `package.json` matches `package-lock.json`, the example app's `cap-jev` range, the release archive URLs and archive file names in both READMEs and a heading in `CHANGELOG.md`. It also checks that the `@sap/cds` peer range in `package.json` and in `examples/provider-package/package.json` names exactly the CAP majors in the `cds` matrix of `.github/workflows/ci.yml` (`^9 || ^10` for `cds: [9, 10]`), so the supported and the tested CAP versions cannot differ. `npm run release:check -- --tag v<x.y.z>` also checks the tag. It fails on a machine path (such as a home or temporary directory of a developer) in any tracked text file; `npm run release:check -- --archive <file.tgz>` runs only that check on a packed archive, as the release workflow does.
+`npm run release:check` checks that the version in `package.json` matches `package-lock.json`, the example app's `cap-jev` range, the `cap-jev` range quoted in `examples/provider-package/README.md`, the `@sap/cds` peer range quoted in `docs/providers.md`, the release archive URLs and archive file names in both READMEs and a heading in `CHANGELOG.md`. It also checks that the `@sap/cds` peer range in `package.json` and in `examples/provider-package/package.json` names exactly the CAP majors in the `cds` matrix of `.github/workflows/ci.yml` (`^9 || ^10` for `cds: [9, 10]`), so the supported and the tested CAP versions cannot differ. `npm run release:check -- --tag v<x.y.z>` also checks the tag. It fails on a machine path (such as a home or temporary directory of a developer) in any tracked text file; `npm run release:check -- --archive <file.tgz>` runs only that check on a packed archive, as the release workflow does.
 
-[CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck (CAP 10 only), tests (including the build) and `npm pack --dry-run` on Node.js 22, 24 and 26 with CAP 9 and CAP 10 (and `@sap/cds-dk` 9 and 10, matching CAP), for pushes to branches and for pull requests. Pushing a tag `v<x.y.z>` runs the [release workflow](.github/workflows/release.yml), which runs CI on the tagged commit, checks the release with `npm run release:check` and creates the GitHub release with the `npm pack` archive and the changelog section as notes.
+[CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck (CAP 10 only), tests (including the build) and `npm pack --dry-run` on Node.js 22, 24 and 26 with CAP 9 and CAP 10 (and `@sap/cds-dk` 9 and 10, matching CAP), for pushes to `main` and for pull requests (a branch with an open pull request runs once). Pushing a tag `v<x.y.z>` runs the [release workflow](.github/workflows/release.yml), which runs CI on the tagged commit, checks the release with `npm run release:check` and creates the GitHub release with the `npm pack` archive and the changelog section as notes.
 
 Design decisions are recorded in [docs/decisions/](docs/decisions/).
 

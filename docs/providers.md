@@ -84,7 +84,7 @@ module.exports = AcmeSystemOne;
 [`examples/provider-package`](../examples/provider-package) is a minimal provider package, `cap-jev-provider-acme`. It has these parts:
 
 - **A kind in its `package.json`.** The kind extends `systemone-defaults` and sets `impl` to the package itself. CAP loads the package's `main` file, which exports the subclass.
-- **`srv/acme-service.js`.** The subclass. It overrides `endpoint` and `unwrap`, and declares `static credentialKeys = ['region']`.
+- **`srv/acme-service.js`.** The subclass. It overrides `endpoint` and `unwrap`, overrides `init` to write a debug log before calling `super.init()`, and declares `static credentialKeys = ['region']`.
 - **`cds-plugin.js`.** CAP discovers a package's configuration through this file. In the example it holds only a comment.
 - **Peer dependencies on `cap-jev` and `@sap/cds`.** The application's single copies are used. A second copy breaks `instanceof` checks and CAP events.
 
@@ -137,7 +137,7 @@ The kind requires a token, so supply `credentials.token` from a secret source su
 | `call` | `call(request: DecisionRequest, options: DecideOptions): Promise<{ result: unknown; attempts: number }>` | Sends the request over HTTP with retries and a deadline, and returns the unwrapped payload | The flow is not a single HTTP POST. Honour `options.signal` and `settings.timeoutMs` |
 | `endpoint` | `endpoint(credentials: SystemOneCredentials): string \| undefined` | `credentials.url` | The URL is built from other credentials. Throw `INVALID_CONFIG` if it cannot be built. Not called when `credentials.destination` is set |
 | `unwrap` | `unwrap(payload: unknown): unknown` | Returns `payload` | The Jev result sits inside an envelope. It receives the parsed JSON of a successful HTTP response. Throw `PROVIDER_ERROR` or `INVALID_RESPONSE` for failures. A thrown error is not retried |
-| `errorCode` | `errorCode(payload: unknown): string \| number \| undefined` | Returns `undefined`, so the transport reads `error.type` from the error body | The provider reports its error code elsewhere. It receives the parsed JSON of an HTTP error body. The result becomes `providerCode` only if it is a safe integer or a string of up to 100 letters, digits and `_.:-` |
+| `errorCode` | `errorCode(payload: unknown): string \| number \| undefined` | Returns `undefined`, so the transport reads `error.type` from the error body | The provider reports its error code elsewhere. It receives the parsed JSON of an HTTP error body. The result becomes `providerCode` only if it is a safe integer or a string of up to 100 letters, digits and `_.:-`; otherwise the transport falls back to `error.type` |
 | `settingsKeys` | `static settingsKeys: readonly string[]` | `[]` | The subclass adds service-level settings. Listed keys produce no warning. Read them from `this.settings` |
 | `credentialKeys` | `static credentialKeys: readonly string[]` | `[]` | The subclass adds credentials. Listed keys under `credentials` are accepted if their values are strings. Unlisted keys fail with `INVALID_CONFIG` |
 
@@ -183,7 +183,7 @@ The kit links the package at `packageDir` (default `process.cwd()`, so run `node
 | `settings` | Further settings for the kind, applied over its resolved settings (`timeoutMs`, `limits`, `modelId`). |
 | `credentials` | Further credentials, such as `accountId` or `region`. The kit sets `url` and, when the kind has `requiresToken`, a test `token`, unless `token` is given. |
 | `encode(response, request)` | Turns a Jev response into the provider's wire format. Default: the response itself, for a server that speaks the Jev protocol. |
-| `encodeError({ code, status, message })` | Returns `{ status, body }`, the provider's error response carrying `code` as its machine-readable error. Default: `{ status, body: { error: { type: code } } }`. |
+| `encodeError({ code, status, message })` | Takes a `WireErrorInput` and returns a `WireError`, `{ status, body }` (both types are exported from `cap-jev/testing`), the provider's error response carrying `code` as its machine-readable error. Default: `{ status, body: { error: { type: code } } }`. |
 
 For a provider that reports errors in another shape, pass `encodeError`. SubQ, for instance, answers `{ "detail": { "error_type": "..." } }`:
 

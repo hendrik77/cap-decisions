@@ -28,6 +28,20 @@ function json(value: unknown, ancestors = new Set<object>()): boolean {
   }
 }
 
+/**
+ * The code of a {@link SystemOneError}.
+ *
+ * - `INVALID_CONFIG`: the settings, the token or the endpoint are invalid or missing.
+ * - `INVALID_REQUEST`: the request does not match the question schema or the limits; nothing was sent.
+ * - `INVALID_RESPONSE`: the response is malformed, too large or does not match the questions.
+ * - `HTTP_ERROR`: the endpoint answered with an error status (or a redirect); see `status`.
+ * - `PROVIDER_ERROR`: the provider reported a failure in a successful HTTP response.
+ * - `NETWORK_ERROR`: the connection or the body failed after all retries.
+ * - `TIMEOUT`: the call exceeded `timeoutMs`.
+ * - `ABORTED`: the caller's `signal` cancelled the call.
+ *
+ * The union may grow in a minor release (ADR 0006); code that switches over it needs a default branch.
+ */
 export type SystemOneErrorCode =
   | 'INVALID_CONFIG'
   | 'INVALID_REQUEST'
@@ -38,11 +52,15 @@ export type SystemOneErrorCode =
   | 'TIMEOUT'
   | 'ABORTED';
 
+/** The error every failure of `decide()` and of connecting the service is raised as. */
 export class SystemOneError extends Error {
+  /** The HTTP status of an `HTTP_ERROR`; otherwise usually unset. */
   readonly status?: number;
+  /** The provider's machine-readable error code, when the response had one. */
   readonly providerCode?: string | number;
 
   constructor(
+    /** What kind of failure this is; branch on it, not on the message. */
     public readonly code: SystemOneErrorCode,
     message: string,
     options: { status?: number; providerCode?: string | number; cause?: unknown } = {},
@@ -117,6 +135,18 @@ const plain = (value: unknown): value is Record<string, unknown> =>
   record(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 const positive = (value: unknown, max = Number.MAX_SAFE_INTEGER): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= max;
+/** True when `value` has a character that is not valid in an HTTP header value (visible ASCII, space, tab only). */
+export const isInvalidHeaderValue = (value: string): boolean => /[^\t\x20-\x7e]/.test(value);
+/** True for `localhost`, an IPv4 address 127.x.x.x and `::1` (also as `[::1]`, which `URL.hostname` returns). */
+export function isLoopbackHost(hostname: string): boolean {
+  if (hostname === 'localhost' || hostname === '::1' || hostname === '[::1]') return true;
+  const octets = hostname.split('.');
+  return (
+    octets.length === 4 &&
+    octets[0] === '127' &&
+    octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
+  );
+}
 const invalidConfig = (message: string) => new SystemOneError('INVALID_CONFIG', message);
 
 function validateLimits(limits: unknown): void {
@@ -160,8 +190,18 @@ export function validateSettings(
         throw invalidConfig(`Unknown credentials setting "${key}"`);
       if (value !== undefined && typeof value !== 'string') throw invalidConfig(`credentials.${key} must be a string`);
     }
+    if (typeof credentials.token === 'string' && isInvalidHeaderValue(credentials.token)) {
+      throw invalidConfig('credentials.token must contain only visible ASCII characters');
+    }
     if (credentials.destination !== undefined && !(credentials.destination as string).trim()) {
       throw invalidConfig('destination must be a non-empty name');
+    }
+  }
+  for (const key of ['queued', 'outboxed', 'outbox']) {
+    if (values[key]) {
+      throw invalidConfig(
+        `${key} is not supported: a decision needs an answer, so the systemone service cannot be queued`,
+      );
     }
   }
   if (values.modelId !== undefined && (typeof values.modelId !== 'string' || !values.modelId)) {

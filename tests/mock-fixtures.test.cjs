@@ -98,6 +98,12 @@ describe('parseFixtures source', () => {
 });
 
 describe('findRule', () => {
+  test('a stateIncludes phrase does not match across two state values', () => {
+    const rules = [{ when: { stateIncludes: ['money back'] }, answer: {} }];
+    assert.equal(findRule(rules, { subject: 'money', body: 'back to the shop' }, 'q'), undefined);
+    assert.equal(findRule(rules, { body: 'money back please' }, 'q').index, 0);
+  });
+
   const rules = parseFixtures([
     { when: { stateIncludes: 'refund', question: 'department' }, answer: { choice: 'billing' } },
     { when: { stateIncludes: ['Outage', 'down'] }, fail: 'HTTP_ERROR', status: 503 },
@@ -137,11 +143,6 @@ describe('findRule', () => {
     assert.equal(findRule(rules, { message: 'Refund me', customer: { id: 7 } }, 'department').index, 0);
     assert.equal(findRule(rules, ['hello', { note: 'down' }], 'x').index, 1);
     assert.equal(findRule(rules, { refund: 'no', other: 1 }, 'department').index, 3);
-  });
-
-  test('string values of the state are joined with a space', () => {
-    const joined = parseFixtures([{ when: { stateIncludes: 'refund order' }, fail: 'TIMEOUT' }]);
-    assert.equal(findRule(joined, { a: 'refund', b: 'order' }, 'x').index, 0);
   });
 
   test('unmatched gives undefined', () => {

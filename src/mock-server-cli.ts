@@ -4,7 +4,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { startMockServer } from './mock-server';
 import type { MockServerOptions } from './mock-server';
-import { SystemOneError } from './validation';
+import { SystemOneError, isLoopbackHost } from './validation';
 
 const HELP = `Usage: cap-jev-mock [options]
 
@@ -37,8 +37,6 @@ const number = (name: string, value: string): number => {
   if (!/^\d+$/.test(value)) throw new UsageError(`${name} must be a non-negative integer`);
   return Number(value);
 };
-
-const isLoopback = (host: string) => ['localhost', '::1', '[::1]'].includes(host) || /^127\.\d+\.\d+\.\d+$/.test(host);
 
 function parse(argv: string[]) {
   let parsed;
@@ -79,7 +77,7 @@ function toOptions(values: ReturnType<typeof parse>): MockServerOptions {
   if (values.strategy !== undefined) options.strategy = values.strategy;
   if (values['latency-ms'] !== undefined) options.latencyMs = number('--latency-ms', values['latency-ms']);
   if (values.format !== undefined) options.format = values.format;
-  const token = values.token ?? process.env.CAP_JEV_MOCK_TOKEN;
+  const token = values.token ?? (process.env.CAP_JEV_MOCK_TOKEN || undefined);
   if (token !== undefined) options.token = token;
   if (!values.quiet) options.log = (line: string) => process.stdout.write(`${line}\n`);
   const status = values.status === undefined ? undefined : number('--status', values.status);
@@ -88,6 +86,10 @@ function toOptions(values: ReturnType<typeof parse>): MockServerOptions {
     if (status !== undefined || providerCode !== undefined) {
       throw new UsageError('--status and --provider-code need --fail');
     }
+  } else if (values.fail === 'HTTP_ERROR' && status === undefined) {
+    throw new UsageError('--fail HTTP_ERROR needs --status from 400 to 599');
+  } else if (status !== undefined && values.fail !== 'HTTP_ERROR') {
+    throw new UsageError('--status only goes with --fail HTTP_ERROR');
   } else if (status === undefined && providerCode === undefined) {
     options.fail = values.fail;
   } else {
@@ -127,7 +129,7 @@ async function main(): Promise<void> {
   };
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
-  if (!isLoopback(server.host)) {
+  if (!isLoopbackHost(server.host)) {
     const open = options.token === undefined ? ' and unprotected' : '';
     process.stderr.write(`cap-jev-mock: warning: the server is reachable from the network${open}\n`);
   }

@@ -279,6 +279,34 @@ describe('the kit reports a package that is set up wrongly', () => {
     assert.match(result.output, /HTTP_ERROR/);
   });
 
+  test('a failing write to the CAP process is reported and does not crash the test process', async () => {
+    const dir = writeProvider({ unwrap: GOOD_UNWRAP });
+    // Every child the kit spawns gets a stdin whose write fails as after the process died (EPIPE).
+    const preload = path.join(dir, 'break-stdin.cjs');
+    fs.writeFileSync(
+      preload,
+      `const childProcess = require('node:child_process');
+const spawn = childProcess.spawn;
+childProcess.spawn = (...args) => {
+  const child = spawn(...args);
+  child.stdin.write = () => {
+    setImmediate(() => child.stdin.emit('error', new Error('write EPIPE')));
+    return true;
+  };
+  return child;
+};
+`,
+    );
+    try {
+      const result = await runTests(dir, { NODE_OPTIONS: `--require ${preload}` });
+      assert.notEqual(result.code, 0, result.output);
+      assert.match(result.output, /The CAP process of the test kit could not be written to: write EPIPE/);
+      assert.doesNotMatch(result.output, /Unhandled 'error' event/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('settings that cannot be connected fail the first check with a hint', () =>
     failsWith(
       {},

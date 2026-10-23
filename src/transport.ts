@@ -1,11 +1,15 @@
 import { createRequire } from 'node:module';
 import type { DecisionRequest, SystemOneCredentials, SystemOneSettings } from './types';
-import { MAX_TIMEOUT_MS, SystemOneError, machineCode } from './validation';
+import { MAX_TIMEOUT_MS, SystemOneError, isInvalidHeaderValue, isLoopbackHost, machineCode } from './validation';
 
 const MAX_RETRIES = 2;
 const RETRY_STATUSES = new Set([429, 502, 503, 504, 529]);
 const MAX_ERROR_BYTES = 8192;
+const MAX_RESPONSE_BYTES = 1024 * 1024;
 const optionalRequire = createRequire(__filename);
+
+/** The destination resolver threw; the destination itself may be fine, so the next call resolves it again. */
+export class DestinationResolveError extends SystemOneError {}
 
 export interface ResolvedDestination {
   url?: string;
@@ -77,7 +81,10 @@ function endpoint(url: string | undefined, authorized: boolean): URL {
   if (!['https:', 'http:'].includes(parsed.protocol) || !parsed.host) {
     throw new SystemOneError('INVALID_CONFIG', 'Endpoint URL must use HTTP or HTTPS');
   }
-  if (authorized && parsed.protocol === 'http:' && !['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname)) {
+  if (parsed.username || parsed.password) {
+    throw new SystemOneError('INVALID_CONFIG', 'Endpoint URL must not contain user name or password');
+  }
+  if (authorized && parsed.protocol === 'http:' && !isLoopbackHost(parsed.hostname)) {
     throw new SystemOneError('INVALID_CONFIG', 'Token requires HTTPS or a loopback endpoint');
   }
   return parsed;
@@ -136,6 +143,26 @@ async function errorPayload(response: Response): Promise<unknown> {
   }
 }
 
+/** Reads a success body; `undefined` means it is larger than the limit. A broken transfer rejects. */
+async function boundedText(response: Response): Promise<string | undefined> {
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_RESPONSE_BYTES) return undefined;
+      chunks.push(value);
+    }
+    return new TextDecoder().decode(Buffer.concat(chunks));
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+}
+
 function errorType(payload: unknown): string | number | undefined {
   if (typeof payload !== 'object' || payload === null) return undefined;
   const error = (payload as Record<string, unknown>).error;
@@ -169,6 +196,9 @@ export class SystemOneTransport {
     if (!credentials.destination) {
       this.url = endpoint(this.hooks.endpoint?.(credentials) ?? credentials.url, !!credentials.token);
     }
+    if (typeof credentials.token === 'string' && isInvalidHeaderValue(credentials.token)) {
+      throw new SystemOneError('INVALID_CONFIG', 'token must contain only visible ASCII characters');
+    }
     this.timeoutMs = settings.timeoutMs as number;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs <= 0 || this.timeoutMs > MAX_TIMEOUT_MS)
       throw new SystemOneError('INVALID_CONFIG', `timeoutMs must be a positive integer at most ${MAX_TIMEOUT_MS}`);
@@ -201,12 +231,18 @@ export class SystemOneTransport {
     try {
       destination = await resolver(name);
     } catch (error) {
-      throw new SystemOneError('INVALID_CONFIG', 'Could not resolve destination', { cause: error });
+      throw new DestinationResolveError('INVALID_CONFIG', 'Could not resolve destination', { cause: error });
     }
     if (!destination) throw new SystemOneError('INVALID_CONFIG', 'Destination was not found');
     const headers: Record<string, string> = {};
     for (const [key, value] of Object.entries(destination.headers ?? {})) {
       if (typeof value !== 'string') throw new SystemOneError('INVALID_CONFIG', 'Destination headers must be strings');
+      if (isInvalidHeaderValue(value)) {
+        throw new SystemOneError(
+          'INVALID_CONFIG',
+          `Destination header ${key.toLowerCase()} must contain only visible ASCII characters`,
+        );
+      }
       headers[key.toLowerCase()] = value;
     }
     const authorized = !!(headers.authorization || this.token);
@@ -236,7 +272,7 @@ export class SystemOneTransport {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       let response: Response;
       try {
-        response = await fetch(target.url, { method: 'POST', headers, body, signal });
+        response = await fetch(target.url, { method: 'POST', headers, body, signal, redirect: 'manual' });
       } catch (error) {
         await retryNetworkFailure(error, attempt, deadlineAt, signal, options.signal);
         continue;
@@ -245,7 +281,7 @@ export class SystemOneTransport {
         if (RETRY_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
           const delay = retryDelay(attempt, response.headers.get('retry-after'));
           if (delay < deadlineAt - Date.now()) {
-            await response.body?.cancel();
+            await response.body?.cancel().catch(() => undefined);
             await pause(delay, signal, options.signal);
             continue;
           }
@@ -262,14 +298,15 @@ export class SystemOneTransport {
           providerCode: this.providerCode(payload),
         });
       }
-      let text: string;
+      let text: string | undefined;
       try {
-        text = await response.text();
+        text = await boundedText(response);
       } catch (error) {
         await response.body?.cancel().catch(() => undefined);
         await retryNetworkFailure(error, attempt, deadlineAt, signal, options.signal);
         continue;
       }
+      if (text === undefined) throw new SystemOneError('INVALID_RESPONSE', 'System One response is too large');
       let payload: unknown;
       try {
         payload = JSON.parse(text);
@@ -284,6 +321,6 @@ export class SystemOneTransport {
 
   private providerCode(payload: unknown): string | number | undefined {
     const hooked = payload === undefined ? undefined : this.hooks.errorCode?.(payload);
-    return hooked === undefined || hooked === null ? errorType(payload) : machineCode(hooked);
+    return (hooked === undefined || hooked === null ? undefined : machineCode(hooked)) ?? errorType(payload);
   }
 }

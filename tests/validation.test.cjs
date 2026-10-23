@@ -7,6 +7,7 @@ const {
   validateSettings,
   CAP_SETTINGS_KEYS,
 } = require('../dist/validation');
+const { isLoopbackHost } = require('../dist/validation');
 const { createApp, runInApp, removeApp } = require('./helpers/app.cjs');
 
 const choice = (count) => ({
@@ -101,6 +102,18 @@ describe('validateSettings errors', () => {
     invalid({ credentials: { destination: '' } });
   });
 
+  test('queued, outboxed and outbox are rejected when truthy and allowed when false', () => {
+    for (const key of ['queued', 'outboxed', 'outbox']) {
+      for (const value of [true, {}, 'yes', 1]) {
+        assert.throws(() => validateSettings({ [key]: value }), {
+          ...invalidConfig,
+          message: `${key} is not supported: a decision needs an answer, so the systemone service cannot be queued`,
+        });
+      }
+      assert.deepEqual(validateSettings({ [key]: false }), []);
+    }
+  });
+
   test('modelId must be a non-empty string', () => {
     for (const modelId of ['', 1, null, {}]) invalid({ modelId });
   });
@@ -179,7 +192,9 @@ describe('validateSettings warnings', () => {
 
   test('keys added by CAP produce no warning', () => {
     assert.ok(Array.isArray(CAP_SETTINGS_KEYS));
-    const settings = Object.fromEntries(CAP_SETTINGS_KEYS.map((key) => [key, true]));
+    const settings = Object.fromEntries(
+      CAP_SETTINGS_KEYS.map((key) => [key, !['queued', 'outboxed', 'outbox'].includes(key)]),
+    );
     assert.deepEqual(validateSettings(settings), []);
   });
 
@@ -195,6 +210,33 @@ describe('validateSettings warnings', () => {
         })();`,
       );
       assert.deepEqual(validateSettings(options), []);
+    } finally {
+      removeApp(dir);
+    }
+  });
+});
+
+describe('queued systemone service', () => {
+  test('connecting fails with INVALID_CONFIG', async () => {
+    const dir = createApp({
+      name: 'queued-app',
+      cds: { requires: { systemone: { kind: 'systemone-laya', queued: true } } },
+    });
+    try {
+      const result = await runInApp(
+        dir,
+        `(async () => {
+          const cds = require('@sap/cds');
+          try {
+            await cds.connect.to('systemone');
+            console.log(JSON.stringify({ ok: true }));
+          } catch (error) {
+            console.log(JSON.stringify({ code: error.code, message: error.message }));
+          }
+        })();`,
+      );
+      assert.equal(result.code, 'INVALID_CONFIG');
+      assert.match(result.message, /queued is not supported/);
     } finally {
       removeApp(dir);
     }
@@ -349,4 +391,38 @@ describe('validateRequest question shapes', () => {
       request({ answer: { type: 'noul', instructions: 'Yes?', criteria: { true: 'Yes', false: 'No' } } }),
     );
   });
+
+  test('a token with characters that are invalid in a header fails without echoing it', () => {
+    for (const token of ['sec\nret', 'sec\u00e9ret', 'sec\x00ret']) {
+      assert.throws(
+        () => validateSettings({ credentials: { token } }),
+        (error) => {
+          assert.equal(error.code, 'INVALID_CONFIG');
+          assert.match(error.message, /token/);
+          assert.ok(!error.message.includes('sec'));
+          return true;
+        },
+      );
+    }
+    assert.deepEqual(validateSettings({ credentials: { token: 'sk-abc 123\tx' } }), []);
+  });
+});
+
+test('isLoopbackHost accepts localhost, 127.x.x.x and ::1 only', () => {
+  for (const host of ['localhost', '127.0.0.1', '127.1.2.3', '127.255.255.255', '::1', '[::1]']) {
+    assert.equal(isLoopbackHost(host), true, host);
+  }
+  for (const host of [
+    '',
+    'example.com',
+    '127.0.0.1.example.com',
+    '127.0.0',
+    '127.0.0.256',
+    '128.0.0.1',
+    '0.0.0.0',
+    '::2',
+    'localhost.example.com',
+  ]) {
+    assert.equal(isLoopbackHost(host), false, host);
+  }
 });

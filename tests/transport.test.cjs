@@ -460,7 +460,7 @@ test('handles invalid JSON and provider codes without response messages', async 
   );
 });
 
-test('the errorCode hook supplies the provider code and its result is sanitised', async () => {
+test('the errorCode hook supplies the provider code and an unsafe result falls back to error.type', async () => {
   handler = (_req, res) => {
     res.writeHead(400);
     res.end(JSON.stringify({ errors: [{ code: 1001 }], error: { type: 'ignored' } }));
@@ -474,7 +474,7 @@ test('the errorCode hook supplies the provider code and its result is sanitised'
   for (const unsafe of ['has spaces', 'x'.repeat(101), 1.5, { code: 1 }]) {
     await assert.rejects(
       decide({}, undefined, code(unsafe)),
-      (error) => error.code === 'HTTP_ERROR' && error.providerCode === undefined,
+      (error) => error.code === 'HTTP_ERROR' && error.providerCode === 'ignored',
     );
   }
   const payloads = [];
@@ -766,5 +766,139 @@ test('an error response whose body breaks while it is read is INVALID_RESPONSE w
     });
   } finally {
     globalThis.fetch = original;
+  }
+});
+
+test('a redirect is not followed and is an HTTP_ERROR without retry', async () => {
+  let hits = 0;
+  let redirected = 0;
+  handler = (req, res) => {
+    if (req.url.startsWith('/elsewhere')) {
+      redirected++;
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(result));
+      return;
+    }
+    hits++;
+    res.writeHead(307, { location: `${prefix}/elsewhere` });
+    res.end();
+  };
+  await assert.rejects(decide({ token: 'secret' }), (error) => error.code === 'HTTP_ERROR' && error.status === 307);
+  assert.equal(hits, 1);
+  assert.equal(redirected, 0);
+});
+
+test('a token that is invalid in a header is INVALID_CONFIG without the value', () => {
+  for (const token of ['sec\nret', 'sec\u00e9ret', 'sec\x7fret']) {
+    assert.throws(
+      () => new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com', token } }),
+      (error) => error.code === 'INVALID_CONFIG' && /token/.test(error.message) && !error.message.includes('sec'),
+    );
+  }
+});
+
+test('a destination header value that is invalid in a header is INVALID_CONFIG naming the header, and nothing is sent', async () => {
+  const original = globalThis.fetch;
+  let fetched = 0;
+  globalThis.fetch = async () => {
+    fetched++;
+    return new globalThis.Response('{}');
+  };
+  try {
+    const transport = new SystemOneTransport(
+      { timeoutMs: 1000, credentials: { destination: 'bad' } },
+      {
+        destinationResolver: async () => ({
+          url: 'https://example.com/x',
+          headers: { Authorization: 'Bearer sec\nret' },
+        }),
+      },
+    );
+    await assert.rejects(
+      transport.post({ state: 'x', questions }),
+      (error) =>
+        error.code === 'INVALID_CONFIG' && /authorization/i.test(error.message) && !error.message.includes('sec'),
+    );
+    assert.equal(fetched, 0);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('a success body over 1 MiB is INVALID_RESPONSE without a retry, and one at the limit is read', async () => {
+  let calls = 0;
+  const pad = (size) =>
+    JSON.stringify({ ...result, pad: 'x'.repeat(size - JSON.stringify({ ...result, pad: '' }).length) });
+  handler = (_req, res) => {
+    calls++;
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(pad(1024 * 1024 + 1));
+  };
+  await assert.rejects(
+    decide(),
+    (error) => error.code === 'INVALID_RESPONSE' && error.message === 'System One response is too large',
+  );
+  assert.equal(calls, 1);
+  handler = (_req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(pad(1024 * 1024));
+  };
+  assert.equal((await decide()).model, result.model);
+});
+
+test('a response body that cannot be cancelled before a retry does not escape as a raw error', async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    if (calls === 1) {
+      const body = new globalThis.ReadableStream({
+        pull(controller) {
+          controller.enqueue(new globalThis.TextEncoder().encode('x'));
+        },
+        cancel() {
+          throw new TypeError('cancel failed');
+        },
+      });
+      return new globalThis.Response(body, { status: 503, headers: { 'retry-after': '0' } });
+    }
+    return new globalThis.Response(JSON.stringify(result));
+  };
+  try {
+    const transport = new SystemOneTransport({ timeoutMs: 5000, credentials: { url: 'https://example.com/x' } });
+    const { payload } = await transport.post({ state: 'x', questions });
+    assert.equal(payload.model, result.model);
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('an endpoint URL with a user name or password is INVALID_CONFIG without echoing it', async () => {
+  const check = (error) =>
+    error.code === 'INVALID_CONFIG' &&
+    /user name or password/.test(error.message) &&
+    !error.message.includes('hunter2');
+  for (const url of ['https://user:hunter2@example.com/x', 'https://hunter2@example.com/x']) {
+    assert.throws(() => new SystemOneTransport({ timeoutMs: 1000, credentials: { url } }), check);
+  }
+  const transport = new SystemOneTransport(
+    { timeoutMs: 1000, credentials: { destination: 'd' } },
+    { destinationResolver: async () => ({ url: 'https://user:hunter2@example.com/x' }) },
+  );
+  await assert.rejects(transport.post({ state: 'x', questions }), check);
+});
+
+test('a token is accepted over HTTP to any loopback address and refused to look-alikes', () => {
+  const make = (url) => new SystemOneTransport({ timeoutMs: 1000, credentials: { url, token: 'secret' } });
+  for (const url of ['http://127.0.0.2:9/x', 'http://127.0.0.1:9/x', 'http://localhost:9/x', 'http://[::1]:9/x']) {
+    assert.doesNotThrow(() => make(url), url);
+  }
+  for (const url of ['http://example.com/x', 'http://127.0.0.1.example.com/x', 'http://128.0.0.1/x']) {
+    assert.throws(
+      () => make(url),
+      (error) => error.code === 'INVALID_CONFIG',
+      url,
+    );
   }
 });

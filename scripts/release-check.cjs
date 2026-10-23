@@ -14,9 +14,14 @@ const WORKFLOW = '.github/workflows/ci.yml';
 const CDS_MATRIX = /^\s*cds:\s*\[([^\]]*)\]\s*(?:#.*)?$/m;
 
 const NAME = '[A-Za-z0-9._-]';
+// A path that starts a word: at the start of a line or after a space, a quote, a backtick, `(` or `=`, so that a URL
+// path such as https://example.com/tmp/x does not match.
+const START = '(?<![^\\s"\'`(=])';
 const MACHINE_PATHS = [
-  new RegExp(`(?<!${NAME})/Users/${NAME}+/`, 'g'),
-  new RegExp(`(?<!${NAME})/home/${NAME}+/`, 'g'),
+  new RegExp(`(?<!${NAME})/Users/${NAME}+`, 'g'),
+  new RegExp(`(?<!${NAME})/home/${NAME}+`, 'g'),
+  new RegExp(`${START}/(?:var/)?tmp/${NAME}+`, 'g'),
+  new RegExp(`${START}/root/${NAME}+`, 'g'),
   new RegExp(`/private/(?:tmp|var)/${NAME}+|(?<!${NAME})/var/folders/${NAME}+`, 'g'),
   new RegExp(`[A-Za-z]:[\\\\/]Users[\\\\/]${NAME}+`, 'gi'),
 ];
@@ -131,6 +136,19 @@ function checkRelease({ root, tag }) {
   const example = readJson('examples/cap-app/package.json');
   if (example)
     expect('examples/cap-app/package.json', 'dependency cap-jev', `^${version}`, example.dependencies?.['cap-jev']);
+
+  // The example provider package README quotes the range of an application that installs cap-jev.
+  const providerReadme = read('examples/provider-package/README.md');
+  for (const [, range] of providerReadme?.matchAll(/"cap-jev":\s*"([^"]*)"/g) ?? []) {
+    expect('examples/provider-package/README.md', 'dependency cap-jev', `^${version}`, range);
+  }
+
+  // docs/providers.md quotes the peer range of a provider package.
+  const providersGuide = read('docs/providers.md');
+  const peerRange = rootPackage.peerDependencies?.['@sap/cds'];
+  for (const [, range] of providersGuide?.matchAll(/"@sap\/cds":\s*"([^"]*)"/g) ?? []) {
+    expect('docs/providers.md', 'quoted @sap/cds peer range', peerRange, range, ' (the peer range in package.json)');
+  }
 
   // cap-jev supports the CAP majors that CI tests, and no others.
   const workflow = read(WORKFLOW);

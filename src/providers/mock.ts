@@ -26,8 +26,12 @@ function wait(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-// Answers in-process from fixtures and a deterministic engine; it never touches the network.
+/**
+ * The provider class of `systemone-mock`. It answers in-process from fixtures and a deterministic engine, never
+ * touches the network, and refuses the `production` profile unless `allowInProduction` is true.
+ */
 export default class MockService extends SystemOneService {
+  /** The mock's own settings (see `MockSettings`), accepted without a warning. */
   static override settingsKeys = ['fixtures', 'strategy', 'latencyMs', 'fail', 'allowInProduction'];
 
   private strategy: MockStrategy = 'keywords';

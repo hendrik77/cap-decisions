@@ -60,7 +60,7 @@ Community plugins show the same split. `cds-caching` (Mike Zaschka) is one packa
 ### Not applicable
 
 - **Configuration schema.** CAP's schema contribution points are `buildTaskType`, `databaseType` and new top-level `cds` keys (capire `node.js/cds-plugins`). There is none for `cds.requires.<service>`, and a service's settings belong there. `SystemOneSettings` is the typed reference instead.
-- **`cds.queued` and `outboxed`.** CAP queues outgoing messages until the transaction commits. A decision is a synchronous call whose result the caller needs, so it is not queued.
+- **`cds.queued` and `outboxed`.** CAP queues outgoing messages until the transaction commits. A decision is a synchronous call whose result the caller needs, so it is not queued. A truthy `queued`, `outboxed` or `outbox` setting fails with `INVALID_CONFIG`.
 
 ## References
 

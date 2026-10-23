@@ -106,6 +106,25 @@ describe('app-local subclass', () => {
   });
 });
 
+describe('app-local subclass without a transport', () => {
+  test('a setup that does not create the transport fails with INVALID_CONFIG', async () => {
+    const subclass = `
+const { SystemOneService } = require('cap-jev');
+module.exports = class NoTransport extends SystemOneService {
+  async setup() {}
+};`;
+    reset();
+    const result = await inApp(
+      { kind: 'systemone-generic', impl: 'srv/no-transport.js', credentials: { url: server.url } },
+      decide,
+      { files: { 'srv/no-transport.js': subclass } },
+    );
+    assert.equal(result.error, 'INVALID_CONFIG');
+    assert.match(result.message, /setup\(\) did not create the transport/);
+    assert.equal(server.received.length, 0);
+  });
+});
+
 describe('provider package', () => {
   const credentials = () => ({ url: server.url, token: 't', region: 'eu' });
 

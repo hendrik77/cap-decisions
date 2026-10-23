@@ -55,7 +55,7 @@ The file is a JSON array of rules. For each question, the first rule that matche
 
 | Field | Meaning |
 | --- | --- |
-| `when.stateIncludes` | A string or an array of strings. The rule matches when any of them occurs in the state, ignoring case. The mock searches all string values in the state, nested ones included. Omit it to match every state |
+| `when.stateIncludes` | A string or an array of strings. The rule matches when any of them occurs in the state, ignoring case. The mock searches all string values in the state, nested ones included. A phrase matches inside one value, never across two. Omit it to match every state |
 | `when.question` | The question ID the rule applies to. Omit it to apply the rule to every question |
 | `answer` | An object with the fixed answer. Fields you leave out are completed. A `choice` answer needs `choice`, a `score` answer needs `score` and a `noul` answer needs `noul`. For example, `{ "choice": "billing" }` is enough. A rule with `answer` requires `when.question`, because answers depend on the question type |
 | `fail` | A simulated failure instead of an answer. One of `INVALID_RESPONSE`, `HTTP_ERROR`, `PROVIDER_ERROR`, `NETWORK_ERROR` or `TIMEOUT` |
@@ -184,7 +184,7 @@ The defaults match `systemone-laya`: `http://127.0.0.1:8000/v1/systemone`. The s
 | `--fail <CODE>` | None | Fails every request with this error code: `HTTP_ERROR`, `NETWORK_ERROR`, `TIMEOUT`, `INVALID_RESPONSE` or `PROVIDER_ERROR` (see [Failures](#failures)) |
 | `--status <n>` | None | HTTP status from 400 to 599 for `--fail HTTP_ERROR`, required there. Needs `--fail` |
 | `--provider-code <code>` | None | Provider error code for `--fail`. Needs `--fail` |
-| `--token <token>` | `CAP_JEV_MOCK_TOKEN` | Requires `Authorization: Bearer <token>`. The option wins over the environment variable |
+| `--token <token>` | `CAP_JEV_MOCK_TOKEN` | Requires `Authorization: Bearer <token>`. The option wins over the environment variable; an empty variable counts as unset |
 | `--format <name>` | `jev` | `jev` or `cloudflare` (see [Cloudflare format](#cloudflare-format)) |
 | `--quiet` | Off | Does not log requests |
 | `-h`, `--help` | | Shows the options |
@@ -231,7 +231,7 @@ npx cap-jev-mock --fail HTTP_ERROR --status 503 --provider-code overloaded
 
 ### Cloudflare format
 
-`--format cloudflare` wraps every answer in the Cloudflare envelope, `{ "success": true, "errors": [], "result": … }`. Error responses use the envelope too, `{ "success": false, "errors": [{ "code": "<type>", "message": "…" }], "result": null }`, with the same error types as in the table above. This lets you try `systemone-cloudflare` locally. Point `credentials.url` at the server and set a token, because the kind requires one. The server accepts any token unless you start it with `--token`. A client sends a token over HTTP only to a loopback address, which the default `--host` is.
+`--format cloudflare` wraps every answer in the Cloudflare envelope, `{ "success": true, "errors": [], "result": … }`. Error responses use the envelope too, `{ "success": false, "errors": [{ "code": "<type>", "message": "…" }], "result": null }`, with the same error types as in the table above. This lets you try `systemone-cloudflare` locally. Point `credentials.url` at the server and set a token, because the kind requires one. The server accepts any token unless you start it with `--token`. A client sends a token over HTTP only to a loopback host (`localhost`, an IPv4 address `127.x.x.x` or `::1`), which the default `--host` is.
 
 ```sh
 npx cap-jev-mock --format cloudflare

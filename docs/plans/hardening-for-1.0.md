@@ -157,7 +157,38 @@ Each accepted finding is fixed red-green in its own commit. The release follows 
 
 | # | Source | Finding | Severity | Decision | Fixed in |
 | --- | --- | --- | --- | --- | --- |
-| |        | Filled in by H6 to H8 | |          | |
+| F1 | H7 | `fetch` follows redirects: a 307/308 resends the POST body (the state) and custom destination headers to the new location; `authorization` is dropped only across origins | Medium | Fix: `redirect: 'manual'`, a 3xx is `HTTP_ERROR` with its status | `d53378d` |
+| F2 | H7 | A token or destination header value with a control character makes `fetch` throw `Headers.append: "Bearer <token>" is an invalid header value`; the token lands in the `cause` of a retried `NETWORK_ERROR` and in logs | Medium | Fix: `INVALID_CONFIG` without the value, at construction (token) and resolution (destination headers) | `b2332f0` |
+| F3 | H6, H7 | A successful response body is read whole (`response.text()`) without a size limit | Medium | Fix: 1 MiB limit, `INVALID_RESPONSE`, no retry | `31e74b9` |
+| F4 | H6 | `response.body?.cancel()` on the retry path has no `.catch`: a rejected cancel escapes `post()` as a raw `TypeError` | Medium | Fix | `0c5118b` |
+| F5 | H6 | An endpoint URL with userinfo (`https://user:pass@host`) passes the settings check; `fetch` refuses it per call, retried as `NETWORK_ERROR` | Low | Fix: `INVALID_CONFIG` at connect | `1ec861c` |
+| F6 | H6 | An `errorCode` hook value that `machineCode` rejects drops the provider code instead of falling back to `error.type` | Low | Fix | `412130d` |
+| F7 | H6 | A subclass whose `setup()` skips `super.setup()` fails at `decide` with a `TypeError` | Low | Fix: `SystemOneError` naming the missing transport | `695f815` |
+| F8 | H6, H8 | The loopback hosts differ: the transport allows `127.0.0.1`, `localhost`, `[::1]`; `cap-jev-mock` treats all of `127.0.0.0/8` as loopback; `add-core` has its own list | Low | Fix: one list, `127.0.0.0/8`, `localhost`, `::1`, shared by all three | `71ba931` |
+| F9 | H6 | `queued`, `outboxed` and `outbox` are accepted silently, but a queued `decide()` resolves to `undefined` | Medium | Fix: `INVALID_CONFIG` when one of them is set to a truthy value | `5606438` |
+| F10 | H6 | The destination is resolved in `init`; a short outage of the destination service at start-up leaves a rejected connect promise cached until restart | Medium | Fix: a resolver that throws at start-up logs a warning and the call resolves again; a missing destination or a bad URL still fails at connect | `1b2cbbd` |
+| F11 | H6 | The kit's `Child.ask` writes to the child's stdin without an `error` listener: an `EPIPE` after the CAP child died crashes the test process | Medium | Fix | `4e54817` |
+| F12 | H6 | The kit links packages with `symlinkSync(..., 'dir')`, which needs admin rights on Windows | Low | Fix: `'junction'` | `707fc20` |
+| F13 | H6 | `stateIncludes` matches across two state values, because the haystack joins them with a space | Low | Fix: join with a newline, which a phrase cannot span | `017ac1c` |
+| F14 | H6 | An empty `CAP_JEV_MOCK_TOKEN` stops `cap-jev-mock` with "token must be a non-empty string" | Low | Fix: empty means unset | `7184b0f` |
+| F15 | H6 | `fail` setting errors read "fail rule 0: …" and name fixture keys, not the `--status` option or the `code` key | Low | Fix: messages for the setting | `c399208` |
+| F16 | H6 | Cloudflare `{ success: true, result: null }` falls back to the envelope (`unwrap` result `null`) and fails with a generic message | Low | Fix: `result` `null` is "missing result" in the Cloudflare provider; the `undefined` fallback of `unwrap` stays as tested | `1d16227` |
+| F17 | H6 | `release:check` misses Linux temporary paths (`/tmp/…`), `/root/` and a home path at the end of a line | Low | Fix | `12cedbd` |
+| F18 | H8 | `release:check` does not check the `cap-jev` range in `examples/provider-package/README.md` nor the peer range quoted in `docs/providers.md`; both were stale in 0.9.0 | Low | Fix, and add the README to the release steps | `26f98d2` |
+| F19 | H6 | CI runs the full matrix twice for a push to a branch with an open pull request | Low | Fix: `push` only for `main` | `ed9e798` |
+| F20 | H8 | No JSDoc on the stable exports; experimental names lack `@experimental` (ADR 0006 asks for it) | Medium | Fix | `4e66295` |
+| F21 | H8 | Small stale texts: ADR 0006 counts the README stability rows; `docs/providers.md` omits that the example overrides `init`; the exported entries `cap-jev/providers/*` and the kit types `WireError`, `WireErrorInput` are named nowhere in the guides | Low | Fix | `0a7653b` |
+| F22 | H6 | A 2xx response whose body breaks is retried, although the server processed the decision | Low | Accepted: a decision has no side effect besides billing, the same as a retried 503; tested behaviour | — |
+| F23 | H6 | Jev-format mock server sends a `PROVIDER_ERROR` rule as HTTP 500 (`HTTP_ERROR` at the client), `MockService` raises `PROVIDER_ERROR` | Low | Accepted: a Jev server reports errors through the status, so the HTTP mock shows what a real client sees; documented | — |
+| F24 | H6 | The CI step conditions name CAP majors (`matrix.cds == 9`) that `release:check` does not compare | Low | Accepted for now: the CAP 11 release changes them together (H1 step 3); `AGENTS.md` says so | `ed9e798` (`AGENTS.md`) |
+| F25 | H6 | Copies of the `record` guard in seven modules; three abortable sleeps; settings checked twice (validation and transport); state lower-cased per question in the mock | Low | Accepted: no behaviour change, and the transport is used without `validateSettings` by tests and the kit | — |
+| F26 | H6 | The mock server knows Cloudflare's envelope (`format: 'cloudflare'`); `add-core` names `systemone-laya` as default | Low | Accepted: a development tool that imitates provider wire formats, documented; the default kind is a product decision | — |
+| F27 | H7 | `npm audit`: 6 findings (2 critical, 4 high), all inside the development dependency `@sap/cds-dk` (handlebars, braces, micromatch); the runtime tree has none | Low | Accepted: not in the package, no fix without downgrading `@sap/cds-dk` | — |
+| F28 | H7 | Actions are pinned to major tags, not commit SHAs | Low | Accepted until H11: pinned by SHA when the publish job gets `id-token: write` | H11 |
+| F29 | H7 | `cds add systemone` follows a symlinked `.gitignore` or `.cdsrc-private.json` | Low | Accepted: the developer controls the project, as with every editor and `git` itself | — |
+| F30 | H8 | The README's relative links to `docs/` and `examples/` point outside the package | Low | Accepted: npmjs.com resolves them against the GitHub `repository`; checked in the 1.0.0 smoke test | 1.0.0 |
+
+The fixes are grouped into tasks for H9, done in this order: A transport and service hooks, B service settings and destinations, C mock, mock server and kit, D release check and CI, E documentation and JSDoc. The last column names the commit once a fix is in. The H7 checklist items not listed here were found fine as they are: the mock server binds to loopback by default, compares a SHA-256 digest of the token with `timingSafeEqual` and limits bodies to 1 MiB; `cds add systemone` writes only its four files below `cds.root` and checks the profile name against `[A-Za-z0-9_-]+`; `cds-plugin.js` catches every error of the facet registration; the workflows have `contents: read` by default and `contents: write` only for the release job, and use `$GITHUB_REF_NAME` through the environment, not through expression interpolation in scripts. The `security-review` skill reviews a diff, and the branch had none, so the checklist was worked through by hand.
 
 ## 0.9.2: release candidate and acceptance
 
@@ -230,8 +261,9 @@ The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.9.0 again 
 | H2 | Done: `systemone-subq` and `cap-jev/providers/subq` (`errorCode` only), 500 tests |
 | H3 | Done: `cap-jev/testing` (`testProviderKind`), ADR 0007 proposed; run for the five built-in HTTP kinds and `systemone-acme` |
 | H4 | Done: `npm run coverage` at 98 / 96 / 98 (reached 99.0 / 96.2 / 98.1), run in the Node 24 / CAP 10 job; 649 tests. Child processes that exit on their own are counted after all; only signal-stopped ones, `cds-plugin.js` and the kit's CAP side are not |
-| H5 | Open |
-| H6–H9 | Open |
+| H5 | Released 0.9.0 on 2026-10-22 (PR #10, merge `60e4fbe`, tag `v0.9.0`, release workflow run 39747500064). Smoke test from the published archive: the provider package runs the kit (14 pass, 4 skipped, 0 fail); `cds add systemone --kind systemone-subq` writes the profile kind and the token placeholder; development answers from the mock; production with the empty token fails with `INVALID_CONFIG`. ADR 0006 was not yet reviewed by the maintainer before the release, as step 4 of H1 asked; the review moves to 0.9.1 |
+| H6–H8 | Done on 2026-10-23: 30 findings (F1–F30), 21 to fix, 9 accepted |
+| H9 | Done: F1–F21 fixed red-green, one commit each; 678 tests (657 pass, 21 skipped, 0 fail) on CAP 10.1.1 and CAP 9.9.4; coverage 99.0 / 96.3 / 98.1 |
 | H10–H12 | Open |
 
 ## Blocked tests

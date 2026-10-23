@@ -184,6 +184,17 @@ describe('token', () => {
     });
   });
 
+  test('an empty CAP_JEV_MOCK_TOKEN means unset', async () => {
+    await withCli(['--port', '0'], { env: { CAP_JEV_MOCK_TOKEN: '' } }, async (url) => {
+      assert.equal((await post(url)).status, 200);
+    });
+  });
+
+  test('an explicit empty --token is a usage error', async () => {
+    const result = await fails(['--port', '0', '--token', '']);
+    assert.equal(result.code, 2);
+  });
+
   test('--token wins over CAP_JEV_MOCK_TOKEN', async () => {
     await withCli(['--port', '0', '--token', 'option'], { env: { CAP_JEV_MOCK_TOKEN: 'env' } }, async (url) => {
       assert.equal((await post(url, { authorization: 'Bearer env' })).status, 401);
@@ -205,7 +216,13 @@ describe('usage errors', () => {
   test('--fail HTTP_ERROR without --status exits with 2', async () => {
     const result = await fails(['--port', '0', '--fail', 'HTTP_ERROR']);
     assert.equal(result.code, 2);
-    assert.match(result.stderr, /^cap-jev-mock: /);
+    assert.match(result.stderr, /^cap-jev-mock: --fail HTTP_ERROR needs --status from 400 to 599/);
+  });
+
+  test('--status with another code than HTTP_ERROR exits with 2', async () => {
+    const result = await fails(['--port', '0', '--fail', 'TIMEOUT', '--status', '503']);
+    assert.equal(result.code, 2);
+    assert.match(result.stderr, /^cap-jev-mock: --status only goes with --fail HTTP_ERROR/);
   });
 
   test('--fail with an unknown code exits with 2', async () => {

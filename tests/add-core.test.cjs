@@ -382,6 +382,15 @@ describe('planSystemOne: provider-package kinds', () => {
     };
     assert.ok(plan({ kinds }, { kind: 'systemone-acme' }).messages.some((line) => line.includes('cap-jev-mock')));
   });
+
+  test('any 127.x.x.x address counts as local, a lookalike host does not', () => {
+    const hint = (url) => {
+      const kinds = { ...realKinds, 'systemone-acme': { kind: 'systemone-generic', credentials: { url } } };
+      return plan({ kinds }, { kind: 'systemone-acme' }).messages.some((line) => line.includes('cap-jev-mock'));
+    };
+    assert.equal(hint('http://127.0.0.2:9/x'), true);
+    assert.equal(hint('http://127.0.0.1.example.com/x'), false);
+  });
 });
 
 describe('planSystemOne: errors', () => {

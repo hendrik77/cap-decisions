@@ -26,14 +26,21 @@ import type {
 // This module is the test kit for provider packages (cap-jev/testing). It must not load @sap/cds: CAP runs in a
 // child process of the test, in a temporary app. It is not loaded by cds-plugin.js or by any other module.
 
-/** An error response of a provider, as the kit's local server sends it. */
+/**
+ * An error response of a provider, as the kit's local server sends it.
+ * @experimental
+ */
 export interface WireError {
+  /** The HTTP status. */
   status: number;
   /** The body: an object is sent as JSON, a string as it is. */
   body: unknown;
 }
 
-/** What `encodeError` receives. */
+/**
+ * What `encodeError` receives.
+ * @experimental
+ */
 export interface WireErrorInput {
   /** A machine-readable error code that must come back as `providerCode`. */
   code: string;
@@ -141,7 +148,7 @@ function readPackageJson(dir: string): { name?: string } {
 
 function link(target: string, file: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.symlinkSync(target, file, 'dir');
+  fs.symlinkSync(target, file, 'junction');
 }
 
 // Exactly one @sap/cds is loaded: the app, cap-jev and the provider package must reach the same real directory.
@@ -272,6 +279,10 @@ class Child {
     this.process.stdout.on('data', (chunk: string) => this.read(chunk));
     this.process.stderr.on('data', (chunk: string) => {
       this.stderr = (this.stderr + chunk).slice(-4000);
+    });
+    this.process.stdin.on('error', (error) => {
+      this.finish(`could not be written to: ${error.message}`);
+      this.process.kill();
     });
     this.process.on('error', (error) => this.finish(`could not start: ${error.message}`));
     this.process.on('exit', (code, signal) => this.finish(`exited with ${signal ?? `code ${code}`}`));
