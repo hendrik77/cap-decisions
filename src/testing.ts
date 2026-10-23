@@ -273,6 +273,10 @@ class Child {
     this.process.stderr.on('data', (chunk: string) => {
       this.stderr = (this.stderr + chunk).slice(-4000);
     });
+    this.process.stdin.on('error', (error) => {
+      this.finish(`could not be written to: ${error.message}`);
+      this.process.kill();
+    });
     this.process.on('error', (error) => this.finish(`could not start: ${error.message}`));
     this.process.on('exit', (code, signal) => this.finish(`exited with ${signal ?? `code ${code}`}`));
   }
