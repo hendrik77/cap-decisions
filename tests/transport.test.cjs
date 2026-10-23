@@ -827,3 +827,23 @@ test('a destination header value that is invalid in a header is INVALID_CONFIG n
     globalThis.fetch = original;
   }
 });
+
+test('a success body over 1 MiB is INVALID_RESPONSE without a retry, and one at the limit is read', async () => {
+  let calls = 0;
+  const pad = (size) => JSON.stringify({ ...result, pad: 'x'.repeat(size - JSON.stringify({ ...result, pad: '' }).length) });
+  handler = (_req, res) => {
+    calls++;
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(pad(1024 * 1024 + 1));
+  };
+  await assert.rejects(
+    decide(),
+    (error) => error.code === 'INVALID_RESPONSE' && error.message === 'System One response is too large',
+  );
+  assert.equal(calls, 1);
+  handler = (_req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(pad(1024 * 1024));
+  };
+  assert.equal((await decide()).model, result.model);
+});

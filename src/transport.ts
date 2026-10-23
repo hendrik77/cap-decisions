@@ -5,6 +5,7 @@ import { MAX_TIMEOUT_MS, SystemOneError, isInvalidHeaderValue, machineCode } fro
 const MAX_RETRIES = 2;
 const RETRY_STATUSES = new Set([429, 502, 503, 504, 529]);
 const MAX_ERROR_BYTES = 8192;
+const MAX_RESPONSE_BYTES = 1024 * 1024;
 const optionalRequire = createRequire(__filename);
 
 export interface ResolvedDestination {
@@ -131,6 +132,26 @@ async function errorPayload(response: Response): Promise<unknown> {
     } catch {
       return undefined;
     }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+}
+
+/** Reads a success body; `undefined` means it is larger than the limit. A broken transfer rejects. */
+async function boundedText(response: Response): Promise<string | undefined> {
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_RESPONSE_BYTES) return undefined;
+      chunks.push(value);
+    }
+    return new TextDecoder().decode(Buffer.concat(chunks));
   } finally {
     await reader.cancel().catch(() => undefined);
   }
@@ -271,14 +292,15 @@ export class SystemOneTransport {
           providerCode: this.providerCode(payload),
         });
       }
-      let text: string;
+      let text: string | undefined;
       try {
-        text = await response.text();
+        text = await boundedText(response);
       } catch (error) {
         await response.body?.cancel().catch(() => undefined);
         await retryNetworkFailure(error, attempt, deadlineAt, signal, options.signal);
         continue;
       }
+      if (text === undefined) throw new SystemOneError('INVALID_RESPONSE', 'System One response is too large');
       let payload: unknown;
       try {
         payload = JSON.parse(text);
