@@ -141,7 +141,7 @@ function readPackageJson(dir: string): { name?: string } {
 
 function link(target: string, file: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.symlinkSync(target, file, 'dir');
+  fs.symlinkSync(target, file, 'junction');
 }
 
 // Exactly one @sap/cds is loaded: the app, cap-jev and the provider package must reach the same real directory.
