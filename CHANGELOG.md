@@ -2,6 +2,46 @@
 
 This changelog starts with 0.5.0. Earlier versions are described in the [GitHub releases](https://github.com/hendrik77/cap-jev/releases) up to v0.4.3.
 
+## 0.9.1: Review fixes
+
+### Breaking changes
+
+None.
+
+### Added
+
+- JSDoc on the exported names of every entry point, with `@experimental` on the experimental ones and `@internal` on the protected `settings` and `transport`.
+- A list of the package's entry points in the README, and the kit types `WireError` and `WireErrorInput` in `docs/providers.md`.
+
+### Security
+
+- The transport no longer follows redirects, which sent the `Authorization` header to the target. A 3xx answer is an `HTTP_ERROR` with its status, without a retry.
+- A token or destination header with a character that is invalid in a header is refused as `INVALID_CONFIG` without echoing the value; before, the secret appeared in the message of a retried `NETWORK_ERROR`.
+- An endpoint URL with a user name or password is refused as `INVALID_CONFIG`, when the service connects or when a destination is resolved. The message does not contain the URL.
+- A success response larger than 1 MiB is `INVALID_RESPONSE`; it was read without a limit.
+
+### Fixed
+
+- `queued`, `outboxed` and `outbox` settings that are truthy fail with `INVALID_CONFIG`; a queued service resolved `decide()` to `undefined`.
+- A failing destination resolver at start-up logs a warning instead of rejecting the connection, which CAP caches until restart; each call resolves the destination again.
+- A rejected body cancel before a retry no longer escapes as a `TypeError`.
+- When the `errorCode` hook returns an unsafe value, the provider code falls back to `error.type`.
+- A subclass whose `setup()` created no transport fails with `INVALID_CONFIG` that names the cause, not a `TypeError`.
+- `systemone-cloudflare` treats `{ success: true, result: null }` as a missing result (`INVALID_RESPONSE`).
+- The mock: errors of the `fail` setting name the setting, not a fixture rule; `stateIncludes` matches inside one state value, not across two; an empty `CAP_JEV_MOCK_TOKEN` counts as unset.
+- The test kit links packages as junctions, which need no administrator rights on Windows, and reports a failing write to the CAP process instead of crashing the test process.
+- Loopback hosts (`localhost`, `127.x.x.x`, `::1`) are defined once for the transport, `cds add` and the mock server command line.
+
+### Changed
+
+- CI runs on pushes to `main` and on pull requests, so a branch with an open pull request runs once.
+- `npm run release:check` also compares the `cap-jev` range in `examples/provider-package/README.md` and the `@sap/cds` range in `docs/providers.md`, and finds Linux temporary paths and short home paths.
+- New tests cover the changes above. TESTS_PLACEHOLDER
+
+### Documentation
+
+- The guides state the new behaviour: redirects, the response size limit, token and URL checks, the queued settings, the destination warning. `docs/providers.md` names what the example provider overrides, and ADR 0006 no longer counts the README's stability rows.
+
 ## 0.9.0: SubQ Snap, provider test kit, coverage
 
 ### Breaking changes
