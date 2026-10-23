@@ -1,4 +1,4 @@
-const { test } = require('node:test');
+const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { SystemOneTransport } = require('../dist/transport');
 
@@ -215,4 +215,77 @@ test('destination headers must be strings', async () => {
     transport.validateDestination(),
     (error) => error.code === 'INVALID_CONFIG' && /headers must be strings/.test(error.message),
   );
+});
+
+describe('destination at connect', () => {
+  const { startServer, noulRequest } = require('./helpers/fake-server.cjs');
+  const { createApp, runInApp, removeApp } = require('./helpers/app.cjs');
+
+  const inApp = async (sdkSource, script) => {
+    const server = await startServer();
+    const dir = createApp(
+      {
+        name: 'destination-app',
+        cds: { requires: { systemone: { kind: 'systemone-generic', credentials: { destination: 'jev' } } } },
+      },
+      {
+        'sdk.js': sdkSource(server.url),
+        // dist/transport.js resolves the SDK from the repository, so a preload file points it at sdk.js.
+        'preload.js': `const Module = require('node:module');
+          const resolve = Module._resolveFilename;
+          Module._resolveFilename = function (name, ...rest) {
+            return name === '@sap-cloud-sdk/connectivity' ? require('node:path').resolve('sdk.js') : resolve.call(this, name, ...rest);
+          };`,
+      },
+    );
+    try {
+      return await runInApp(
+        dir,
+        `const cds = require('@sap/cds');
+         const out = (value) => console.log(JSON.stringify(value));
+         (async () => {
+           const warnings = [];
+           cds.log('systemone').warn = (...args) => warnings.push(args.join(' '));
+           try {
+             ${script}
+           } catch (error) {
+             out({ error: error.code, message: error.message, warnings });
+           }
+         })();`,
+        { env: { CDS_ENV: 'production', NODE_OPTIONS: '--require ./preload.js' } },
+      );
+    } finally {
+      removeApp(dir);
+      server.close();
+    }
+  };
+
+  test('a resolver that throws at start-up logs a warning and the first call resolves again', async () => {
+    const result = await inApp(
+      (url) => `let calls = 0;
+        exports.getDestination = async () => {
+          if (calls++ === 0) throw new Error('destination service down');
+          return { url: ${JSON.stringify(url)} };
+        };`,
+      `const srv = await cds.connect.to('systemone');
+       const decision = await srv.decide(${JSON.stringify(noulRequest)});
+       out({ model: decision.model, warnings });`,
+    );
+    assert.equal(result.model, 'fake-model');
+    assert.equal(result.warnings.length, 1);
+    assert.match(
+      result.warnings[0],
+      /Could not resolve destination jev at start-up; it is resolved again for each call/,
+    );
+    assert.doesNotMatch(result.warnings[0], /destination service down/);
+  });
+
+  test('a destination that is not found still fails the connect', async () => {
+    const result = await inApp(
+      () => `exports.getDestination = async () => null;`,
+      `await cds.connect.to('systemone'); out({ ok: true });`,
+    );
+    assert.equal(result.error, 'INVALID_CONFIG');
+    assert.match(result.message, /Destination was not found/);
+  });
 });

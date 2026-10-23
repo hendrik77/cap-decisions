@@ -8,6 +8,9 @@ const MAX_ERROR_BYTES = 8192;
 const MAX_RESPONSE_BYTES = 1024 * 1024;
 const optionalRequire = createRequire(__filename);
 
+/** The destination resolver threw; the destination itself may be fine, so the next call resolves it again. */
+export class DestinationResolveError extends SystemOneError {}
+
 export interface ResolvedDestination {
   url?: string;
   headers?: Record<string, unknown>;
@@ -228,7 +231,7 @@ export class SystemOneTransport {
     try {
       destination = await resolver(name);
     } catch (error) {
-      throw new SystemOneError('INVALID_CONFIG', 'Could not resolve destination', { cause: error });
+      throw new DestinationResolveError('INVALID_CONFIG', 'Could not resolve destination', { cause: error });
     }
     if (!destination) throw new SystemOneError('INVALID_CONFIG', 'Destination was not found');
     const headers: Record<string, string> = {};

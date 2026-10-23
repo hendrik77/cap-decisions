@@ -1,5 +1,5 @@
 import cds from '@sap/cds';
-import { SystemOneTransport } from './transport';
+import { DestinationResolveError, SystemOneTransport } from './transport';
 import type { DecisionRequest, DecisionResult, Questions, SystemOneCredentials, SystemOneSettings } from './types';
 import { SystemOneError, validateRequest, validateResult, validateSettings } from './validation';
 
@@ -52,7 +52,16 @@ export class SystemOneService extends cds.Service {
         errorCode: (payload) => this.errorCode(payload),
       },
     });
-    await this.transport.validateDestination();
+    try {
+      await this.transport.validateDestination();
+    } catch (error) {
+      if (!(error instanceof DestinationResolveError)) throw error;
+      cds
+        .log('systemone')
+        .warn(
+          `Could not resolve destination ${settings.credentials?.destination} at start-up; it is resolved again for each call`,
+        );
+    }
   }
 
   protected async call(
