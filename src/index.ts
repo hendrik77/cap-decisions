@@ -1,7 +1,7 @@
 import cds from '@sap/cds';
 import { SystemOneTransport } from './transport';
 import type { DecisionRequest, DecisionResult, Questions, SystemOneCredentials, SystemOneSettings } from './types';
-import { validateRequest, validateResult, validateSettings } from './validation';
+import { SystemOneError, validateRequest, validateResult, validateSettings } from './validation';
 
 const signalKey = Symbol('systemone.callerSignal');
 type SignalRequest<Q extends Questions = Questions> = cds.Request<DecisionRequest<Q>> & { [signalKey]?: AbortSignal };
@@ -59,7 +59,13 @@ export class SystemOneService extends cds.Service {
     request: DecisionRequest,
     options: DecideOptions,
   ): Promise<{ result: unknown; attempts: number }> {
-    const { payload, attempts } = await (this.transport as SystemOneTransport).post(request, options);
+    if (!this.transport) {
+      throw new SystemOneError(
+        'INVALID_CONFIG',
+        'setup() did not create the transport; call super.setup() or override call()',
+      );
+    }
+    const { payload, attempts } = await this.transport.post(request, options);
     return { result: payload, attempts };
   }
 
