@@ -875,3 +875,16 @@ test('a response body that cannot be cancelled before a retry does not escape as
     globalThis.fetch = original;
   }
 });
+
+test('an endpoint URL with a user name or password is INVALID_CONFIG without echoing it', async () => {
+  const check = (error) =>
+    error.code === 'INVALID_CONFIG' && /user name or password/.test(error.message) && !error.message.includes('hunter2');
+  for (const url of ['https://user:hunter2@example.com/x', 'https://hunter2@example.com/x']) {
+    assert.throws(() => new SystemOneTransport({ timeoutMs: 1000, credentials: { url } }), check);
+  }
+  const transport = new SystemOneTransport(
+    { timeoutMs: 1000, credentials: { destination: 'd' } },
+    { destinationResolver: async () => ({ url: 'https://user:hunter2@example.com/x' }) },
+  );
+  await assert.rejects(transport.post({ state: 'x', questions }), check);
+});

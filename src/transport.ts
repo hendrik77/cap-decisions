@@ -78,6 +78,9 @@ function endpoint(url: string | undefined, authorized: boolean): URL {
   if (!['https:', 'http:'].includes(parsed.protocol) || !parsed.host) {
     throw new SystemOneError('INVALID_CONFIG', 'Endpoint URL must use HTTP or HTTPS');
   }
+  if (parsed.username || parsed.password) {
+    throw new SystemOneError('INVALID_CONFIG', 'Endpoint URL must not contain user name or password');
+  }
   if (authorized && parsed.protocol === 'http:' && !['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname)) {
     throw new SystemOneError('INVALID_CONFIG', 'Token requires HTTPS or a loopback endpoint');
   }
