@@ -179,6 +179,13 @@ export function validateSettings(
       throw invalidConfig('destination must be a non-empty name');
     }
   }
+  for (const key of ['queued', 'outboxed', 'outbox']) {
+    if (values[key]) {
+      throw invalidConfig(
+        `${key} is not supported: a decision needs an answer, so the systemone service cannot be queued`,
+      );
+    }
+  }
   if (values.modelId !== undefined && (typeof values.modelId !== 'string' || !values.modelId)) {
     throw invalidConfig('modelId must be a non-empty string');
   }

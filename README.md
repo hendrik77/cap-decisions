@@ -194,7 +194,7 @@ Settings are deep-merged over the kind's settings, so an application overrides s
 { "cds": { "requires": { "systemone": { "kind": "systemone-typesafe", "limits": { "choiceOptions": 300 } } } } }
 ```
 
-Settings are validated when the service is created. These fail with `INVALID_CONFIG`: `model`; `token`, `url`, `accountId` or `destination` at service level instead of under `credentials`; an unknown `credentials` key; a malformed `modelId`, `requiresToken`, `limits` or `timeoutMs`; and a missing token when the kind requires one. An unknown service-level key only logs a warning. Settings are snapshotted when the service is created; restart the application to apply changes.
+Settings are validated when the service is created. These fail with `INVALID_CONFIG`: `model`; `token`, `url`, `accountId` or `destination` at service level instead of under `credentials`; an unknown `credentials` key; a truthy `queued`, `outboxed` or `outbox` (a decision needs an answer, so the service cannot be queued); a malformed `modelId`, `requiresToken`, `limits` or `timeoutMs`; and a missing token when the kind requires one. An unknown service-level key only logs a warning. Settings are snapshotted when the service is created; restart the application to apply changes.
 
 For a local or other Jev-compatible server, use the generic kind with an explicit endpoint:
 
