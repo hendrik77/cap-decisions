@@ -264,6 +264,7 @@ The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.9.0 again 
 | H5 | Released 0.9.0 on 2026-10-22 (PR #10, merge `60e4fbe`, tag `v0.9.0`, release workflow run 39747500064). Smoke test from the published archive: the provider package runs the kit (14 pass, 4 skipped, 0 fail); `cds add systemone --kind systemone-subq` writes the profile kind and the token placeholder; development answers from the mock; production with the empty token fails with `INVALID_CONFIG`. ADR 0006 was not yet reviewed by the maintainer before the release, as step 4 of H1 asked; the review moves to 0.9.1 |
 | H6–H8 | Done on 2026-10-23: 30 findings (F1–F30), 21 to fix, 9 accepted |
 | H9 | Done: F1–F21 fixed red-green, one commit each; 678 tests (657 pass, 21 skipped, 0 fail) on CAP 10.1.1 and CAP 9.9.4; coverage 99.0 / 96.3 / 98.1 |
+| Release 0.9.1 | Released on 2026-10-23 (PR #11, merge `f1f010d`, tag `v0.9.1`, release workflow run 39947217412). Smoke test from the published archive: the provider package runs the kit (14 pass, 4 skipped, 0 fail); `cds add systemone --kind systemone-subq` works; development answers from the mock; production with the empty token fails with `INVALID_CONFIG`. ADR 0006 and ADR 0007 still wait for the maintainer's review |
 | H10–H12 | Open |
 
 ## Blocked tests
