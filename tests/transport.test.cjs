@@ -847,3 +847,31 @@ test('a success body over 1 MiB is INVALID_RESPONSE without a retry, and one at 
   };
   assert.equal((await decide()).model, result.model);
 });
+
+test('a response body that cannot be cancelled before a retry does not escape as a raw error', async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    if (calls === 1) {
+      const body = new ReadableStream({
+        pull(controller) {
+          controller.enqueue(new TextEncoder().encode('x'));
+        },
+        cancel() {
+          throw new TypeError('cancel failed');
+        },
+      });
+      return new globalThis.Response(body, { status: 503, headers: { 'retry-after': '0' } });
+    }
+    return new globalThis.Response(JSON.stringify(result));
+  };
+  try {
+    const transport = new SystemOneTransport({ timeoutMs: 5000, credentials: { url: 'https://example.com/x' } });
+    const { payload } = await transport.post({ state: 'x', questions });
+    assert.equal(payload.model, result.model);
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = original;
+  }
+});

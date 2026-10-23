@@ -275,7 +275,7 @@ export class SystemOneTransport {
         if (RETRY_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
           const delay = retryDelay(attempt, response.headers.get('retry-after'));
           if (delay < deadlineAt - Date.now()) {
-            await response.body?.cancel();
+            await response.body?.cancel().catch(() => undefined);
             await pause(delay, signal, options.signal);
             continue;
           }
