@@ -93,7 +93,7 @@ export function findRule(
   state: Content,
   questionId: string,
 ): { rule: MockRule; index: number } | undefined {
-  const haystack = stateStrings(state).join(' ').toLowerCase();
+  const haystack = stateStrings(state).join('\n').toLowerCase();
   const index = rules.findIndex(
     ({ when }) =>
       (when?.question === undefined || when.question === questionId) &&

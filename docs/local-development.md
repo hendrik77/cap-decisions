@@ -55,7 +55,7 @@ The file is a JSON array of rules. For each question, the first rule that matche
 
 | Field | Meaning |
 | --- | --- |
-| `when.stateIncludes` | A string or an array of strings. The rule matches when any of them occurs in the state, ignoring case. The mock searches all string values in the state, nested ones included. Omit it to match every state |
+| `when.stateIncludes` | A string or an array of strings. The rule matches when any of them occurs in the state, ignoring case. The mock searches all string values in the state, nested ones included. A phrase matches inside one value, never across two. Omit it to match every state |
 | `when.question` | The question ID the rule applies to. Omit it to apply the rule to every question |
 | `answer` | An object with the fixed answer. Fields you leave out are completed. A `choice` answer needs `choice`, a `score` answer needs `score` and a `noul` answer needs `noul`. For example, `{ "choice": "billing" }` is enough. A rule with `answer` requires `when.question`, because answers depend on the question type |
 | `fail` | A simulated failure instead of an answer. One of `INVALID_RESPONSE`, `HTTP_ERROR`, `PROVIDER_ERROR`, `NETWORK_ERROR` or `TIMEOUT` |
