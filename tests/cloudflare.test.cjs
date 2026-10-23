@@ -82,6 +82,13 @@ test('a missing result is INVALID_RESPONSE', async () => {
   assert.equal((await inApp(withUrl(), decide)).error, 'INVALID_RESPONSE');
 });
 
+test('a null result is INVALID_RESPONSE with the missing result message', async () => {
+  server.setHandler((_req, res) => res.end(JSON.stringify({ success: true, result: null })));
+  const result = await inApp(withUrl(), decide);
+  assert.equal(result.error, 'INVALID_RESPONSE');
+  assert.equal(result.message, 'Cloudflare response is missing result');
+});
+
 test('a response that is not an object is INVALID_RESPONSE', async () => {
   for (const body of ['"text"', 'null', '[1]']) {
     server.setHandler((_req, res) => res.end(body));

@@ -28,7 +28,8 @@ export default class CloudflareService extends SystemOneService {
         providerCode: firstErrorCode(payload),
       });
     }
-    if (!('result' in payload)) throw new SystemOneError('INVALID_RESPONSE', 'Cloudflare response is missing result');
+    if (payload.result === undefined || payload.result === null)
+      throw new SystemOneError('INVALID_RESPONSE', 'Cloudflare response is missing result');
     return payload.result;
   }
 
