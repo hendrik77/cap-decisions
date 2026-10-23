@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import type { DecisionRequest, SystemOneCredentials, SystemOneSettings } from './types';
-import { MAX_TIMEOUT_MS, SystemOneError, machineCode } from './validation';
+import { MAX_TIMEOUT_MS, SystemOneError, isInvalidHeaderValue, machineCode } from './validation';
 
 const MAX_RETRIES = 2;
 const RETRY_STATUSES = new Set([429, 502, 503, 504, 529]);
@@ -169,6 +169,9 @@ export class SystemOneTransport {
     if (!credentials.destination) {
       this.url = endpoint(this.hooks.endpoint?.(credentials) ?? credentials.url, !!credentials.token);
     }
+    if (typeof credentials.token === 'string' && isInvalidHeaderValue(credentials.token)) {
+      throw new SystemOneError('INVALID_CONFIG', 'token must contain only visible ASCII characters');
+    }
     this.timeoutMs = settings.timeoutMs as number;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs <= 0 || this.timeoutMs > MAX_TIMEOUT_MS)
       throw new SystemOneError('INVALID_CONFIG', `timeoutMs must be a positive integer at most ${MAX_TIMEOUT_MS}`);
@@ -207,6 +210,12 @@ export class SystemOneTransport {
     const headers: Record<string, string> = {};
     for (const [key, value] of Object.entries(destination.headers ?? {})) {
       if (typeof value !== 'string') throw new SystemOneError('INVALID_CONFIG', 'Destination headers must be strings');
+      if (isInvalidHeaderValue(value)) {
+        throw new SystemOneError(
+          'INVALID_CONFIG',
+          `Destination header ${key.toLowerCase()} must contain only visible ASCII characters`,
+        );
+      }
       headers[key.toLowerCase()] = value;
     }
     const authorized = !!(headers.authorization || this.token);

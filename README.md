@@ -235,7 +235,7 @@ Responses must include a model identifier, one correctly typed answer per questi
 
 | Code | Cause |
 | --- | --- |
-| `INVALID_CONFIG` | Invalid settings (such as `model`, a secret outside `credentials`, an unknown `credentials` key, or a malformed limit or timeout), a missing token when the kind requires one, or a missing or invalid endpoint, reported by `cds.connect.to('systemone')`; also a destination that cannot be resolved for a call |
+| `INVALID_CONFIG` | Invalid settings (such as `model`, a secret outside `credentials`, an unknown `credentials` key, or a malformed limit or timeout), a missing token when the kind requires one, a token with a character other than visible ASCII, space or tab, or a missing or invalid endpoint, reported by `cds.connect.to('systemone')`; also a destination that cannot be resolved for a call |
 | `INVALID_REQUEST` | The request does not match the question schema or the provider's limits; nothing is sent |
 | `INVALID_RESPONSE` | The response is malformed JSON or does not match the questions |
 | `HTTP_ERROR` | The endpoint returned an error status; `status` and, when available, `providerCode` are set |

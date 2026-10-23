@@ -117,6 +117,8 @@ const plain = (value: unknown): value is Record<string, unknown> =>
   record(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 const positive = (value: unknown, max = Number.MAX_SAFE_INTEGER): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= max;
+/** True when `value` has a character that is not valid in an HTTP header value (visible ASCII, space, tab only). */
+export const isInvalidHeaderValue = (value: string): boolean => /[^\t\x20-\x7e]/.test(value);
 const invalidConfig = (message: string) => new SystemOneError('INVALID_CONFIG', message);
 
 function validateLimits(limits: unknown): void {
@@ -159,6 +161,9 @@ export function validateSettings(
       if (!CREDENTIAL_KEYS.includes(key) && !extraCredentialKeys.includes(key))
         throw invalidConfig(`Unknown credentials setting "${key}"`);
       if (value !== undefined && typeof value !== 'string') throw invalidConfig(`credentials.${key} must be a string`);
+    }
+    if (typeof credentials.token === 'string' && isInvalidHeaderValue(credentials.token)) {
+      throw invalidConfig('credentials.token must contain only visible ASCII characters');
     }
     if (credentials.destination !== undefined && !(credentials.destination as string).trim()) {
       throw invalidConfig('destination must be a non-empty name');

@@ -790,3 +790,40 @@ test('a redirect is not followed and is an HTTP_ERROR without retry', async () =
   assert.equal(hits, 1);
   assert.equal(redirected, 0);
 });
+
+test('a token that is invalid in a header is INVALID_CONFIG without the value', () => {
+  for (const token of ['sec\nret', 'sec\u00e9ret', 'sec\x7fret']) {
+    assert.throws(
+      () => new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com', token } }),
+      (error) => error.code === 'INVALID_CONFIG' && /token/.test(error.message) && !error.message.includes('sec'),
+    );
+  }
+});
+
+test('a destination header value that is invalid in a header is INVALID_CONFIG naming the header, and nothing is sent', async () => {
+  const original = globalThis.fetch;
+  let fetched = 0;
+  globalThis.fetch = async () => {
+    fetched++;
+    return new globalThis.Response('{}');
+  };
+  try {
+    const transport = new SystemOneTransport(
+      { timeoutMs: 1000, credentials: { destination: 'bad' } },
+      {
+        destinationResolver: async () => ({
+          url: 'https://example.com/x',
+          headers: { Authorization: 'Bearer sec\nret' },
+        }),
+      },
+    );
+    await assert.rejects(
+      transport.post({ state: 'x', questions }),
+      (error) =>
+        error.code === 'INVALID_CONFIG' && /authorization/i.test(error.message) && !error.message.includes('sec'),
+    );
+    assert.equal(fetched, 0);
+  } finally {
+    globalThis.fetch = original;
+  }
+});

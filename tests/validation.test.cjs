@@ -349,4 +349,16 @@ describe('validateRequest question shapes', () => {
       request({ answer: { type: 'noul', instructions: 'Yes?', criteria: { true: 'Yes', false: 'No' } } }),
     );
   });
+
+  test('a token with characters that are invalid in a header fails without echoing it', () => {
+    for (const token of ['sec\nret', 'sec\u00e9ret', 'sec\x00ret']) {
+      assert.throws(() => validateSettings({ credentials: { token } }), (error) => {
+        assert.equal(error.code, 'INVALID_CONFIG');
+        assert.match(error.message, /token/);
+        assert.ok(!error.message.includes('sec'));
+        return true;
+      });
+    }
+    assert.deepEqual(validateSettings({ credentials: { token: 'sk-abc 123\tx' } }), []);
+  });
 });
