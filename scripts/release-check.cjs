@@ -14,9 +14,14 @@ const WORKFLOW = '.github/workflows/ci.yml';
 const CDS_MATRIX = /^\s*cds:\s*\[([^\]]*)\]\s*(?:#.*)?$/m;
 
 const NAME = '[A-Za-z0-9._-]';
+// A path that starts a word: at the start of a line or after a space, a quote, a backtick, `(` or `=`, so that a URL
+// path such as https://example.com/tmp/x does not match.
+const START = '(?<![^\\s"\'`(=])';
 const MACHINE_PATHS = [
-  new RegExp(`(?<!${NAME})/Users/${NAME}+/`, 'g'),
-  new RegExp(`(?<!${NAME})/home/${NAME}+/`, 'g'),
+  new RegExp(`(?<!${NAME})/Users/${NAME}+`, 'g'),
+  new RegExp(`(?<!${NAME})/home/${NAME}+`, 'g'),
+  new RegExp(`${START}/(?:var/)?tmp/${NAME}+`, 'g'),
+  new RegExp(`${START}/root/${NAME}+`, 'g'),
   new RegExp(`/private/(?:tmp|var)/${NAME}+|(?<!${NAME})/var/folders/${NAME}+`, 'g'),
   new RegExp(`[A-Za-z]:[\\\\/]Users[\\\\/]${NAME}+`, 'gi'),
 ];

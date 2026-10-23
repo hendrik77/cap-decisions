@@ -261,6 +261,10 @@ const machinePaths = {
   'macOS temp': '/pri' + 'vate/tmp/abc123',
   'macOS private var': '/pri' + 'vate/var/x',
   'macOS var folders': '/va' + 'r/folders/zz/T',
+  'Linux tmp': '/tm' + 'p/build-1',
+  'Linux var tmp': '/var/tm' + 'p/build-1',
+  'root home': '/ro' + 'ot/.config',
+  'macOS home at the end of a line': '/Us' + 'ers/alice',
   'Windows home': 'C:' + '\\Us' + 'ers\\alice\\x',
   'Windows home with slashes': 'd:' + '/uSe' + 'rs/alice/x',
 };
@@ -287,9 +291,27 @@ describe('findMachinePaths', () => {
       'a /va' + 'r/folders/ b',
       'a C:' + '\\Us' + 'ers\\<name> b',
       'a /home b',
+      'a /ro' + 'ot/ b',
+      'a /tm' + 'p/ b',
+      'a /tm' + 'p/<name> b',
+      'see https://example.com/tm' + 'p/x and https://example.com/ro' + 'ot/x',
+      'a src/tm' + 'p/x b',
     ].join('\n');
     const root = tree({ 'a.md': text });
     assert.deepEqual(findMachinePaths({ root, files: ['a.md'] }), []);
+  });
+
+  test('finds a home path followed by a quote, a space or the end of a line', () => {
+    for (const text of [
+      '"/Us' + 'ers/alice"',
+      "'/ho" + "me/bob' x",
+      '(/tm' + 'p/x)',
+      '`/tm' + 'p/x`',
+      '/ro' + 'ot/x',
+    ]) {
+      const root = tree({ 'a.md': text });
+      assert.equal(findMachinePaths({ root, files: ['a.md'] }).length, 1, text);
+    }
   });
 
   test('reports several hits on several lines', () => {
