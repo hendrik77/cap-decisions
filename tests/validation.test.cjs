@@ -426,3 +426,25 @@ test('isLoopbackHost accepts localhost, 127.x.x.x and ::1 only', () => {
     assert.equal(isLoopbackHost(host), false, host);
   }
 });
+
+test('instanceof SystemOneError holds for an error of another copy of the module', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-copy-'));
+  try {
+    fs.cpSync(path.join(__dirname, '../dist'), copy, { recursive: true });
+    const other = require(path.join(copy, 'validation.js'));
+    const { DestinationResolveError } = require('../dist/transport');
+    assert.notEqual(other.SystemOneError, SystemOneError);
+    assert.ok(new other.SystemOneError('TIMEOUT', 'x') instanceof SystemOneError);
+    assert.ok(new SystemOneError('TIMEOUT', 'x') instanceof other.SystemOneError);
+    assert.ok(new DestinationResolveError('INVALID_CONFIG', 'x') instanceof SystemOneError);
+    assert.equal(new SystemOneError('INVALID_CONFIG', 'x') instanceof DestinationResolveError, false);
+    for (const value of [new Error('x'), { code: 'TIMEOUT' }, null, undefined, 'SystemOneError']) {
+      assert.equal(value instanceof SystemOneError, false);
+    }
+  } finally {
+    fs.rmSync(copy, { recursive: true, force: true });
+  }
+});

@@ -71,7 +71,21 @@ export class SystemOneError extends Error {
     this.status = options.status;
     this.providerCode = options.providerCode;
   }
+
+  /**
+   * `instanceof SystemOneError` also holds for an error of another copy of `cap-jev`, as when an application and
+   * CAP load the package through different paths (seen on Windows) or a provider package brings its own copy.
+   * Subclasses keep the usual check.
+   */
+  static [Symbol.hasInstance](value: unknown): boolean {
+    if (Function.prototype[Symbol.hasInstance].call(this, value)) return true;
+    return this === SystemOneError && typeof value === 'object' && value !== null && brand in value;
+  }
 }
+
+// A global symbol, so that every copy of the module marks its errors the same way.
+const brand = Symbol.for('cap-jev.SystemOneError');
+Object.defineProperty(SystemOneError.prototype, brand, { value: true });
 
 // Accepts a provider code only when it is a safe integer or a short token, so no message text leaks into `providerCode`.
 export function machineCode(raw: unknown): string | number | undefined {

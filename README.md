@@ -246,7 +246,7 @@ Responses must include a model identifier, one correctly typed answer per questi
 | `TIMEOUT` | The call exceeded `timeoutMs` |
 | `ABORTED` | The caller's `signal` cancelled the call |
 
-`providerCode` is a safe machine-readable provider error code. Network and parse errors retain their original `cause`; HTTP errors omit the response object.
+`providerCode` is a safe machine-readable provider error code. `error instanceof SystemOneError` holds even when the application and CAP load different copies of `cap-jev`, as can happen on Windows or with a provider package that brings its own copy. Network and parse errors retain their original `cause`; HTTP errors omit the response object.
 
 HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, the failure is returned immediately: an HTTP failure as `HTTP_ERROR` with its status and provider code, a network failure as `NETWORK_ERROR` with its cause. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. A successful response body larger than 1 MiB also fails with `INVALID_RESPONSE`, without a retry. A redirect (3xx) is not followed: it fails with `HTTP_ERROR` and its status, without a retry, and nothing is sent to the `location`. Caller cancellation through the `signal` option throws `ABORTED`. Request state and credentials are never logged by this package.
 
