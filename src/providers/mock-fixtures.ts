@@ -1,12 +1,12 @@
-import { SystemOneError, validateResult } from '../validation';
-import type { SystemOneErrorCode } from '../validation';
+import { DecisionsError, validateResult } from '../validation';
+import type { DecisionsErrorCode } from '../validation';
 import type { Answer, Content, Question } from '../types';
 import { completeAnswer, stateStrings } from './mock-engine';
 
 export interface MockRule {
   when?: { stateIncludes?: string[]; question?: string };
   answer?: Record<string, unknown>;
-  fail?: SystemOneErrorCode;
+  fail?: DecisionsErrorCode;
   status?: number;
   providerCode?: string;
 }
@@ -30,7 +30,7 @@ export function parseFailure(raw: { fail?: unknown; status?: unknown; providerCo
   if (typeof raw.fail !== 'string' || !FAIL_CODES.includes(raw.fail)) {
     throw new Error(`fail must be one of ${FAIL_CODES.join(', ')}`);
   }
-  rule.fail = raw.fail as SystemOneErrorCode;
+  rule.fail = raw.fail as DecisionsErrorCode;
   if (raw.fail === 'HTTP_ERROR') {
     const { status } = raw;
     if (typeof status !== 'number' || !Number.isInteger(status) || status < 400 || status > 599) {
@@ -91,13 +91,13 @@ function parseRule(raw: unknown): MockRule {
 
 // Validates the fixtures file; errors name the rule by its index.
 export function parseFixtures(raw: unknown, source = 'fixtures'): MockRule[] {
-  if (!Array.isArray(raw)) throw new SystemOneError('INVALID_CONFIG', `${source} must be an array of rules`);
+  if (!Array.isArray(raw)) throw new DecisionsError('INVALID_CONFIG', `${source} must be an array of rules`);
   return raw.map((item: unknown, index) => {
     try {
       return parseRule(item);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      throw new SystemOneError('INVALID_CONFIG', `${source} rule ${index}: ${reason}`, { cause: error });
+      throw new DecisionsError('INVALID_CONFIG', `${source} rule ${index}: ${reason}`, { cause: error });
     }
   });
 }
@@ -127,7 +127,7 @@ export function ruleAnswer(
   source = 'fixtures',
 ): Answer {
   const misfit = (cause?: unknown) =>
-    new SystemOneError('INVALID_CONFIG', `${source} rule ${index}: answer does not fit question ${questionId}`, {
+    new DecisionsError('INVALID_CONFIG', `${source} rule ${index}: answer does not fit question ${questionId}`, {
       cause,
     });
   try {
@@ -141,9 +141,9 @@ export function ruleAnswer(
 }
 
 // The error a failing rule simulates.
-export function ruleError(rule: MockRule): SystemOneError {
+export function ruleError(rule: MockRule): DecisionsError {
   const code = rule.fail ?? 'PROVIDER_ERROR';
-  return new SystemOneError(code, `Simulated ${code} from the mock provider`, {
+  return new DecisionsError(code, `Simulated ${code} from the mock provider`, {
     status: rule.status,
     providerCode: rule.providerCode,
   });

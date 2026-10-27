@@ -62,16 +62,16 @@ const inAcmeApp = (credentials, body, extra) => {
 };
 
 const envelopeSubclass = `
-const { SystemOneService, SystemOneError } = require('cap-jev');
+const { DecisionsService, DecisionsError } = require('cap-jev');
 
-class AcmeSystemOne extends SystemOneService {
+class AcmeSystemOne extends DecisionsService {
   endpoint(credentials) {
     return credentials.url;
   }
 
   unwrap(payload) {
     if (!payload || typeof payload !== 'object' || !('envelope' in payload)) {
-      throw new SystemOneError('INVALID_RESPONSE', 'Acme response is missing envelope');
+      throw new DecisionsError('INVALID_RESPONSE', 'Acme response is missing envelope');
     }
     return payload.envelope;
   }
@@ -109,8 +109,8 @@ describe('app-local subclass', () => {
 describe('app-local subclass without a transport', () => {
   test('a setup that does not create the transport fails with INVALID_CONFIG', async () => {
     const subclass = `
-const { SystemOneService } = require('cap-jev');
-module.exports = class NoTransport extends SystemOneService {
+const { DecisionsService } = require('cap-jev');
+module.exports = class NoTransport extends DecisionsService {
   async setup() {}
 };`;
     reset();
@@ -206,12 +206,12 @@ describe('provider package', () => {
        const real = (file) => fs.realpathSync(file);
        const fromProvider = (name) => real(require.resolve(name, { paths: [providerDir] }));
        ${connect}
-       const { SystemOneService } = require('cap-jev');
+       const { DecisionsService } = require('cap-jev');
        out({
          providerDir,
          capJev: [fromProvider('cap-jev'), real(require.resolve('cap-jev'))],
          cds: [fromProvider('@sap/cds'), real(require.resolve('@sap/cds'))],
-         instance: srv instanceof SystemOneService,
+         instance: srv instanceof DecisionsService,
        });`,
     );
     assert.equal(result.providerDir, providerPackage);

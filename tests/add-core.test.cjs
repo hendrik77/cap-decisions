@@ -2,16 +2,16 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { planSystemOne, resolveKind, exampleFixtures } = require('../dist/add-core');
+const { planDecisions, resolveKind, exampleFixtures } = require('../dist/add-core');
 const { parseFixtures } = require('../dist/providers/mock-fixtures');
 const { mockDecision } = require('../dist/providers/mock-core');
-const { SystemOneError } = require('../dist/validation');
+const { DecisionsError } = require('../dist/validation');
 
 const realKinds = require('../package.json').cds.requires.kinds;
 const PKG = JSON.stringify({ name: 'app', version: '1.0.0', dependencies: { 'cap-jev': '^0.8.0' } }, null, 2) + '\n';
 
 const plan = (input = {}, options = {}) =>
-  planSystemOne({ packageJsonText: PKG, fixturesExist: false, kinds: realKinds, ...input, options });
+  planDecisions({ packageJsonText: PKG, fixturesExist: false, kinds: realKinds, ...input, options });
 const writeOf = (result, file) => result.writes.find((write) => write.file === file);
 const jsonOf = (result, file) => JSON.parse(writeOf(result, file).content);
 const files = (result) => result.writes.map((write) => write.file).sort();
@@ -28,7 +28,7 @@ function apply(input, result) {
   return next;
 }
 
-describe('planSystemOne: options and package.json', () => {
+describe('planDecisions: options and package.json', () => {
   test('writes systemone-laya into the production profile by default', () => {
     const result = plan();
     assert.deepEqual(files(result), ['package.json']);
@@ -144,7 +144,7 @@ describe('planSystemOne: options and package.json', () => {
   });
 });
 
-describe('planSystemOne: .cdsrc-private.json', () => {
+describe('planDecisions: .cdsrc-private.json', () => {
   test('a kind without requiresToken does not touch the file', () => {
     const result = plan({}, { kind: 'systemone-laya' });
     assert.equal(writeOf(result, '.cdsrc-private.json'), undefined);
@@ -218,7 +218,7 @@ describe('planSystemOne: .cdsrc-private.json', () => {
   });
 });
 
-describe('planSystemOne: .gitignore', () => {
+describe('planDecisions: .gitignore', () => {
   const typesafe = { kind: 'systemone-typesafe' };
 
   test('creates the file when it is missing', () => {
@@ -272,7 +272,7 @@ describe('planSystemOne: .gitignore', () => {
   });
 });
 
-describe('planSystemOne: fixtures', () => {
+describe('planDecisions: fixtures', () => {
   test('--with-fixtures writes the example fixtures', () => {
     const result = plan({}, { withFixtures: true });
     assert.equal(writeOf(result, 'test/data/systemone.json').content, exampleFixtures());
@@ -296,7 +296,7 @@ describe('planSystemOne: fixtures', () => {
   });
 });
 
-describe('planSystemOne: next steps', () => {
+describe('planDecisions: next steps', () => {
   test('a kind with a local URL gets the mock server hint', () => {
     const result = plan({}, { kind: 'systemone-laya', for: 'staging' });
     const hint = result.messages.find((line) => line.includes('npx cap-jev-mock'));
@@ -345,7 +345,7 @@ describe('planSystemOne: next steps', () => {
   }
 });
 
-describe('planSystemOne: provider-package kinds', () => {
+describe('planDecisions: provider-package kinds', () => {
   const own = { kind: 'systemone-generic', credentials: { url: 'https://x.example/v1' } };
 
   test('a kind that extends systemone-generic is selectable', () => {
@@ -393,7 +393,7 @@ describe('planSystemOne: provider-package kinds', () => {
   });
 });
 
-describe('planSystemOne: errors', () => {
+describe('planDecisions: errors', () => {
   const selectable = 'systemone-cloudflare, systemone-generic, systemone-laya, systemone-subq, systemone-typesafe';
   const fails = (input, options, pattern, message) => assert.throws(() => plan(input, options), pattern, message);
 
@@ -489,7 +489,7 @@ describe('planSystemOne: errors', () => {
   });
 });
 
-describe('planSystemOne: indentation', () => {
+describe('planDecisions: indentation', () => {
   const pkgWith = (indent) => JSON.stringify({ name: 'app', cds: { requires: {} } }, null, indent) + '\n';
 
   for (const [name, indent, unit] of [
@@ -524,7 +524,7 @@ describe('planSystemOne: indentation', () => {
   });
 });
 
-describe('planSystemOne: idempotency', () => {
+describe('planDecisions: idempotency', () => {
   const cases = [
     {},
     { kind: 'systemone-typesafe' },
@@ -535,9 +535,9 @@ describe('planSystemOne: idempotency', () => {
   for (const options of cases) {
     test(`a second plan writes nothing: ${JSON.stringify(options)}`, () => {
       const first = { packageJsonText: PKG, fixturesExist: false, kinds: realKinds, options };
-      const result = planSystemOne(first);
+      const result = planDecisions(first);
       assert.ok(result.writes.length > 0);
-      const second = planSystemOne(apply(first, result));
+      const second = planDecisions(apply(first, result));
       assert.deepEqual(second.writes, []);
     });
   }
@@ -551,8 +551,8 @@ describe('planSystemOne: idempotency', () => {
       kinds: realKinds,
       options: { kind: 'systemone-typesafe', force: true },
     };
-    const result = planSystemOne(input);
-    assert.deepEqual(planSystemOne(apply(input, result)).writes, []);
+    const result = planDecisions(input);
+    assert.deepEqual(planDecisions(apply(input, result)).writes, []);
   });
 });
 
@@ -642,7 +642,7 @@ describe('exampleFixtures', () => {
     assert.throws(
       () => decide('Please simulate outage now'),
       (error) => {
-        assert.ok(error instanceof SystemOneError);
+        assert.ok(error instanceof DecisionsError);
         assert.equal(error.code, 'HTTP_ERROR');
         assert.equal(error.status, 503);
         return true;

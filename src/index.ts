@@ -1,15 +1,15 @@
-// The main entry of the package, `cap-jev`: the service, `SystemOneError` and the types, nothing else. The HTTP mock
+// The main entry of the package, `cap-jev`: the service, `DecisionsError` and the types, nothing else. The HTTP mock
 // server, its command line (`bin` `cap-jev-mock`), the providers and the test kit are separate entry points in
 // `exports` of package.json (see the README and docs/decisions/0006).
 import cds from '@sap/cds';
-import { DestinationResolveError, SystemOneTransport } from './transport';
-import type { DecisionRequest, DecisionResult, Questions, SystemOneCredentials, SystemOneSettings } from './types';
-import { SystemOneError, validateRequest, validateResult, validateSettings } from './validation';
+import { DestinationResolveError, DecisionsTransport } from './transport';
+import type { DecisionRequest, DecisionResult, Questions, DecisionsCredentials, DecisionsSettings } from './types';
+import { DecisionsError, validateRequest, validateResult, validateSettings } from './validation';
 
 const signalKey = Symbol('systemone.callerSignal');
 type SignalRequest<Q extends Questions = Questions> = cds.Request<DecisionRequest<Q>> & { [signalKey]?: AbortSignal };
 
-/** Options of {@link SystemOneService.decide}. */
+/** Options of {@link DecisionsService.decide}. */
 export interface DecideOptions {
   /** Cancels the call; it then fails with `ABORTED`. */
   signal?: AbortSignal;
@@ -20,7 +20,7 @@ export interface DecideOptions {
  * configured Jev endpoint with retries and a deadline, and checks the answers. A provider whose protocol differs
  * extends it and overrides the hooks `endpoint`, `unwrap` and `errorCode`.
  */
-export class SystemOneService extends cds.Service {
+export class DecisionsService extends cds.Service {
   /**
    * Setting keys a subclass accepts in addition to the built-in ones, so they do not produce a warning.
    */
@@ -34,16 +34,16 @@ export class SystemOneService extends cds.Service {
    * The validated settings of this service, a snapshot taken in `init()`.
    * @internal Not part of the public API; it may change in any release.
    */
-  protected settings!: SystemOneSettings;
+  protected settings!: DecisionsSettings;
   /**
    * The HTTP transport created by `setup()`.
    * @internal Not part of the public API; its type is internal and may change in any release.
    */
-  protected transport?: SystemOneTransport;
+  protected transport?: DecisionsTransport;
 
   async init(): Promise<void> {
-    this.settings = (this as cds.Service & { options?: SystemOneSettings }).options ?? {};
-    const { settingsKeys, credentialKeys } = this.constructor as typeof SystemOneService;
+    this.settings = (this as cds.Service & { options?: DecisionsSettings }).options ?? {};
+    const { settingsKeys, credentialKeys } = this.constructor as typeof DecisionsService;
     const warnings = validateSettings(this.settings, settingsKeys, credentialKeys);
     for (const warning of warnings) cds.log('systemone').warn(warning);
     await this.setup(this.settings);
@@ -72,8 +72,8 @@ export class SystemOneService extends cds.Service {
    * destination. Call `super.setup()` when overriding it.
    * @experimental May change in a minor release.
    */
-  protected async setup(settings: SystemOneSettings): Promise<void> {
-    this.transport = new SystemOneTransport(settings, {
+  protected async setup(settings: DecisionsSettings): Promise<void> {
+    this.transport = new DecisionsTransport(settings, {
       hooks: {
         endpoint: (credentials) => this.endpoint(credentials),
         unwrap: (payload) => this.unwrap(payload),
@@ -102,7 +102,7 @@ export class SystemOneService extends cds.Service {
     options: DecideOptions,
   ): Promise<{ result: unknown; attempts: number }> {
     if (!this.transport) {
-      throw new SystemOneError(
+      throw new DecisionsError(
         'INVALID_CONFIG',
         'setup() did not create the transport; call super.setup() or override call()',
       );
@@ -115,13 +115,13 @@ export class SystemOneService extends cds.Service {
    * Returns the full POST URL for the credentials, or `undefined` when there is none (the connection then fails with
    * `INVALID_CONFIG`, unless a destination supplies it). The default returns `credentials.url`.
    */
-  protected endpoint(credentials: SystemOneCredentials): string | undefined {
+  protected endpoint(credentials: DecisionsCredentials): string | undefined {
     return credentials.url;
   }
 
   /**
    * Turns the provider's response body into the Jev answer. The default is for a Jev-compatible provider and returns
-   * the body unchanged; a subclass overrides it. Throw a `SystemOneError` for a failure the body reports.
+   * the body unchanged; a subclass overrides it. Throw a `DecisionsError` for a failure the body reports.
    */
   protected unwrap(payload: unknown): unknown {
     return payload;
@@ -142,7 +142,7 @@ export class SystemOneService extends cds.Service {
    * This is the typed public API. It wraps the request in a `cds.Request` and sends it with `this.send`, so CAP's
    * `before`, `on` and `after` handlers (including the one of `init`) and `cds.context` apply; the abort signal
    * reaches the handler through a symbol on that request.
-   * Rejects with a {@link SystemOneError}; the `ABORTED` code follows `options.signal`.
+   * Rejects with a {@link DecisionsError}; the `ABORTED` code follows `options.signal`.
    */
   decide<Q extends Questions>(request: DecisionRequest<Q>, options: DecideOptions = {}): Promise<DecisionResult<Q>> {
     const event = new cds.Request({ event: 'decide', data: request }) as SignalRequest<Q>;
@@ -151,8 +151,8 @@ export class SystemOneService extends cds.Service {
   }
 }
 
-export { SystemOneError } from './validation';
-export type { SystemOneErrorCode } from './validation';
+export { DecisionsError } from './validation';
+export type { DecisionsErrorCode } from './validation';
 export type {
   JsonValue,
   Content,
@@ -169,9 +169,9 @@ export type {
   DecisionRequest,
   DecisionResult,
   ProviderLimits,
-  SystemOneCredentials,
-  SystemOneSettings,
+  DecisionsCredentials,
+  DecisionsSettings,
   MockSettings,
 } from './types';
 
-export default SystemOneService;
+export default DecisionsService;

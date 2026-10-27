@@ -1,4 +1,4 @@
-import { SystemOneService } from '../index';
+import { DecisionsService } from '../index';
 import { machineCode } from '../validation';
 
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -9,7 +9,7 @@ const record = (value: unknown): value is Record<string, unknown> =>
  * reads `error_type` as `providerCode`. The message is never exposed.
  * @experimental While SubQ's model is in preview.
  */
-export default class SubqService extends SystemOneService {
+export default class SubqService extends DecisionsService {
   protected override errorCode(payload: unknown): string | number | undefined {
     return record(payload) && record(payload.detail) ? machineCode(payload.detail.error_type) : undefined;
   }

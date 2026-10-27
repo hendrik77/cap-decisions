@@ -1,7 +1,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  SystemOneError,
+  DecisionsError,
   validateRequest,
   validateResult,
   validateSettings,
@@ -21,8 +21,8 @@ const score = (count) => ({
   criteria: Array.from({ length: count }, (_, index) => `Level ${index}`),
 });
 const request = (questions) => ({ state: 'text', questions });
-const invalidRequest = { name: 'SystemOneError', code: 'INVALID_REQUEST' };
-const invalidConfig = { name: 'SystemOneError', code: 'INVALID_CONFIG' };
+const invalidRequest = { name: 'DecisionsError', code: 'INVALID_REQUEST' };
+const invalidConfig = { name: 'DecisionsError', code: 'INVALID_CONFIG' };
 
 describe('validateRequest limits', () => {
   const typesafe = { choiceOptions: 255, scoreCriteria: { min: 2, max: 10 } };
@@ -264,7 +264,7 @@ describe('validateResult', () => {
     },
     usage: { input_tokens: 12, output_tokens: 3 },
   };
-  const invalidResponse = { name: 'SystemOneError', code: 'INVALID_RESPONSE' };
+  const invalidResponse = { name: 'DecisionsError', code: 'INVALID_RESPONSE' };
 
   test('accepts a valid result for all three question types', () => {
     validateResult(result, questions);
@@ -372,8 +372,8 @@ describe('validateRequest content', () => {
   });
 });
 
-test('SystemOneError is exported from validation', () => {
-  assert.ok(new SystemOneError('INVALID_CONFIG', 'x') instanceof Error);
+test('DecisionsError is exported from validation', () => {
+  assert.ok(new DecisionsError('INVALID_CONFIG', 'x') instanceof Error);
 });
 
 describe('validateRequest question shapes', () => {
@@ -427,7 +427,7 @@ test('isLoopbackHost accepts localhost, 127.x.x.x and ::1 only', () => {
   }
 });
 
-test('instanceof SystemOneError holds for an error of another copy of the module', () => {
+test('instanceof DecisionsError holds for an error of another copy of the module', () => {
   const fs = require('node:fs');
   const os = require('node:os');
   const path = require('node:path');
@@ -436,13 +436,13 @@ test('instanceof SystemOneError holds for an error of another copy of the module
     fs.cpSync(path.join(__dirname, '../dist'), copy, { recursive: true });
     const other = require(path.join(copy, 'validation.js'));
     const { DestinationResolveError } = require('../dist/transport');
-    assert.notEqual(other.SystemOneError, SystemOneError);
-    assert.ok(new other.SystemOneError('TIMEOUT', 'x') instanceof SystemOneError);
-    assert.ok(new SystemOneError('TIMEOUT', 'x') instanceof other.SystemOneError);
-    assert.ok(new DestinationResolveError('INVALID_CONFIG', 'x') instanceof SystemOneError);
-    assert.equal(new SystemOneError('INVALID_CONFIG', 'x') instanceof DestinationResolveError, false);
-    for (const value of [new Error('x'), { code: 'TIMEOUT' }, null, undefined, 'SystemOneError']) {
-      assert.equal(value instanceof SystemOneError, false);
+    assert.notEqual(other.DecisionsError, DecisionsError);
+    assert.ok(new other.DecisionsError('TIMEOUT', 'x') instanceof DecisionsError);
+    assert.ok(new DecisionsError('TIMEOUT', 'x') instanceof other.DecisionsError);
+    assert.ok(new DestinationResolveError('INVALID_CONFIG', 'x') instanceof DecisionsError);
+    assert.equal(new DecisionsError('INVALID_CONFIG', 'x') instanceof DestinationResolveError, false);
+    for (const value of [new Error('x'), { code: 'TIMEOUT' }, null, undefined, 'DecisionsError']) {
+      assert.equal(value instanceof DecisionsError, false);
     }
   } finally {
     fs.rmSync(copy, { recursive: true, force: true });

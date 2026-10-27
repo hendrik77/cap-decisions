@@ -100,12 +100,12 @@ test('cds.connect.to resolves TypeSafe with its own settings', async () => {
          const srv = await cds.connect.to('systemone');
          console.log(JSON.stringify({
            modelId: srv.options.modelId,
-           instance: srv instanceof require('cap-jev').SystemOneService,
+           instance: srv instanceof require('cap-jev').DecisionsService,
            name: srv.constructor.name,
          }));
        })().catch((e) => console.log(JSON.stringify({ error: e.code || e.name, message: e.message })));`,
     );
-    assert.deepEqual(result, { modelId: 'jev-latest', instance: true, name: 'SystemOneService' });
+    assert.deepEqual(result, { modelId: 'jev-latest', instance: true, name: 'DecisionsService' });
   } finally {
     removeApp(dir);
   }
@@ -126,7 +126,7 @@ test('cds.connect.to resolves Cloudflare with its subclass', async () => {
          const srv = await cds.connect.to('systemone');
          console.log(JSON.stringify({
            modelId: srv.options.modelId,
-           instance: srv instanceof require('cap-jev').SystemOneService,
+           instance: srv instanceof require('cap-jev').DecisionsService,
            name: srv.constructor.name,
          }));
        })().catch((e) => console.log(JSON.stringify({ error: e.code || e.name, message: e.message })));`,
@@ -152,7 +152,7 @@ test('cds.connect.to resolves SubQ with its subclass', async () => {
          const srv = await cds.connect.to('systemone');
          console.log(JSON.stringify({
            modelId: srv.options.modelId,
-           instance: srv instanceof require('cap-jev').SystemOneService,
+           instance: srv instanceof require('cap-jev').DecisionsService,
            name: srv.constructor.name,
          }));
        })().catch((e) => console.log(JSON.stringify({ error: e.code || e.name, message: e.message })));`,

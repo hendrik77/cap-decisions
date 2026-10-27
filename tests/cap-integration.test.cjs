@@ -131,7 +131,7 @@ test('installed package registers an internal CAP service with decide()', { time
       const cds = require('@sap/cds');
       (async () => {
         await cds.plugins;
-        class Fake extends require('cap-jev').SystemOneService {
+        class Fake extends require('cap-jev').DecisionsService {
           async init() { this.on('decide', () => ({ model: 'fake', answers: { answer: { type: 'noul', noul: 0.25 } }, usage: { input_tokens: 0, output_tokens: 0 } })); await cds.Service.prototype.init.call(this); }
         }
         cds.requires.systemone.impl = Fake;

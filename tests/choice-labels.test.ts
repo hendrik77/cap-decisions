@@ -1,4 +1,4 @@
-import type { Answers, ChoiceAnswer, ChoiceQuestion, Content, NoulAnswer, Questions, SystemOneService } from '../src';
+import type { Answers, ChoiceAnswer, ChoiceQuestion, Content, NoulAnswer, Questions, DecisionsService } from '../src';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 type Assert<T extends true> = T;
@@ -82,7 +82,7 @@ export function optionalCriteria(answer: Answers<OptionalCriteria>['department']
   return answer;
 }
 
-export async function inference(service: SystemOneService): Promise<void> {
+export async function inference(service: DecisionsService): Promise<void> {
   const serviceInline = await service.decide({
     state: 'Refund me',
     questions: {

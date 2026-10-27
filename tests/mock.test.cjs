@@ -70,23 +70,23 @@ describe('activation', () => {
     {
       title: 'an explicit kind',
       config: { kind: 'systemone-typesafe', credentials: token },
-      development: { impl: 'cap-jev', modelId: 'jev-latest', name: 'SystemOneService' },
-      test: { impl: 'cap-jev', modelId: 'jev-latest', name: 'SystemOneService' },
-      production: { impl: 'cap-jev', modelId: 'jev-latest', name: 'SystemOneService' },
+      development: { impl: 'cap-jev', modelId: 'jev-latest', name: 'DecisionsService' },
+      test: { impl: 'cap-jev', modelId: 'jev-latest', name: 'DecisionsService' },
+      production: { impl: 'cap-jev', modelId: 'jev-latest', name: 'DecisionsService' },
     },
     {
       title: 'a kind only for production',
       config: { '[production]': { kind: 'systemone-typesafe' }, credentials: token },
       development: mock,
       test: mock,
-      production: { impl: 'cap-jev', modelId: 'jev-latest', name: 'SystemOneService' },
+      production: { impl: 'cap-jev', modelId: 'jev-latest', name: 'DecisionsService' },
     },
     {
       title: 'only credentials.url and no kind',
       config: { credentials: { url: 'https://example.com/v1/systemone' } },
       development: mock,
       test: mock,
-      production: { impl: 'cap-jev', url: 'https://example.com/v1/systemone', name: 'SystemOneService' },
+      production: { impl: 'cap-jev', url: 'https://example.com/v1/systemone', name: 'DecisionsService' },
     },
   ];
 
@@ -104,7 +104,7 @@ describe('activation', () => {
     const result = await inApp(
       undefined,
       `const m = require('cap-jev/providers/mock');
-       out({ same: m.default === m.MockService, name: m.default.name, base: Object.getPrototypeOf(m.default) === require('cap-jev').SystemOneService, keys: m.default.settingsKeys });`,
+       out({ same: m.default === m.MockService, name: m.default.name, base: Object.getPrototypeOf(m.default) === require('cap-jev').DecisionsService, keys: m.default.settingsKeys });`,
     );
     assert.deepEqual(result, {
       same: true,

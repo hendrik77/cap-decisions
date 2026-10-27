@@ -113,7 +113,7 @@ describe('cds add systemone', { concurrency: true }, () => {
         env: { CDS_ENV: 'production', CDS_REQUIRES_SYSTEMONE_CREDENTIALS_URL: server.url },
         body: decide,
       });
-      assert.equal(production.name, 'SystemOneService');
+      assert.equal(production.name, 'DecisionsService');
       assert.equal(production.result.model, 'mock');
       assert.equal(production.result.answers.department.choice, 'billing');
       assert.equal(requests.length, 1, 'the request went through HTTP');

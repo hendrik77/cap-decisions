@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { planSystemOne } from './add-core';
+import { planDecisions } from './add-core';
 import type { AddOptions } from './add-core';
 
 interface CliOption {
@@ -43,8 +43,8 @@ function readText(root: string, file: string): string | undefined {
   }
 }
 
-// The `cds add systemone` facet: collects the project's files, asks `planSystemOne` and writes what it returns.
-class SystemOneFacet extends cds.add.Plugin {
+// The `cds add systemone` facet: collects the project's files, asks `planDecisions` and writes what it returns.
+class DecisionsFacet extends cds.add.Plugin {
   static help(): string {
     return 'System One decisions with cap-jev';
   }
@@ -70,7 +70,7 @@ class SystemOneFacet extends cds.add.Plugin {
     };
     let plan;
     try {
-      plan = planSystemOne({
+      plan = planDecisions({
         packageJsonText: readText(root, 'package.json'),
         cdsrcPrivateText: readText(root, '.cdsrc-private.json'),
         gitignore: readText(root, '.gitignore'),
@@ -90,4 +90,4 @@ class SystemOneFacet extends cds.add.Plugin {
   }
 }
 
-export = SystemOneFacet;
+export = DecisionsFacet;

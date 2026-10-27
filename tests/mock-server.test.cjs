@@ -8,7 +8,7 @@ const { URL } = require('node:url');
 const { execFileSync } = require('node:child_process');
 const { startMockServer } = require('../dist/mock-server');
 const { mockDecision } = require('../dist/providers/mock-core');
-const { SystemOneError } = require('../dist/validation');
+const { DecisionsError } = require('../dist/validation');
 
 const { fetch, AbortSignal } = globalThis;
 
@@ -49,7 +49,7 @@ const cloudflareError = (code, message) => ({
   result: null,
 });
 const rejectsWith = (code, message) => (error) => {
-  assert.ok(error instanceof SystemOneError, String(error));
+  assert.ok(error instanceof DecisionsError, String(error));
   assert.equal(error.code, code);
   if (message) assert.match(error.message, message);
   return true;

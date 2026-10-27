@@ -4,11 +4,11 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { startMockServer } from './mock-server';
 import type { MockServerOptions } from './mock-server';
-import { SystemOneError, isLoopbackHost } from './validation';
+import { DecisionsError, isLoopbackHost } from './validation';
 
 const HELP = `Usage: cap-jev-mock [options]
 
-Starts a local mock of a System One (Jev) server.
+Starts a local mock of a Jev-compatible decision server.
 
 Options:
   --port <n>             Port to listen on, 0 for any free port (default 8000)
@@ -122,7 +122,7 @@ async function main(): Promise<void> {
   try {
     server = await startMockServer(options);
   } catch (error) {
-    if (error instanceof SystemOneError) throw error;
+    if (error instanceof DecisionsError) throw error;
     const { host = '127.0.0.1', port = 8000 } = options;
     process.stderr.write(`cap-jev-mock: cannot listen on ${host}:${port}: ${(error as Error).message}\n`);
     process.exitCode = 1;
@@ -144,7 +144,7 @@ main().catch((error: unknown) => {
   process.exitCode = 2;
   if (error instanceof UsageError) {
     process.stderr.write(`cap-jev-mock: ${error.message}\nRun cap-jev-mock --help for the options.\n`);
-  } else if (error instanceof SystemOneError) {
+  } else if (error instanceof DecisionsError) {
     process.stderr.write(`cap-jev-mock: ${error.message}\n`);
   } else {
     process.exitCode = 1;

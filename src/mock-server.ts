@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { MockSettings } from './types';
-import { SystemOneError, validateRequest } from './validation';
+import { DecisionsError, validateRequest } from './validation';
 import { DEFAULT_FIXTURES, loadFixtures, mockDecision, parseMockOptions } from './providers/mock-core';
 import type { MockStrategy } from './providers/mock-engine';
 import { parseFixtures } from './providers/mock-fixtures';
@@ -72,7 +72,7 @@ interface Context {
   log?: (line: string) => void;
 }
 
-const invalidConfig = (message: string) => new SystemOneError('INVALID_CONFIG', message);
+const invalidConfig = (message: string) => new DecisionsError('INVALID_CONFIG', message);
 const digest = (value: string) => createHash('sha256').update(value).digest();
 
 // Checks the options of `startMockServer` and reads the fixtures; everything wrong is INVALID_CONFIG before a port opens.
@@ -213,7 +213,7 @@ function failure(
   res: ServerResponse,
   req: IncomingMessage,
   context: Context,
-  error: SystemOneError,
+  error: DecisionsError,
   gone: Promise<void>,
 ) {
   const type = error.providerCode === undefined ? undefined : String(error.providerCode);
@@ -283,7 +283,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, context: Contex
   try {
     validateRequest(request);
   } catch (error) {
-    if (!(error instanceof SystemOneError)) throw error;
+    if (!(error instanceof DecisionsError)) throw error;
     return sendError(res, context, 400, 'invalid_request_error', error.message);
   }
   if (context.latencyMs > 0) await wait(context.latencyMs, gone);
@@ -293,7 +293,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, context: Contex
   try {
     result = mockDecision(request, { strategy, rules, fail, source });
   } catch (error) {
-    if (!(error instanceof SystemOneError)) throw error;
+    if (!(error instanceof DecisionsError)) throw error;
     return failure(res, req, context, error, gone);
   }
   return send(

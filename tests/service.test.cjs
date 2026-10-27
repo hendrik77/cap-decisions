@@ -80,8 +80,8 @@ describe('connecting', () => {
     assert.ok(result.error);
     const direct = await inApp(
       { kind: 'systemone-generic', credentials: { url: server.url } },
-      `const { SystemOneService } = require('cap-jev');
-       const srv = new SystemOneService('systemone', undefined, { model: 'x', timeoutMs: 1000, credentials: { url: ${JSON.stringify(server.url)} } });
+      `const { DecisionsService } = require('cap-jev');
+       const srv = new DecisionsService('systemone', undefined, { model: 'x', timeoutMs: 1000, credentials: { url: ${JSON.stringify(server.url)} } });
        await srv.init();
        out({ ok: true });`,
     );
@@ -231,8 +231,8 @@ describe('decision flow', () => {
 });
 
 describe('subclass contract', () => {
-  const custom = `const { SystemOneService } = require('cap-jev');
-module.exports = class extends SystemOneService {
+  const custom = `const { DecisionsService } = require('cap-jev');
+module.exports = class extends DecisionsService {
   async call() {
     globalThis.__calls = (globalThis.__calls || 0) + 1;
     const noul = process.env.CUSTOM_MODE === 'invalid' ? 2 : 0.5;
@@ -269,8 +269,8 @@ module.exports = class extends SystemOneService {
 
   test('a subclass overriding endpoint, unwrap and errorCode is used for HTTP', async () => {
     reset();
-    const envelope = `const { SystemOneService } = require('cap-jev');
-module.exports = class extends SystemOneService {
+    const envelope = `const { DecisionsService } = require('cap-jev');
+module.exports = class extends DecisionsService {
   endpoint(credentials) { return credentials.url + '/wrapped'; }
   unwrap(payload) { return payload.data; }
   errorCode(payload) { return payload && payload.code; }

@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { parseMockOptions, loadFixtures, mockDecision, DEFAULT_FIXTURES } = require('../dist/providers/mock-core');
 const { mockResult } = require('../dist/providers/mock-engine');
-const { SystemOneError } = require('../dist/validation');
+const { DecisionsError } = require('../dist/validation');
 
 const request = {
   state: 'I was billed twice. Please refund me.',
@@ -21,13 +21,13 @@ const request = {
 };
 
 const invalidConfig = (message) => (error) => {
-  assert.ok(error instanceof SystemOneError);
+  assert.ok(error instanceof DecisionsError);
   assert.equal(error.code, 'INVALID_CONFIG');
   assert.match(error.message, message);
   return true;
 };
 const failsWith = (code, status) => (error) => {
-  assert.ok(error instanceof SystemOneError);
+  assert.ok(error instanceof DecisionsError);
   assert.equal(error.code, code);
   if (status !== undefined) assert.equal(error.status, status);
   return true;

@@ -19,8 +19,8 @@ import type {
   ProviderLimits,
   Question,
   ScoreQuestion,
-  SystemOneCredentials,
-  SystemOneSettings,
+  DecisionsCredentials,
+  DecisionsSettings,
 } from './types';
 
 // This module is the test kit for provider packages (cap-jev/testing). It must not load @sap/cds: CAP runs in a
@@ -65,12 +65,12 @@ export interface ProviderKindTestOptions {
   /** An existing CAP app that has the provider package installed. The kit then creates and links nothing. */
   appDir?: string;
   /** Further settings for the kind (for example `timeoutMs`, `limits`), applied over its resolved settings. */
-  settings?: Omit<SystemOneSettings, 'credentials'> & Record<string, unknown>;
+  settings?: Omit<DecisionsSettings, 'credentials'> & Record<string, unknown>;
   /**
    * Further credentials, such as `accountId` or a `region` the subclass lists in `credentialKeys`. The kit sets
    * `url` to its local server and, when the kind has `requiresToken`, a test token unless one is given here.
    */
-  credentials?: SystemOneCredentials & Record<string, string | undefined>;
+  credentials?: DecisionsCredentials & Record<string, string | undefined>;
   /** Turns a Jev response into the provider's wire format. Default: the response itself. */
   encode?: (response: DecisionResult, request: DecisionRequest) => unknown;
   /** Returns the provider's error response for a code. Default: Jev's `{ error: { type: code } }`. */

@@ -72,7 +72,7 @@ describe('the kit itself', () => {
 });
 
 const GOOD_UNWRAP = `if (typeof payload !== 'object' || !payload || !('data' in payload)) {
-      throw new SystemOneError('INVALID_RESPONSE', 'missing data');
+      throw new DecisionsError('INVALID_RESPONSE', 'missing data');
     }
     return payload.data;`;
 
@@ -110,8 +110,8 @@ function writeProvider({ unwrap, plugin = '// CAP discovers the package through 
   write('cds-plugin.js', plugin);
   write(
     'srv/service.js',
-    `const { SystemOneService, SystemOneError } = require('cap-jev');
-class KitTestService extends SystemOneService {
+    `const { DecisionsService, DecisionsError } = require('cap-jev');
+class KitTestService extends DecisionsService {
   unwrap(payload) {
     ${unwrap}
   }

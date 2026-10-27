@@ -1,4 +1,4 @@
-import type { SystemOneErrorCode } from './validation';
+import type { DecisionsErrorCode } from './validation';
 
 /** Any value that survives `JSON.stringify` unchanged. */
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -115,7 +115,7 @@ export interface DecisionResult<Q extends Questions = Questions> {
 }
 
 /** Secrets and the endpoint, under `credentials` in the service settings. */
-export interface SystemOneCredentials {
+export interface DecisionsCredentials {
   /** Full POST URL of the endpoint. */
   url?: string;
   /** Bearer token. */
@@ -137,7 +137,7 @@ export interface ProviderLimits {
 }
 
 /** The settings of the `systemone` service, under `cds.requires.systemone`. */
-export interface SystemOneSettings {
+export interface DecisionsSettings {
   /** Model name, sent as `model` in the request body. */
   modelId?: string;
   /** Time limit for the whole call including retries, 1 to 2,147,483,647 ms (default 10,000). */
@@ -147,11 +147,11 @@ export interface SystemOneSettings {
   /** Request limits. */
   limits?: ProviderLimits;
   /** The endpoint and its secrets. */
-  credentials?: SystemOneCredentials;
+  credentials?: DecisionsCredentials;
 }
 
 /** The settings of the `systemone-mock` kind. */
-export interface MockSettings extends SystemOneSettings {
+export interface MockSettings extends DecisionsSettings {
   /** Path of the fixtures file, relative to the project root (default `test/data/systemone.json`). */
   fixtures?: string;
   /** How answers are made when no rule matches: `keywords` matches words of the state to the choices, `seeded` uses the seed alone. */
@@ -159,7 +159,7 @@ export interface MockSettings extends SystemOneSettings {
   /** Simulated latency in ms; a latency of `timeoutMs` or more ends in `TIMEOUT`. */
   latencyMs?: number;
   /** Makes every call fail with this code, optionally with a status and provider code. */
-  fail?: SystemOneErrorCode | { code: SystemOneErrorCode; status?: number; providerCode?: string };
+  fail?: DecisionsErrorCode | { code: DecisionsErrorCode; status?: number; providerCode?: string };
   /** The mock refuses the `production` profile unless this is true. */
   allowInProduction?: boolean;
 }

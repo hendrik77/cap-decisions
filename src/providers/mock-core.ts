@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Answer, DecisionRequest, DecisionResult, MockSettings } from '../types';
-import { SystemOneError } from '../validation';
+import { DecisionsError } from '../validation';
 import { mockResult } from './mock-engine';
 import type { MockStrategy } from './mock-engine';
 import { FAIL_CODES, findRule, parseFailure, parseFixtures, ruleAnswer, ruleError } from './mock-fixtures';
@@ -17,7 +17,7 @@ export interface MockOptions {
   fail?: MockRule;
 }
 
-const invalidConfig = (message: string, cause?: unknown) => new SystemOneError('INVALID_CONFIG', message, { cause });
+const invalidConfig = (message: string, cause?: unknown) => new DecisionsError('INVALID_CONFIG', message, { cause });
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 

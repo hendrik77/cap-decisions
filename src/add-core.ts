@@ -187,7 +187,7 @@ function isLocalUrl(url: unknown): boolean {
 }
 
 // Plans `cds add systemone` as data (files to write, messages): no file access, so it can be tested without CAP.
-export function planSystemOne(input: AddInput): AddPlan {
+export function planDecisions(input: AddInput): AddPlan {
   const { kinds, options } = input;
   const profile = chooseProfile(options.for);
   const kind = chooseKind(kinds, options.kind ?? DEFAULT_KIND);

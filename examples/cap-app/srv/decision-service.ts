@@ -1,5 +1,5 @@
 import cds from '@sap/cds';
-import { SystemOneError, type Answers, type Questions, type SystemOneErrorCode, type SystemOneService } from 'cap-jev';
+import { DecisionsError, type Answers, type Questions, type DecisionsErrorCode, type DecisionsService } from 'cap-jev';
 
 const questions = {
   department: {
@@ -17,8 +17,8 @@ const queues = {
   technical: 'support',
 } satisfies Record<Department, string>;
 
-// Other System One failures, such as provider or network errors, become 502 Bad Gateway.
-const statuses: Partial<Record<SystemOneErrorCode, number>> = {
+// Other decision failures, such as provider or network errors, become 502 Bad Gateway.
+const statuses: Partial<Record<DecisionsErrorCode, number>> = {
   INVALID_REQUEST: 400,
   TIMEOUT: 504,
   ABORTED: 503,
@@ -26,15 +26,15 @@ const statuses: Partial<Record<SystemOneErrorCode, number>> = {
 
 export default class DecisionService extends cds.ApplicationService {
   async init(): Promise<void> {
-    const systemOne = (await cds.connect.to('systemone')) as SystemOneService;
+    const decisions = (await cds.connect.to('systemone')) as DecisionsService;
     this.on('classify', async (request) => {
       const message: unknown = request.data.message;
       if (typeof message !== 'string' || !message.trim()) return request.reject(400, 'Message is required');
       try {
-        const result = await systemOne.decide({ state: message, questions });
+        const result = await decisions.decide({ state: message, questions });
         return queues[result.answers.department.choice];
       } catch (error) {
-        if (!(error instanceof SystemOneError)) throw error;
+        if (!(error instanceof DecisionsError)) throw error;
         return request.reject(statuses[error.code] ?? 502, `Classification failed: ${error.code}`);
       }
     });

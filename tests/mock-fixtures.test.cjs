@@ -1,7 +1,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { parseFixtures, findRule, ruleAnswer, ruleError } = require('../dist/providers/mock-fixtures');
-const { SystemOneError, validateResult } = require('../dist/validation');
+const { DecisionsError, validateResult } = require('../dist/validation');
 
 const department = {
   type: 'choice',
@@ -11,9 +11,9 @@ const department = {
 const rating = { type: 'score', instructions: 'Rate', criteria: ['Poor', 'Fair', 'Good'] };
 const urgent = { type: 'noul', instructions: 'Is it urgent?' };
 
-const invalidConfig = (message) => ({ name: 'SystemOneError', code: 'INVALID_CONFIG', message });
+const invalidConfig = (message) => ({ name: 'DecisionsError', code: 'INVALID_CONFIG', message });
 const reasonAt = (source, index) => (error) => {
-  assert.ok(error instanceof SystemOneError);
+  assert.ok(error instanceof DecisionsError);
   assert.equal(error.code, 'INVALID_CONFIG');
   assert.match(error.message, new RegExp(`^${source.replace('.', '\\.')} rule ${index}: \\S`));
   return true;
@@ -228,7 +228,7 @@ describe('ruleError', () => {
   test('HTTP_ERROR carries status and provider code', () => {
     const [http] = parseFixtures([{ fail: 'HTTP_ERROR', status: 503, providerCode: 'BUSY' }]);
     const error = ruleError(http);
-    assert.ok(error instanceof SystemOneError);
+    assert.ok(error instanceof DecisionsError);
     assert.equal(error.code, 'HTTP_ERROR');
     assert.equal(error.status, 503);
     assert.equal(error.providerCode, 'BUSY');
@@ -258,7 +258,7 @@ describe('ruleError', () => {
 describe('rules without the optional parts', () => {
   test('ruleAnswer treats a rule without an answer as an answer that does not fit', () => {
     assert.throws(() => ruleAnswer({}, 0, urgent, 'state', 'q', 'my.json'), {
-      name: 'SystemOneError',
+      name: 'DecisionsError',
       code: 'INVALID_CONFIG',
       message: 'my.json rule 0: answer does not fit question q',
     });
