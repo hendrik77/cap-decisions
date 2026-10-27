@@ -63,8 +63,8 @@ In production (`CDS_TYPESCRIPT=true npm start -- --production`), [`package.json`
 For a copy of the app outside this repository, install `cap-jev` from a release archive as described in the [main README](../../README.md#install-and-use), for example:
 
 ```sh
-curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.1/cap-jev-0.9.1.tgz
-npm install ./cap-jev-0.9.1.tgz
+curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.2/cap-jev-0.9.2.tgz
+npm install ./cap-jev-0.9.2.tgz
 ```
 
 The [`package.json`](package.json) of this app already contains what `cds add systemone` writes with its default options: `cds.requires.systemone["[production]"].kind` is `systemone-laya`. `systemone-laya` needs no token, so there is no `.cdsrc-private.json`. In an application of your own, run `cds add systemone` after the installation (it needs `@sap/cds-dk`; see [Set up with `cds add systemone`](../../README.md#set-up-with-cds-add-systemone)). `--with-fixtures` writes an example `test/data/systemone.json`; this app keeps its own rule file there.
