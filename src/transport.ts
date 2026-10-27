@@ -28,12 +28,14 @@ export interface TransportOptions {
   destinationResolver?: DestinationResolver;
 }
 
+// Names why a request stopped: the caller's own signal means ABORTED, otherwise the deadline passed (TIMEOUT).
 function interruption(signal: AbortSignal, caller?: AbortSignal, cause?: unknown): SystemOneError {
   if (caller?.aborted)
     return new SystemOneError('ABORTED', 'System One request was cancelled', { cause: cause ?? caller.reason });
   return new SystemOneError('TIMEOUT', 'System One request timed out', { cause: cause ?? signal.reason });
 }
 
+// Waits between retries, but ends early with ABORTED or TIMEOUT so a backoff never outlives the request's deadline.
 async function pause(ms: number, signal: AbortSignal, caller?: AbortSignal): Promise<void> {
   if (signal.aborted) throw interruption(signal, caller);
   try {
@@ -53,6 +55,7 @@ async function pause(ms: number, signal: AbortSignal, caller?: AbortSignal): Pro
   }
 }
 
+// Races a promise (here the destination lookup) against the abort signal, so slow work cannot outlive the deadline.
 async function untilAbort<T>(promise: Promise<T>, signal: AbortSignal, caller?: AbortSignal): Promise<T> {
   if (signal.aborted) throw interruption(signal, caller);
   return new Promise<T>((resolve, reject) => {
@@ -71,6 +74,7 @@ async function untilAbort<T>(promise: Promise<T>, signal: AbortSignal, caller?: 
   });
 }
 
+// Parses and checks the endpoint URL: HTTP(S) only, no user name or password, and a token only over HTTPS or loopback.
 function endpoint(url: string | undefined, authorized: boolean): URL {
   let parsed: URL;
   try {
@@ -90,16 +94,28 @@ function endpoint(url: string | undefined, authorized: boolean): URL {
   return parsed;
 }
 
-function retryDelay(attempt: number, header: string | null): number {
-  if (header) {
-    const seconds = Number(header);
-    if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
-    const date = Date.parse(header);
-    if (Number.isFinite(date)) return Math.max(0, date - Date.now());
-  }
+/**
+ * Reads a `Retry-After` header (RFC 9110: delay-seconds or an HTTP date) as milliseconds.
+ * Returns `undefined` when the header is absent or neither form parses.
+ */
+function retryAfter(header: string | null): number | undefined {
+  if (!header) return undefined;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const date = Date.parse(header);
+  if (Number.isFinite(date)) return Math.max(0, date - Date.now());
+  return undefined;
+}
+
+/**
+ * Exponential backoff with jitter for when there is no usable `Retry-After`:
+ * 250 to 750 ms after the first attempt (`attempt` 0), 500 to 1500 ms after the second.
+ */
+function backoff(attempt: number): number {
   return Math.round(500 * 2 ** attempt * (0.5 + Math.random()));
 }
 
+// Decides whether a network failure is tried again: waits the backoff, or throws when attempts or time are used up.
 async function retryNetworkFailure(
   error: unknown,
   attempt: number,
@@ -112,13 +128,14 @@ async function retryNetworkFailure(
     throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
   }
   // Like HTTP failures, a retry that does not fit into the remaining time fails at once with its cause.
-  const delay = retryDelay(attempt, null);
+  const delay = backoff(attempt);
   if (delay >= deadlineAt - Date.now()) {
     throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
   }
   await pause(delay, signal, caller);
 }
 
+// Reads an error response as JSON, at most 8 KiB; `undefined` when it is larger, not JSON or empty. Only used for the provider code.
 async function errorPayload(response: Response): Promise<unknown> {
   if (!response.body) return undefined;
   const reader = response.body.getReader();
@@ -163,12 +180,17 @@ async function boundedText(response: Response): Promise<string | undefined> {
   }
 }
 
+// The default provider code of an error response: `error.type` in the Jev style, when it is a safe machine code.
 function errorType(payload: unknown): string | number | undefined {
   if (typeof payload !== 'object' || payload === null) return undefined;
   const error = (payload as Record<string, unknown>).error;
   return typeof error === 'object' && error !== null ? machineCode((error as Record<string, unknown>).type) : undefined;
 }
 
+/**
+ * The HTTP side of every provider: resolves the endpoint (fixed URL or BTP destination), sends the POST with the token,
+ * and applies the timeout, retries and size limits. Knows no CAP; providers adjust it through `TransportHooks`.
+ */
 export class SystemOneTransport {
   private readonly url?: URL;
   private readonly timeoutMs: number;
@@ -207,6 +229,7 @@ export class SystemOneTransport {
     this.modelId = settings.modelId;
   }
 
+  // Resolves URL and extra headers: the configured URL, or the destination (looked up on every call, so changes apply).
   private async target(): Promise<{ url: URL; headers: Record<string, string> }> {
     const name = this.destination;
     if (!name) return { url: this.url as URL, headers: {} };
@@ -253,10 +276,12 @@ export class SystemOneTransport {
     return { url, headers };
   }
 
+  // Resolves the destination once at startup, so a wrong name shows early (the service only warns).
   async validateDestination(): Promise<void> {
     if (this.destination) await this.target();
   }
 
+  // One decision request with retries on network failures and on 429, 502, 503, 504 and 529; resolves with the unwrapped body.
   async post(
     request: DecisionRequest,
     options: { signal?: AbortSignal } = {},
@@ -279,7 +304,7 @@ export class SystemOneTransport {
       }
       if (!response.ok) {
         if (RETRY_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
-          const delay = retryDelay(attempt, response.headers.get('retry-after'));
+          const delay = retryAfter(response.headers.get('retry-after')) ?? backoff(attempt);
           if (delay < deadlineAt - Date.now()) {
             await response.body?.cancel().catch(() => undefined);
             await pause(delay, signal, options.signal);

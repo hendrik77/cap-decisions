@@ -654,7 +654,7 @@ describe('exampleFixtures', () => {
 test('the module loads without @sap/cds', () => {
   const script = `
     require(${JSON.stringify(path.resolve(__dirname, '../dist/add-core.js'))});
-    console.log(Object.keys(require.cache).some((key) => key.includes('@sap/cds') || key.includes('@sap' + require('path').sep + 'cds')));`;
+    process.stdout.write(String(Object.keys(require.cache).some((key) => key.includes('@sap/cds') || key.includes('@sap' + require('path').sep + 'cds'))));`;
   const output = execFileSync(process.execPath, ['-e', script], { encoding: 'utf8' });
   assert.equal(output.trim(), 'false');
 });

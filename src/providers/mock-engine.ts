@@ -44,6 +44,7 @@ const tokens = (texts: string[]): string[] =>
     .flatMap((text) => text.toLowerCase().split(/[^\p{L}\p{N}]+/u))
     .filter((token) => token.length >= 3 && !STOP_WORDS.has(token));
 
+// Two words match when equal or when they share a prefix, so "refund" finds "refunds".
 function similar(a: string, b: string): boolean {
   if (a === b) return true;
   let shared = 0;
@@ -51,6 +52,7 @@ function similar(a: string, b: string): boolean {
   return shared >= MIN_SHARED_PREFIX;
 }
 
+// How many words of the state match the label or its criteria; the best-scoring label is favoured.
 function keywordScore(stateTokens: Set<string>, label: string, criteria: unknown): number {
   const labelTokens = tokens([label, ...stateStrings(criteria)]);
   let score = 0;
@@ -78,6 +80,7 @@ const byLabel = (labels: string[], probabilities: number[]): Record<string, numb
 
 const text = (criterion: Content): string => (typeof criterion === 'string' ? criterion : JSON.stringify(criterion));
 
+// Probabilities for a choice: random weights with the chosen label lifted to the top.
 function choiceFields(
   question: ChoiceQuestion,
   choice: string,
@@ -90,6 +93,7 @@ function choiceFields(
   return { choice, probabilities: named, confidence: named[choice] ?? largest(probabilities) };
 }
 
+// Probabilities, expected value and legend for a score question.
 function scoreFields(question: ScoreQuestion, favoured: number | undefined, random: () => number) {
   const count = question.criteria.length;
   const weights = randomWeights(random, count);
@@ -108,6 +112,7 @@ function scoreFields(question: ScoreQuestion, favoured: number | undefined, rand
   };
 }
 
+// A deterministic answer: the same state and question id always give the same result (seeded random).
 export function mockAnswer(
   question: Question,
   state: Content,
@@ -160,6 +165,7 @@ export function completeAnswer(
   return answer as unknown as Answer;
 }
 
+// The complete result for a request; `answers` holds the ones fixed by fixtures, the rest are generated.
 export function mockResult(
   request: DecisionRequest,
   strategy: MockStrategy = 'keywords',

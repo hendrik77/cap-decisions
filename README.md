@@ -10,17 +10,19 @@ The package is not yet published to npm. Install a release archive from [GitHub 
 
 ```sh
 npm config set allow-remote root --location=project
-npm install https://github.com/hendrik77/cap-jev/releases/download/v0.9.1/cap-jev-0.9.1.tgz
+npm install https://github.com/hendrik77/cap-jev/releases/download/v0.9.2/cap-jev-0.9.2.tgz
 ```
 
 or download the archive and install the file, which works with every npm version:
 
 ```sh
-curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.1/cap-jev-0.9.1.tgz
-npm install ./cap-jev-0.9.1.tgz
+curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.2/cap-jev-0.9.2.tgz
+npm install ./cap-jev-0.9.2.tgz
 ```
 
-The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.9.1.tgz`; keep the archive in the project.
+The shell commands in this README and the guides are for a POSIX shell (bash, zsh, Git Bash, WSL). In PowerShell, write `curl.exe` instead of `curl`, because `curl` is an alias for `Invoke-WebRequest` in Windows PowerShell 5.1; for environment variables see [local development](docs/local-development.md#settings).
+
+The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.9.2.tgz`; keep the archive in the project.
 
 To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-jev-<version>.tgz` file.
 
@@ -244,7 +246,7 @@ Responses must include a model identifier, one correctly typed answer per questi
 | `TIMEOUT` | The call exceeded `timeoutMs` |
 | `ABORTED` | The caller's `signal` cancelled the call |
 
-`providerCode` is a safe machine-readable provider error code. Network and parse errors retain their original `cause`; HTTP errors omit the response object.
+`providerCode` is a safe machine-readable provider error code. `error instanceof SystemOneError` holds even when the application and CAP load different copies of `cap-jev`, as can happen on Windows or with a provider package that brings its own copy. Network and parse errors retain their original `cause`; HTTP errors omit the response object.
 
 HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, the failure is returned immediately: an HTTP failure as `HTTP_ERROR` with its status and provider code, a network failure as `NETWORK_ERROR` with its cause. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. A successful response body larger than 1 MiB also fails with `INVALID_RESPONSE`, without a retry. A redirect (3xx) is not followed: it fails with `HTTP_ERROR` and its status, without a retry, and nothing is sent to the `location`. Caller cancellation through the `signal` option throws `ABORTED`. Request state and credentials are never logged by this package.
 

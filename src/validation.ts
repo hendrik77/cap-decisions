@@ -9,6 +9,7 @@ const probability = (value: unknown): value is number => finite(value) && value 
 const content = (value: unknown): boolean =>
   typeof value === 'string' || (typeof value === 'object' && value !== null && json(value));
 
+// True for values that survive JSON: no cycles, no undefined, no non-finite numbers.
 function json(value: unknown, ancestors = new Set<object>()): boolean {
   if (value === null || typeof value === 'string' || typeof value === 'boolean' || finite(value)) return true;
   if (typeof value !== 'object') return false;
@@ -70,14 +71,30 @@ export class SystemOneError extends Error {
     this.status = options.status;
     this.providerCode = options.providerCode;
   }
+
+  /**
+   * `instanceof SystemOneError` also holds for an error of another copy of `cap-jev`, as when an application and
+   * CAP load the package through different paths (seen on Windows) or a provider package brings its own copy.
+   * Subclasses keep the usual check.
+   */
+  static [Symbol.hasInstance](value: unknown): boolean {
+    if (Function.prototype[Symbol.hasInstance].call(this, value)) return true;
+    return this === SystemOneError && typeof value === 'object' && value !== null && brand in value;
+  }
 }
 
+// A global symbol, so that every copy of the module marks its errors the same way.
+const brand = Symbol.for('cap-jev.SystemOneError');
+Object.defineProperty(SystemOneError.prototype, brand, { value: true });
+
+// Accepts a provider code only when it is a safe integer or a short token, so no message text leaks into `providerCode`.
 export function machineCode(raw: unknown): string | number | undefined {
   if (typeof raw === 'number' && Number.isSafeInteger(raw)) return raw;
   if (typeof raw === 'string' && /^[\w.:-]{1,100}$/.test(raw)) return raw;
   return undefined;
 }
 
+// Checks a request against the shape of the API and the provider's limits before anything is sent.
 export function validateRequest(input: unknown, limits: ProviderLimits = {}): asserts input is DecisionRequest {
   if (!record(input) || !content(input.state) || !record(input.questions) || !Object.keys(input.questions).length) {
     throw new SystemOneError('INVALID_REQUEST', 'state and a non-empty questions map are required');
@@ -149,6 +166,7 @@ export function isLoopbackHost(hostname: string): boolean {
 }
 const invalidConfig = (message: string) => new SystemOneError('INVALID_CONFIG', message);
 
+// Checks the `limits` setting of a kind.
 function validateLimits(limits: unknown): void {
   if (!plain(limits)) throw invalidConfig('limits must be an object');
   for (const [key, value] of Object.entries(limits)) {
@@ -169,6 +187,7 @@ function validateLimits(limits: unknown): void {
   }
 }
 
+// Checks `cds.requires.systemone`; returns warnings for unknown keys, which providers may extend.
 export function validateSettings(
   settings: unknown,
   extraKeys: readonly string[] = [],
@@ -220,6 +239,7 @@ export function validateSettings(
     .map((key) => `Unknown setting "${key}" for cds.requires.systemone is ignored`);
 }
 
+// True when the probabilities cover exactly the labels and add up to 1 (within 0.02).
 function distribution(raw: unknown, labels: string[]): raw is Record<string, number> {
   return (
     record(raw) &&
@@ -230,6 +250,7 @@ function distribution(raw: unknown, labels: string[]): raw is Record<string, num
   );
 }
 
+// Checks a provider's result against the questions; a provider that answers differently gets INVALID_RESPONSE.
 export function validateResult(raw: unknown, questions: Questions): asserts raw is DecisionResult {
   if (
     !record(raw) ||

@@ -12,7 +12,7 @@ Acme wraps the Jev answer in `{ "data": <result> }` and addresses its API by reg
 
 ```json
 {
-  "dependencies": { "cap-jev": "^0.9.1", "cap-jev-provider-acme": "^1.0.0" },
+  "dependencies": { "cap-jev": "^0.9.2", "cap-jev-provider-acme": "^1.0.0" },
   "cds": {
     "requires": {
       "systemone": { "kind": "systemone-acme", "credentials": { "region": "eu", "token": "…" } }

@@ -12,6 +12,7 @@ const WARNING =
 
 const invalidConfig = (message: string) => new SystemOneError('INVALID_CONFIG', message);
 
+// The simulated latency; ends early with the caller's abort signal.
 function wait(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const abort = () => {

@@ -11,16 +11,23 @@ permissions:
 
 jobs:
   checks:
-    name: Node ${{ matrix.node }}, CAP ${{ matrix.cds }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    name: Node ${{ matrix.node }}, CAP ${{ matrix.cds }}${{ matrix.os == 'windows-latest' && ', Windows' || '' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     env:
       CDS_TEST_ENV_CHECK: y
+      # Coloured output must not break the tests that read a child process's output (issue #12).
+      FORCE_COLOR: 1
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         node: [22, 24, 26]
         cds: [9, 10]
+        include:
+          - os: windows-latest
+            node: 24
+            cds: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -33,8 +40,8 @@ jobs:
       - run: npm run lint
       - if: matrix.cds == 10
         run: npm run typecheck
-      - if: matrix.node != 24 || matrix.cds != 10
+      - if: matrix.os != 'ubuntu-latest' || matrix.node != 24 || matrix.cds != 10
         run: npm test
-      - if: matrix.node == 24 && matrix.cds == 10
+      - if: matrix.os == 'ubuntu-latest' && matrix.node == 24 && matrix.cds == 10
         run: npm run coverage
       - run: npm pack --dry-run

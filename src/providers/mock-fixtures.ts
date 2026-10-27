@@ -47,6 +47,7 @@ export function parseFailure(raw: { fail?: unknown; status?: unknown; providerCo
   return rule;
 }
 
+// Validates one fixture rule and rejects unknown properties, so typos do not silently do nothing.
 function parseRule(raw: unknown): MockRule {
   if (!record(raw)) throw new Error('must be an object');
   const unknown = Object.keys(raw).find((key) => !RULE_KEYS.includes(key));
@@ -88,6 +89,7 @@ function parseRule(raw: unknown): MockRule {
   return Object.assign(rule, parseFailure(raw));
 }
 
+// Validates the fixtures file; errors name the rule by its index.
 export function parseFixtures(raw: unknown, source = 'fixtures'): MockRule[] {
   if (!Array.isArray(raw)) throw new SystemOneError('INVALID_CONFIG', `${source} must be an array of rules`);
   return raw.map((item: unknown, index) => {
@@ -100,6 +102,7 @@ export function parseFixtures(raw: unknown, source = 'fixtures'): MockRule[] {
   });
 }
 
+// The first rule whose `when` matches the question id and the state text (case-insensitive).
 export function findRule(
   rules: MockRule[],
   state: Content,
@@ -114,6 +117,7 @@ export function findRule(
   return index < 0 ? undefined : { rule: rules[index], index };
 }
 
+// The answer a rule fixes, completed and checked against the question, so a rule that does not fit is INVALID_CONFIG.
 export function ruleAnswer(
   rule: MockRule,
   index: number,
@@ -136,6 +140,7 @@ export function ruleAnswer(
   }
 }
 
+// The error a failing rule simulates.
 export function ruleError(rule: MockRule): SystemOneError {
   const code = rule.fail ?? 'PROVIDER_ERROR';
   return new SystemOneError(code, `Simulated ${code} from the mock provider`, {

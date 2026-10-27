@@ -136,6 +136,13 @@ CDS_REQUIRES_SYSTEMONE_FAIL=NETWORK_ERROR npm start
 CDS_REQUIRES_SYSTEMONE_FAIL_CODE=HTTP_ERROR CDS_REQUIRES_SYSTEMONE_FAIL_STATUS=503 npm start
 ```
 
+The commands are for a POSIX shell (bash, zsh, Git Bash, WSL). In PowerShell, set the variable first; it stays set in that session until you remove it:
+
+```powershell
+$env:CDS_REQUIRES_SYSTEMONE_FAIL = 'NETWORK_ERROR'; npm start
+Remove-Item Env:CDS_REQUIRES_SYSTEMONE_FAIL
+```
+
 CAP lowercases environment variable names, so a camel-case key such as `latencyMs` or `providerCode` needs `CDS_CONFIG`:
 
 ```sh

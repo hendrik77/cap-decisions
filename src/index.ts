@@ -1,3 +1,6 @@
+// The main entry of the package, `cap-jev`: the service, `SystemOneError` and the types, nothing else. The HTTP mock
+// server, its command line (`bin` `cap-jev-mock`), the providers and the test kit are separate entry points in
+// `exports` of package.json (see the README and docs/decisions/0006).
 import cds from '@sap/cds';
 import { DestinationResolveError, SystemOneTransport } from './transport';
 import type { DecisionRequest, DecisionResult, Questions, SystemOneCredentials, SystemOneSettings } from './types';
@@ -44,6 +47,7 @@ export class SystemOneService extends cds.Service {
     const warnings = validateSettings(this.settings, settingsKeys, credentialKeys);
     for (const warning of warnings) cds.log('systemone').warn(warning);
     await this.setup(this.settings);
+    // CAP's `on` handler that does the work: validates the request, calls the provider and checks the result.
     this.on('decide', async (request: SignalRequest) => {
       const started = performance.now();
       validateRequest(request.data, this.settings.limits);
@@ -116,24 +120,28 @@ export class SystemOneService extends cds.Service {
   }
 
   /**
-   * Turns the provider's response body into the Jev answer. The default returns it unchanged; throw a
-   * `SystemOneError` for a failure the body reports.
+   * Turns the provider's response body into the Jev answer. The default is for a Jev-compatible provider and returns
+   * the body unchanged; a subclass overrides it. Throw a `SystemOneError` for a failure the body reports.
    */
   protected unwrap(payload: unknown): unknown {
     return payload;
   }
 
   /**
-   * Reads a machine-readable error code from an error response body; it becomes `providerCode`. The default
-   * returns `undefined`; the message of the body is never exposed.
+   * Reads a machine-readable error code from an error response body; it becomes `providerCode`. The default is for a
+   * Jev-compatible provider, which reports none, so it returns `undefined`; a subclass overrides it. The message of
+   * the body is never exposed.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected errorCode(payload: unknown): string | number | undefined {
-    void payload;
     return undefined;
   }
 
   /**
    * Asks the provider to answer the questions about the state. The answers are typed from the questions.
+   * This is the typed public API. It wraps the request in a `cds.Request` and sends it with `this.send`, so CAP's
+   * `before`, `on` and `after` handlers (including the one of `init`) and `cds.context` apply; the abort signal
+   * reaches the handler through a symbol on that request.
    * Rejects with a {@link SystemOneError}; the `ABORTED` code follows `options.signal`.
    */
   decide<Q extends Questions>(request: DecisionRequest<Q>, options: DecideOptions = {}): Promise<DecisionResult<Q>> {

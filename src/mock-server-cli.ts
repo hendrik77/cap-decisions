@@ -31,6 +31,7 @@ Example:
   CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya npm start
 `;
 
+// A mistake in the command line; reported as a short message with exit code 2, not a stack trace.
 class UsageError extends Error {}
 
 const number = (name: string, value: string): number => {
@@ -38,6 +39,7 @@ const number = (name: string, value: string): number => {
   return Number(value);
 };
 
+// Reads the arguments with `node:util` parseArgs; unknown options are usage errors.
 function parse(argv: string[]) {
   let parsed;
   try {
@@ -68,6 +70,7 @@ function parse(argv: string[]) {
   return parsed.values;
 }
 
+// Turns parsed arguments into `MockServerOptions`, so the command line and the API share one validation.
 function toOptions(values: ReturnType<typeof parse>): MockServerOptions {
   const options: Record<string, unknown> = { root: process.cwd() };
   if (values.port !== undefined) options.port = number('--port', values.port);
@@ -102,6 +105,7 @@ function toOptions(values: ReturnType<typeof parse>): MockServerOptions {
   return options as MockServerOptions;
 }
 
+// Starts the server and keeps it running until SIGINT or SIGTERM stops it.
 async function main(): Promise<void> {
   const values = parse(process.argv.slice(2));
   if (values.help) {

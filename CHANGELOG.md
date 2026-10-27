@@ -2,6 +2,30 @@
 
 This changelog starts with 0.5.0. Earlier versions are described in the [GitHub releases](https://github.com/hendrik77/cap-jev/releases) up to v0.4.3.
 
+## 0.9.2: Windows and review feedback
+
+Changes from the review in [issue #12](https://github.com/hendrik77/cap-jev/issues/12) and from the new Windows CI job.
+
+### Breaking changes
+
+None.
+
+### Fixed
+
+- `error instanceof SystemOneError` holds for an error of another copy of `cap-jev`. On Windows the example application's handler loaded a second copy, so its check failed and it answered with the raw error instead of 502. `SystemOneError` carries a global symbol brand; subclasses keep the usual check.
+
+### Changed
+
+- CI also runs on Windows (Node 24, CAP 10), and every job runs with `FORCE_COLOR=1`.
+- The retry delay is split into `Retry-After` handling (seconds or an HTTP date, RFC 9110) and the jittered backoff; the behaviour is the same.
+- The tests run npm and the `cap-jev-mock` bin through `node`, which works on Windows, and skip the SIGTERM and SIGINT tests there, because Windows has no catchable signal from another process. Two tests no longer break when `FORCE_COLOR` is set.
+- 679 tests in all.
+
+### Documentation
+
+- The shell examples say that they are for a POSIX shell and give the PowerShell forms.
+- Comments on the role of the internal classes and helpers, the two parts of `decide` (the typed method and CAP's `on` handler), the main entry point in `index.ts`, and the default hooks `unwrap` and `errorCode`.
+
 ## 0.9.1: Review fixes
 
 ### Breaking changes

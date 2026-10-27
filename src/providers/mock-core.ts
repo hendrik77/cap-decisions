@@ -43,6 +43,7 @@ function parseFail(fail: unknown, source: string): MockRule {
   }
 }
 
+// Checks the mock settings (`fixtures`, `strategy`, `latencyMs`, `fail`) shared by `MockService` and the HTTP mock server.
 export function parseMockOptions(
   settings: Pick<MockSettings, 'fixtures' | 'strategy' | 'latencyMs' | 'fail'>,
   failSource = FAIL_SOURCE,
@@ -61,6 +62,7 @@ export function parseMockOptions(
   return options;
 }
 
+// Reads the fixtures file; a missing file is fine only when the path was not configured explicitly.
 export async function loadFixtures(root: string, source: string, configured: boolean): Promise<MockRule[]> {
   let text: string;
   try {
@@ -78,6 +80,7 @@ export async function loadFixtures(root: string, source: string, configured: boo
   return parseFixtures(parsed, source);
 }
 
+// The decision order of the mock: a global failure, then the first matching rule, then the generated answer.
 export function mockDecision(
   request: DecisionRequest,
   options: { strategy: MockStrategy; rules: MockRule[]; fail?: MockRule; source: string },

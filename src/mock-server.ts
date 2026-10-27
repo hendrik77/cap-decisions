@@ -75,6 +75,7 @@ interface Context {
 const invalidConfig = (message: string) => new SystemOneError('INVALID_CONFIG', message);
 const digest = (value: string) => createHash('sha256').update(value).digest();
 
+// Checks the options of `startMockServer` and reads the fixtures; everything wrong is INVALID_CONFIG before a port opens.
 async function parseOptions(options: unknown): Promise<{ context: Context; port: number; host: string }> {
   if (options !== undefined && (typeof options !== 'object' || options === null || Array.isArray(options))) {
     throw invalidConfig('Mock server options must be an object');
@@ -124,6 +125,7 @@ async function parseOptions(options: unknown): Promise<{ context: Context; port:
   return { context, port, host };
 }
 
+// Writes a response unless the client is already gone.
 function send(res: ServerResponse, status: number, body?: string, headers: Record<string, string> = {}): void {
   if (res.headersSent || res.destroyed) return;
   const content =
@@ -132,6 +134,7 @@ function send(res: ServerResponse, status: number, body?: string, headers: Recor
   res.end(body);
 }
 
+// Writes an error body in the wire format of the chosen provider (Jev style or Cloudflare style).
 function sendError(res: ServerResponse, context: Context, status: number, type: string, message?: string): void {
   const detail = { ...(message === undefined ? {} : { message }) };
   const body =
@@ -141,6 +144,7 @@ function sendError(res: ServerResponse, context: Context, status: number, type: 
   send(res, status, JSON.stringify(body));
 }
 
+// Reads the request body; `undefined` means it is larger than the limit.
 function readBody(req: IncomingMessage): Promise<Buffer | undefined> {
   return new Promise((resolve, reject) => {
     if (Number(req.headers['content-length']) > MAX_BODY_BYTES) return resolve(undefined);
@@ -198,11 +202,13 @@ function discard(req: IncomingMessage): Promise<void> {
   });
 }
 
+// Compares the bearer token in constant time (through a digest, so lengths do not leak).
 function authorized(req: IncomingMessage, token: Buffer): boolean {
   const header = req.headers.authorization;
   return typeof header === 'string' && header.startsWith('Bearer ') && timingSafeEqual(digest(header.slice(7)), token);
 }
 
+// Turns a simulated failure of the shared mock core into what the real provider would send over the wire.
 function failure(
   res: ServerResponse,
   req: IncomingMessage,
@@ -240,6 +246,7 @@ function failure(
   }
 }
 
+// A delay that ends early when the client has gone.
 function wait(ms: number, gone: Promise<void>): Promise<void> {
   return new Promise((resolve) => {
     const timer = setTimeout(resolve, ms);
@@ -250,6 +257,7 @@ function wait(ms: number, gone: Promise<void>): Promise<void> {
   });
 }
 
+// One request: path, method, token and body checks, then the decision of the shared mock core, with the latency.
 async function handle(req: IncomingMessage, res: ServerResponse, context: Context, gone: Promise<void>) {
   if ((req.url ?? '').split('?')[0] !== context.path) return sendError(res, context, 404, 'not_found_error');
   if (req.method !== 'POST') return send(res, 405, undefined, { allow: 'POST' });
@@ -295,6 +303,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, context: Contex
   );
 }
 
+// Creates the `node:http` server around `handle`; it logs one line per request when `log` is set.
 function serve(context: Context): Server {
   return createServer((req, res) => {
     const started = Date.now();

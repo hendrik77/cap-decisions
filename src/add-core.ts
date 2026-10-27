@@ -47,6 +47,7 @@ const FIXTURES = 'test/data/systemone.json';
 const record = (value: unknown): value is Json => typeof value === 'object' && value !== null && !Array.isArray(value);
 const say = (text: string) => `[systemone] ${text}`;
 
+// Adds missing keys deeply and never overwrites a value the user set.
 function mergeInto(target: Json, source: Json): Json {
   for (const [key, value] of Object.entries(source)) {
     if (key === '__proto__') continue;
@@ -88,12 +89,14 @@ export function resolveKind(kinds: Record<string, unknown>, name: string): Json 
 
 const isMock = (kinds: Record<string, unknown>, name: string) => resolveKind(kinds, name)?.impl === MOCK_IMPL;
 
+// The kinds `--kind` offers: System One kinds except the base and the mock.
 function selectableKinds(kinds: Record<string, unknown>): string[] {
   return Object.keys(kinds)
     .filter((name) => name !== BASE_KIND && kindChain(kinds, name).includes(BASE_KIND) && !isMock(kinds, name))
     .sort();
 }
 
+// Checks `--kind` and lists the selectable kinds in every error.
 function chooseKind(kinds: Record<string, unknown>, kind: unknown): string {
   const list = `Selectable kinds: ${selectableKinds(kinds).join(', ') || 'none'}.`;
   if (typeof kind !== 'string' || !kind) throw new Error(`--kind needs the name of a kind. ${list}`);
@@ -104,6 +107,7 @@ function chooseKind(kinds: Record<string, unknown>, kind: unknown): string {
   return kind;
 }
 
+// Checks `--for`; the profile becomes a key in package.json.
 function chooseProfile(value: unknown): string {
   if (value === undefined) return DEFAULT_PROFILE;
   if (typeof value !== 'string' || !PROFILE.test(value)) {
@@ -112,6 +116,7 @@ function chooseProfile(value: unknown): string {
   return value;
 }
 
+// Parses a config file, with the file name in the error.
 function parseJson(text: string, file: string): Json {
   let parsed: unknown;
   try {
@@ -133,15 +138,18 @@ function child(parent: Json, key: string, label: string, file: string): Json {
   return value;
 }
 
+// Keeps the indentation of the existing file, so the command makes no formatting diff.
 function detectIndent(text: string | undefined): string {
   return text?.match(/^([ \t]+)\S/m)?.[1] ?? '  ';
 }
 
+// Serialises with the indentation and line endings of the original.
 function jsonText(value: Json, original: string | undefined): string {
   const eol = original?.includes('\r\n') ? '\r\n' : '\n';
   return JSON.stringify(value, null, detectIndent(original)).replace(/\n/g, eol) + eol;
 }
 
+// The new .gitignore text, or `undefined` when `.cdsrc-private.json` is already listed.
 function gitignoreText(text: string | undefined): string | undefined {
   const lines = (text ?? '').split(/\r?\n/).map((line) => line.trim());
   if (lines.includes(CDSRC_PRIVATE) || lines.includes(`/${CDSRC_PRIVATE}`)) return undefined;
@@ -168,6 +176,7 @@ export function exampleFixtures(): string {
 `;
 }
 
+// True for a loopback URL; used to warn when a kind that needs a token points at one.
 function isLocalUrl(url: unknown): boolean {
   if (typeof url !== 'string') return false;
   try {
@@ -177,6 +186,7 @@ function isLocalUrl(url: unknown): boolean {
   }
 }
 
+// Plans `cds add systemone` as data (files to write, messages): no file access, so it can be tested without CAP.
 export function planSystemOne(input: AddInput): AddPlan {
   const { kinds, options } = input;
   const profile = chooseProfile(options.for);
