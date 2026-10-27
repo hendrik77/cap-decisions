@@ -1,3 +1,6 @@
+// The main entry of the package, `cap-jev`: the service, `SystemOneError` and the types, nothing else. The HTTP mock
+// server, its command line (`bin` `cap-jev-mock`), the providers and the test kit are separate entry points in
+// `exports` of package.json (see the README and docs/decisions/0006).
 import cds from '@sap/cds';
 import { DestinationResolveError, SystemOneTransport } from './transport';
 import type { DecisionRequest, DecisionResult, Questions, SystemOneCredentials, SystemOneSettings } from './types';
@@ -44,6 +47,7 @@ export class SystemOneService extends cds.Service {
     const warnings = validateSettings(this.settings, settingsKeys, credentialKeys);
     for (const warning of warnings) cds.log('systemone').warn(warning);
     await this.setup(this.settings);
+    // CAP's `on` handler that does the work: validates the request, calls the provider and checks the result.
     this.on('decide', async (request: SignalRequest) => {
       const started = performance.now();
       validateRequest(request.data, this.settings.limits);
@@ -135,6 +139,9 @@ export class SystemOneService extends cds.Service {
 
   /**
    * Asks the provider to answer the questions about the state. The answers are typed from the questions.
+   * This is the typed public API. It wraps the request in a `cds.Request` and sends it with `this.send`, so CAP's
+   * `before`, `on` and `after` handlers (including the one of `init`) and `cds.context` apply; the abort signal
+   * reaches the handler through a symbol on that request.
    * Rejects with a {@link SystemOneError}; the `ABORTED` code follows `options.signal`.
    */
   decide<Q extends Questions>(request: DecisionRequest<Q>, options: DecideOptions = {}): Promise<DecisionResult<Q>> {
