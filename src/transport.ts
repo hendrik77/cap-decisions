@@ -90,13 +90,24 @@ function endpoint(url: string | undefined, authorized: boolean): URL {
   return parsed;
 }
 
-function retryDelay(attempt: number, header: string | null): number {
-  if (header) {
-    const seconds = Number(header);
-    if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
-    const date = Date.parse(header);
-    if (Number.isFinite(date)) return Math.max(0, date - Date.now());
-  }
+/**
+ * Reads a `Retry-After` header (RFC 9110: delay-seconds or an HTTP date) as milliseconds.
+ * Returns `undefined` when the header is absent or neither form parses.
+ */
+function retryAfter(header: string | null): number | undefined {
+  if (!header) return undefined;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const date = Date.parse(header);
+  if (Number.isFinite(date)) return Math.max(0, date - Date.now());
+  return undefined;
+}
+
+/**
+ * Exponential backoff with jitter for when there is no usable `Retry-After`:
+ * 250 to 750 ms after the first attempt (`attempt` 0), 500 to 1500 ms after the second.
+ */
+function backoff(attempt: number): number {
   return Math.round(500 * 2 ** attempt * (0.5 + Math.random()));
 }
 
@@ -112,7 +123,7 @@ async function retryNetworkFailure(
     throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
   }
   // Like HTTP failures, a retry that does not fit into the remaining time fails at once with its cause.
-  const delay = retryDelay(attempt, null);
+  const delay = backoff(attempt);
   if (delay >= deadlineAt - Date.now()) {
     throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
   }
@@ -279,7 +290,7 @@ export class SystemOneTransport {
       }
       if (!response.ok) {
         if (RETRY_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
-          const delay = retryDelay(attempt, response.headers.get('retry-after'));
+          const delay = retryAfter(response.headers.get('retry-after')) ?? backoff(attempt);
           if (delay < deadlineAt - Date.now()) {
             await response.body?.cancel().catch(() => undefined);
             await pause(delay, signal, options.signal);
