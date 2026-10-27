@@ -116,19 +116,20 @@ export class SystemOneService extends cds.Service {
   }
 
   /**
-   * Turns the provider's response body into the Jev answer. The default returns it unchanged; throw a
-   * `SystemOneError` for a failure the body reports.
+   * Turns the provider's response body into the Jev answer. The default is for a Jev-compatible provider and returns
+   * the body unchanged; a subclass overrides it. Throw a `SystemOneError` for a failure the body reports.
    */
   protected unwrap(payload: unknown): unknown {
     return payload;
   }
 
   /**
-   * Reads a machine-readable error code from an error response body; it becomes `providerCode`. The default
-   * returns `undefined`; the message of the body is never exposed.
+   * Reads a machine-readable error code from an error response body; it becomes `providerCode`. The default is for a
+   * Jev-compatible provider, which reports none, so it returns `undefined`; a subclass overrides it. The message of
+   * the body is never exposed.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected errorCode(payload: unknown): string | number | undefined {
-    void payload;
     return undefined;
   }
 
