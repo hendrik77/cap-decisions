@@ -33,6 +33,7 @@ const cds = require('@sap/cds') as CdsWithAdd;
 
 const text = (value: unknown) => (typeof value === 'string' ? value : undefined);
 
+// Reads a file of the project; `undefined` when it does not exist.
 function readText(root: string, file: string): string | undefined {
   try {
     return fs.readFileSync(path.join(root, file), 'utf8');
@@ -42,6 +43,7 @@ function readText(root: string, file: string): string | undefined {
   }
 }
 
+// The `cds add systemone` facet: collects the project's files, asks `planSystemOne` and writes what it returns.
 class SystemOneFacet extends cds.add.Plugin {
   static help(): string {
     return 'System One decisions with cap-jev';

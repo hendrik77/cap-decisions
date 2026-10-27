@@ -95,6 +95,7 @@ const MARK = '@@cap-jev-kit@@';
 const plain = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+// Validates the options of `testProviderKind` and fills in defaults.
 function normalize(options: unknown): Normalized {
   if (!plain(options)) throw new TypeError('testProviderKind needs an options object with a kind');
   const extra = Object.keys(options).find((key) => !OPTION_KEYS.includes(key));
@@ -138,6 +139,7 @@ function packageRoot(name: string, from: string): string | undefined {
   }
 }
 
+// Reads a package.json with a clear error when the directory is not a package.
 function readPackageJson(dir: string): { name?: string } {
   try {
     return JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')) as { name?: string };
@@ -146,6 +148,7 @@ function readPackageJson(dir: string): { name?: string } {
   }
 }
 
+// Symlinks a package into the temporary app (a junction on Windows).
 function link(target: string, file: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.symlinkSync(target, file, 'junction');
@@ -260,6 +263,7 @@ interface Info {
   limits: ProviderLimits;
 }
 
+// The CAP process of the temporary app: the kit sends it requests as JSON lines and awaits the reply by id.
 class Child {
   private readonly process: ChildProcessWithoutNullStreams;
   private readonly pending = new Map<number, (message: Record<string, unknown>) => void>();
@@ -344,6 +348,7 @@ interface Received {
   headers: IncomingMessage['headers'];
 }
 
+// The local fake provider the kit points the kind at; records what it receives and answers as the test tells it.
 class LocalServer {
   readonly received: Received[] = [];
   url = '';
@@ -430,6 +435,7 @@ function respondTo(decision: DecisionRequest): DecisionResult {
   return { model: 'cap-jev-test-model', answers, usage: { input_tokens: 3, output_tokens: 1 } } as DecisionResult;
 }
 
+// Writes a JSON response of the fake provider.
 function sendJson(response: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
   response.writeHead(status, { 'content-type': 'application/json', ...headers });
   response.end(typeof body === 'string' ? body : JSON.stringify(body));

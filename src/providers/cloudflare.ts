@@ -5,6 +5,7 @@ import type { SystemOneCredentials } from '../types';
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+// Cloudflare reports errors as `{ errors: [{ code }] }`; the first code becomes `providerCode`.
 function firstErrorCode(payload: unknown): string | number | undefined {
   if (!record(payload) || !Array.isArray(payload.errors)) return undefined;
   const first: unknown = payload.errors[0];
