@@ -297,7 +297,9 @@ describe('other behavior', () => {
   });
 
   for (const signal of ['SIGTERM', 'SIGINT']) {
-    test(`${signal} exits with 0`, async () => {
+    // On Windows, kill() from another process ends the CLI at once; only Ctrl+C in its own console reaches the handler.
+    const skip = process.platform === 'win32' && 'Windows sends no catchable signal from another process';
+    test(`${signal} exits with 0`, { skip }, async () => {
       await withCli(['--port', '0'], {}, async (_url, { child, exited }) => {
         child.kill(signal);
         const result = await withTimeout(exited, `no exit after ${signal}`);

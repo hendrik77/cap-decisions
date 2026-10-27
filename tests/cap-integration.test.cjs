@@ -8,6 +8,16 @@ const { spawnSync, execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const execFileAsync = promisify(execFile);
 
+const windows = process.platform === 'win32';
+// npm is a .cmd file on Windows, which spawnSync cannot run without a shell, so npm's JavaScript entry runs with node.
+const npmCli = [
+  process.env.npm_execpath,
+  path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  path.join(path.dirname(process.execPath), '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+].find((file) => file?.endsWith('.js') && fs.existsSync(file));
+const npm = (args, options) =>
+  npmCli ? spawnSync(process.execPath, [npmCli, ...args], options) : spawnSync('npm', args, options);
+
 test('installed package registers an internal CAP service with decide()', { timeout: 300_000 }, async () => {
   const root = path.resolve(__dirname, '..');
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-integration-'));
@@ -60,7 +70,7 @@ test('installed package registers an internal CAP service with decide()', { time
     pkg.cds.requires['systemone'].credentials = { url: `http://127.0.0.1:${server.address().port}/v1/systemone` };
     pkg.dependencies['@sap/cds'] = `file:${path.join(root, 'node_modules/@sap/cds')}`;
     fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(pkg));
-    const pack = spawnSync('npm', ['pack', '--ignore-scripts', '--pack-destination', temp], {
+    const pack = npm(['pack', '--ignore-scripts', '--pack-destination', temp], {
       cwd: root,
       encoding: 'utf8',
       timeout: 30_000,
@@ -69,13 +79,17 @@ test('installed package registers an internal CAP service with decide()', { time
     const tarball = path.join(temp, pack.stdout.trim().split('\n').at(-1));
     pkg.dependencies['cap-jev'] = `file:${tarball}`;
     fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(pkg));
-    const install = spawnSync('npm', ['install', '--prefer-offline', '--ignore-scripts', '--no-audit', '--no-fund'], {
+    const install = npm(['install', '--prefer-offline', '--ignore-scripts', '--no-audit', '--no-fund'], {
       cwd: fixture,
       encoding: 'utf8',
       timeout: 120_000,
     });
     assert.equal(install.status, 0, install.error?.message ?? install.stderr);
-    const bin = spawnSync(path.join(fixture, 'node_modules', '.bin', 'cap-jev-mock'), ['--version'], {
+    // On Windows the bin is a .cmd shim, which spawnSync cannot run without a shell; run its target with node there.
+    const shim = path.join(fixture, 'node_modules', '.bin', windows ? 'cap-jev-mock.cmd' : 'cap-jev-mock');
+    assert.ok(fs.existsSync(shim), `missing ${shim}`);
+    const target = path.join(fixture, 'node_modules', 'cap-jev', require('../package.json').bin['cap-jev-mock']);
+    const bin = spawnSync(windows ? process.execPath : shim, windows ? [target, '--version'] : ['--version'], {
       cwd: fixture,
       encoding: 'utf8',
       timeout: 30_000,
