@@ -16,6 +16,8 @@ jobs:
     timeout-minutes: 15
     env:
       CDS_TEST_ENV_CHECK: y
+      # Coloured output must not break the tests that read a child process's output (issue #12).
+      FORCE_COLOR: 1
     strategy:
       fail-fast: false
       matrix:
