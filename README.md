@@ -20,6 +20,8 @@ curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.1/cap-jev-
 npm install ./cap-jev-0.9.1.tgz
 ```
 
+The shell commands in this README and the guides are for a POSIX shell (bash, zsh, Git Bash, WSL). In PowerShell, write `curl.exe` instead of `curl`, because `curl` is an alias for `Invoke-WebRequest` in Windows PowerShell 5.1; for environment variables see [local development](docs/local-development.md#settings).
+
 The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.9.1.tgz`; keep the archive in the project.
 
 To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-jev-<version>.tgz` file.

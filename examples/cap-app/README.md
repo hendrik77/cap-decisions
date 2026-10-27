@@ -16,6 +16,8 @@ cd examples/cap-app
 CDS_TYPESCRIPT=true npm start
 ```
 
+The commands in this file are for a POSIX shell (bash, zsh, Git Bash, WSL). In PowerShell, run the steps on separate lines (`&&` needs PowerShell 7) and set the variable with `$env:CDS_TYPESCRIPT = 'true'; npm start`.
+
 CAP loads TypeScript handlers when `CDS_TYPESCRIPT` is set. Node.js 22.18 or newer runs them without a separate compiler.
 
 The app needs no provider server, token or network. In development `cap-jev` answers with its mock provider (`systemone-mock`), so the answers are simulated but deterministic: the same message always gets the same queue. Keywords in the message are matched against the criteria, and the rule in [`test/data/systemone.json`](test/data/systemone.json) routes refund messages to `billing`, so they end up in the `accounts` queue.
@@ -26,6 +28,12 @@ Call the action as the mocked development user `alice` (empty password):
 curl -u alice: -X POST http://localhost:4004/odata/v4/decision/classify \
   -H 'content-type: application/json' \
   -d '{"message":"I want a refund"}'
+```
+
+In PowerShell (Windows PowerShell 5.1 and 7), pipe the body in, which avoids quoting problems, and call `curl.exe`, because `curl` is an alias for `Invoke-WebRequest`:
+
+```powershell
+'{"message":"I want a refund"}' | curl.exe -u alice: -X POST http://localhost:4004/odata/v4/decision/classify -H "content-type: application/json" -d "@-"
 ```
 
 ### Use a real Jev server
