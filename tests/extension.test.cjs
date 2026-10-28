@@ -22,9 +22,9 @@ const reply = (payload) => (request, response) => {
 };
 
 // Runs `body` inside an async function of a temporary app; the body prints one JSON line through out().
-async function inApp(systemone, body, { files, links, dependencies } = {}) {
+async function inApp(decisions, body, { files, links, dependencies } = {}) {
   const dir = createApp(
-    { name: 'extension-app', private: true, dependencies, cds: { requires: { systemone } } },
+    { name: 'extension-app', private: true, dependencies, cds: { requires: { decisions } } },
     files,
     { links },
   );
@@ -46,51 +46,51 @@ async function inApp(systemone, body, { files, links, dependencies } = {}) {
   }
 }
 
-const connect = `const srv = await cds.connect.to('systemone');`;
+const connect = `const srv = await cds.connect.to('decisions');`;
 const decide = `${connect}
   out(await srv.decide(request));`;
 const acmeApp = (credentials, extra = {}) => ({
-  systemone: { kind: 'systemone-acme', ...extra, credentials },
+  decisions: { kind: 'decisions-acme', ...extra, credentials },
   options: {
-    links: { 'cap-jev-provider-acme': providerPackage },
-    dependencies: { 'cap-jev-provider-acme': '*' },
+    links: { 'cap-decisions-provider-acme': providerPackage },
+    dependencies: { 'cap-decisions-provider-acme': '*' },
   },
 });
 const inAcmeApp = (credentials, body, extra) => {
-  const { systemone, options } = acmeApp(credentials, extra);
-  return inApp(systemone, body, options);
+  const { decisions, options } = acmeApp(credentials, extra);
+  return inApp(decisions, body, options);
 };
 
 const envelopeSubclass = `
-const { SystemOneService, SystemOneError } = require('cap-jev');
+const { DecisionsService, DecisionsError } = require('cap-decisions');
 
-class AcmeSystemOne extends SystemOneService {
+class AcmeDecisions extends DecisionsService {
   endpoint(credentials) {
     return credentials.url;
   }
 
   unwrap(payload) {
     if (!payload || typeof payload !== 'object' || !('envelope' in payload)) {
-      throw new SystemOneError('INVALID_RESPONSE', 'Acme response is missing envelope');
+      throw new DecisionsError('INVALID_RESPONSE', 'Acme response is missing envelope');
     }
     return payload.envelope;
   }
 }
 
-module.exports = AcmeSystemOne;
+module.exports = AcmeDecisions;
 `;
 
 describe('app-local subclass', () => {
   test('is loaded through impl and unwraps the envelope', async () => {
     reset(reply({ envelope: noulResult }));
     const result = await inApp(
-      { kind: 'systemone-generic', impl: 'srv/acme-systemone.js', credentials: { url: server.url } },
+      { kind: 'decisions-generic', impl: 'srv/acme-decisions.js', credentials: { url: server.url } },
       `${connect}
        const result = await srv.decide(request);
        out({ name: srv.constructor.name, result });`,
-      { files: { 'srv/acme-systemone.js': envelopeSubclass } },
+      { files: { 'srv/acme-decisions.js': envelopeSubclass } },
     );
-    assert.equal(result.name, 'AcmeSystemOne');
+    assert.equal(result.name, 'AcmeDecisions');
     assert.deepEqual(result.result, noulResult);
     assert.equal(server.received.length, 1);
   });
@@ -98,9 +98,9 @@ describe('app-local subclass', () => {
   test('an answer without the envelope fails with INVALID_RESPONSE', async () => {
     reset();
     const result = await inApp(
-      { kind: 'systemone-generic', impl: 'srv/acme-systemone.js', credentials: { url: server.url } },
+      { kind: 'decisions-generic', impl: 'srv/acme-decisions.js', credentials: { url: server.url } },
       decide,
-      { files: { 'srv/acme-systemone.js': envelopeSubclass } },
+      { files: { 'srv/acme-decisions.js': envelopeSubclass } },
     );
     assert.equal(result.error, 'INVALID_RESPONSE');
   });
@@ -109,13 +109,13 @@ describe('app-local subclass', () => {
 describe('app-local subclass without a transport', () => {
   test('a setup that does not create the transport fails with INVALID_CONFIG', async () => {
     const subclass = `
-const { SystemOneService } = require('cap-jev');
-module.exports = class NoTransport extends SystemOneService {
+const { DecisionsService } = require('cap-decisions');
+module.exports = class NoTransport extends DecisionsService {
   async setup() {}
 };`;
     reset();
     const result = await inApp(
-      { kind: 'systemone-generic', impl: 'srv/no-transport.js', credentials: { url: server.url } },
+      { kind: 'decisions-generic', impl: 'srv/no-transport.js', credentials: { url: server.url } },
       decide,
       { files: { 'srv/no-transport.js': subclass } },
     );
@@ -128,7 +128,7 @@ module.exports = class NoTransport extends SystemOneService {
 describe('provider package', () => {
   const credentials = () => ({ url: server.url, token: 't', region: 'eu' });
 
-  test('the systemone-acme kind decides through the fake server with the bearer token', async () => {
+  test('the decisions-acme kind decides through the fake server with the bearer token', async () => {
     reset(reply({ data: noulResult }));
     const result = await inAcmeApp(
       credentials(),
@@ -175,7 +175,7 @@ describe('provider package', () => {
     const result = await inAcmeApp(
       credentials(),
       `const warnings = [];
-       cds.log('systemone').warn = (...args) => warnings.push(args.join(' '));
+       cds.log('decisions').warn = (...args) => warnings.push(args.join(' '));
        ${connect}
        out({ warnings });`,
     );
@@ -190,32 +190,32 @@ describe('provider package', () => {
 
   test('a region credential is rejected by the base service, which does not list it', async () => {
     const result = await inApp(
-      { kind: 'systemone-generic', credentials: { url: server.url, region: 'eu' } },
+      { kind: 'decisions-generic', credentials: { url: server.url, region: 'eu' } },
       connect + `out({ ok: true });`,
     );
     assert.equal(result.error, 'INVALID_CONFIG');
     assert.match(result.message, /region/);
   });
 
-  test('the package and the app share one cap-jev and one @sap/cds instance', async () => {
+  test('the package and the app share one cap-decisions and one @sap/cds instance', async () => {
     const result = await inAcmeApp(
       credentials(),
       `const fs = require('node:fs');
        const path = require('node:path');
-       const providerDir = fs.realpathSync(path.join(process.cwd(), 'node_modules/cap-jev-provider-acme'));
+       const providerDir = fs.realpathSync(path.join(process.cwd(), 'node_modules/cap-decisions-provider-acme'));
        const real = (file) => fs.realpathSync(file);
        const fromProvider = (name) => real(require.resolve(name, { paths: [providerDir] }));
        ${connect}
-       const { SystemOneService } = require('cap-jev');
+       const { DecisionsService } = require('cap-decisions');
        out({
          providerDir,
-         capJev: [fromProvider('cap-jev'), real(require.resolve('cap-jev'))],
+         capDecisions: [fromProvider('cap-decisions'), real(require.resolve('cap-decisions'))],
          cds: [fromProvider('@sap/cds'), real(require.resolve('@sap/cds'))],
-         instance: srv instanceof SystemOneService,
+         instance: srv instanceof DecisionsService,
        });`,
     );
     assert.equal(result.providerDir, providerPackage);
-    assert.equal(result.capJev[0], result.capJev[1]);
+    assert.equal(result.capDecisions[0], result.capDecisions[1]);
     assert.equal(result.cds[0], result.cds[1]);
     assert.equal(result.instance, true);
   });

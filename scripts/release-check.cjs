@@ -5,9 +5,9 @@ const { execFileSync, spawnSync } = require('node:child_process');
 const { parseArgs } = require('node:util');
 const { releaseNotes } = require('./release-notes.cjs');
 
-const ARCHIVE = /releases\/download\/v([^/\s)"'`]+)\/cap-jev-([^/\s)"'`]+?)\.tgz/g;
-// An archive file name outside a URL, such as `npm install ./cap-jev-1.2.3.tgz`.
-const ARCHIVE_FILE = /(?<!releases\/download\/v[^/\s]+\/)(?<![\w-])cap-jev-(\d+\.\d+\.\d+[^/\s)"'`]*?)\.tgz/g;
+const ARCHIVE = /releases\/download\/v([^/\s)"'`]+)\/cap-decisions-([^/\s)"'`]+?)\.tgz/g;
+// An archive file name outside a URL, such as `npm install ./cap-decisions-1.2.3.tgz`.
+const ARCHIVE_FILE = /(?<!releases\/download\/v[^/\s]+\/)(?<![\w-])cap-decisions-(\d+\.\d+\.\d+[^/\s)"'`]*?)\.tgz/g;
 
 const WORKFLOW = '.github/workflows/ci.yml';
 // The CAP majors CI tests: the `cds: [9, 10]` line of the matrix.
@@ -83,7 +83,7 @@ function findMachinePaths({ root, files }) {
 const describeHit = (prefix, { line, text }) => `${prefix}:${line}: machine path ${text}; use a relative path`;
 
 function checkArchive(archive) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-archive-'));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-archive-'));
   try {
     const result = spawnSync('tar', ['-xzf', archive, '-C', directory], { encoding: 'utf8' });
     if (result.status !== 0) {
@@ -135,12 +135,17 @@ function checkRelease({ root, tag }) {
 
   const example = readJson('examples/cap-app/package.json');
   if (example)
-    expect('examples/cap-app/package.json', 'dependency cap-jev', `^${version}`, example.dependencies?.['cap-jev']);
+    expect(
+      'examples/cap-app/package.json',
+      'dependency cap-decisions',
+      `^${version}`,
+      example.dependencies?.['cap-decisions'],
+    );
 
-  // The example provider package README quotes the range of an application that installs cap-jev.
+  // The example provider package README quotes the range of an application that installs cap-decisions.
   const providerReadme = read('examples/provider-package/README.md');
-  for (const [, range] of providerReadme?.matchAll(/"cap-jev":\s*"([^"]*)"/g) ?? []) {
-    expect('examples/provider-package/README.md', 'dependency cap-jev', `^${version}`, range);
+  for (const [, range] of providerReadme?.matchAll(/"cap-decisions":\s*"([^"]*)"/g) ?? []) {
+    expect('examples/provider-package/README.md', 'dependency cap-decisions', `^${version}`, range);
   }
 
   // docs/providers.md quotes the peer range of a provider package.
@@ -150,7 +155,7 @@ function checkRelease({ root, tag }) {
     expect('docs/providers.md', 'quoted @sap/cds peer range', peerRange, range, ' (the peer range in package.json)');
   }
 
-  // cap-jev supports the CAP majors that CI tests, and no others.
+  // cap-decisions supports the CAP majors that CI tests, and no others.
   const workflow = read(WORKFLOW);
   if (workflow !== undefined) {
     const list = workflow.match(CDS_MATRIX)?.[1];
@@ -186,12 +191,12 @@ function checkRelease({ root, tag }) {
     if (!urls.length) failures.push(`${file}: expected a release archive URL for ${version}, found none`);
     for (const [url, directory, name] of urls) {
       if (directory !== version || name !== version) {
-        failures.push(`${file}: expected archive URL for v${version}/cap-jev-${version}.tgz, found ${url}`);
+        failures.push(`${file}: expected archive URL for v${version}/cap-decisions-${version}.tgz, found ${url}`);
       }
     }
     for (const [name, fileVersion] of text.matchAll(ARCHIVE_FILE)) {
       if (fileVersion !== version)
-        failures.push(`${file}: expected archive file cap-jev-${version}.tgz, found ${name}`);
+        failures.push(`${file}: expected archive file cap-decisions-${version}.tgz, found ${name}`);
     }
   }
 

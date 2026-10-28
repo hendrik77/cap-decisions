@@ -1,5 +1,5 @@
 {
-  "name": "cap-jev-example",
+  "name": "cap-decisions-example",
   "private": true,
   "version": "1.0.0",
   "scripts": {
@@ -7,13 +7,13 @@
   },
   "dependencies": {
     "@sap/cds": ">=9",
-    "cap-jev": "^0.9.2"
+    "cap-decisions": "^0.10.0"
   },
   "cds": {
     "requires": {
-      "systemone": {
+      "decisions": {
         "[production]": {
-          "kind": "systemone-laya"
+          "kind": "decisions-laya"
         }
       }
     }

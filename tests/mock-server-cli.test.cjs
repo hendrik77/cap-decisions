@@ -26,7 +26,7 @@ const post = (url, headers = {}) =>
     headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(request),
   });
-const tempDir = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-mock-cli-')));
+const tempDir = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-mock-cli-')));
 
 const children = new Set();
 after(() => {
@@ -36,7 +36,7 @@ after(() => {
 // Starts the CLI; `exited` resolves with the exit code, `listening` with the URL once the server is up.
 function run(args, { cwd = process.cwd(), env = {} } = {}) {
   const environment = { ...process.env };
-  delete environment.CAP_JEV_MOCK_TOKEN;
+  delete environment.CAP_DECISIONS_MOCK_TOKEN;
   Object.assign(environment, env);
   const child = spawn(process.execPath, [cli, ...args], { cwd, env: environment });
   children.add(child);
@@ -91,7 +91,7 @@ async function fails(args, options) {
 describe('serving', () => {
   test('--port 0 prints the URL and answers a request', async () => {
     await withCli(['--port', '0'], {}, async (url, { output }) => {
-      assert.match(output.stdout, /^cap-jev mock server listening on http:\/\/127\.0\.0\.1:\d+\/v1\/systemone\n/);
+      assert.match(output.stdout, /^cap-decisions mock server listening on http:\/\/127\.0\.0\.1:\d+\/v1\/systemone\n/);
       const response = await post(url);
       assert.equal(response.status, 200);
       const body = await response.json();
@@ -177,15 +177,15 @@ describe('token', () => {
     });
   });
 
-  test('CAP_JEV_MOCK_TOKEN is the fallback', async () => {
-    await withCli(['--port', '0'], { env: { CAP_JEV_MOCK_TOKEN: 'from-env' } }, async (url) => {
+  test('CAP_DECISIONS_MOCK_TOKEN is the fallback', async () => {
+    await withCli(['--port', '0'], { env: { CAP_DECISIONS_MOCK_TOKEN: 'from-env' } }, async (url) => {
       assert.equal((await post(url)).status, 401);
       assert.equal((await post(url, { authorization: 'Bearer from-env' })).status, 200);
     });
   });
 
-  test('an empty CAP_JEV_MOCK_TOKEN means unset', async () => {
-    await withCli(['--port', '0'], { env: { CAP_JEV_MOCK_TOKEN: '' } }, async (url) => {
+  test('an empty CAP_DECISIONS_MOCK_TOKEN means unset', async () => {
+    await withCli(['--port', '0'], { env: { CAP_DECISIONS_MOCK_TOKEN: '' } }, async (url) => {
       assert.equal((await post(url)).status, 200);
     });
   });
@@ -195,8 +195,8 @@ describe('token', () => {
     assert.equal(result.code, 2);
   });
 
-  test('--token wins over CAP_JEV_MOCK_TOKEN', async () => {
-    await withCli(['--port', '0', '--token', 'option'], { env: { CAP_JEV_MOCK_TOKEN: 'env' } }, async (url) => {
+  test('--token wins over CAP_DECISIONS_MOCK_TOKEN', async () => {
+    await withCli(['--port', '0', '--token', 'option'], { env: { CAP_DECISIONS_MOCK_TOKEN: 'env' } }, async (url) => {
       assert.equal((await post(url, { authorization: 'Bearer env' })).status, 401);
       assert.equal((await post(url, { authorization: 'Bearer option' })).status, 200);
     });
@@ -204,31 +204,31 @@ describe('token', () => {
 });
 
 describe('usage errors', () => {
-  const usage = /Run cap-jev-mock --help for the options\./;
+  const usage = /Run cap-decisions-mock --help for the options\./;
 
   test('a missing configured fixtures file exits with 2', async () => {
     const result = await fails(['--port', '0', '--fixtures', 'missing.json'], { cwd: tempDir() });
     assert.equal(result.code, 2);
-    assert.match(result.stderr, /^cap-jev-mock: .*missing\.json/);
+    assert.match(result.stderr, /^cap-decisions-mock: .*missing\.json/);
     assert.doesNotMatch(result.stderr, /\n\s+at /);
   });
 
   test('--fail HTTP_ERROR without --status exits with 2', async () => {
     const result = await fails(['--port', '0', '--fail', 'HTTP_ERROR']);
     assert.equal(result.code, 2);
-    assert.match(result.stderr, /^cap-jev-mock: --fail HTTP_ERROR needs --status from 400 to 599/);
+    assert.match(result.stderr, /^cap-decisions-mock: --fail HTTP_ERROR needs --status from 400 to 599/);
   });
 
   test('--status with another code than HTTP_ERROR exits with 2', async () => {
     const result = await fails(['--port', '0', '--fail', 'TIMEOUT', '--status', '503']);
     assert.equal(result.code, 2);
-    assert.match(result.stderr, /^cap-jev-mock: --status only goes with --fail HTTP_ERROR/);
+    assert.match(result.stderr, /^cap-decisions-mock: --status only goes with --fail HTTP_ERROR/);
   });
 
   test('--fail with an unknown code exits with 2', async () => {
     const result = await fails(['--port', '0', '--fail', 'NOPE']);
     assert.equal(result.code, 2);
-    assert.match(result.stderr, /^cap-jev-mock: /);
+    assert.match(result.stderr, /^cap-decisions-mock: /);
   });
 
   test('--status and --provider-code without --fail exit with 2', async () => {
@@ -252,7 +252,7 @@ describe('usage errors', () => {
     ]) {
       const result = await fails(args);
       assert.equal(result.code, 2, args.join(' '));
-      assert.match(result.stderr, /^cap-jev-mock: /);
+      assert.match(result.stderr, /^cap-decisions-mock: /);
       assert.match(result.stderr, usage);
     }
   });
@@ -266,7 +266,7 @@ describe('usage errors', () => {
   test('an unknown option exits with 2 and shows the hint', async () => {
     const result = await fails(['--bogus']);
     assert.equal(result.code, 2);
-    assert.match(result.stderr, /^cap-jev-mock: /);
+    assert.match(result.stderr, /^cap-decisions-mock: /);
     assert.match(result.stderr, usage);
     assert.equal(result.stdout, '');
   });
@@ -313,7 +313,7 @@ describe('other behavior', () => {
     try {
       const result = await fails(['--port', String(server.port)]);
       assert.equal(result.code, 1);
-      assert.match(result.stderr, new RegExp(`^cap-jev-mock: cannot listen on 127\\.0\\.0\\.1:${server.port}: `));
+      assert.match(result.stderr, new RegExp(`^cap-decisions-mock: cannot listen on 127\\.0\\.0\\.1:${server.port}: `));
       assert.doesNotMatch(result.stderr, /\n\s+at /);
     } finally {
       await server.close();
@@ -329,7 +329,7 @@ describe('other behavior', () => {
     for (const option of ['--fail', '--status', '--provider-code', '--token', '--format', '--quiet']) {
       assert.ok(result.stdout.includes(option), option);
     }
-    assert.match(result.stdout, /CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya npm start/);
+    assert.match(result.stdout, /CDS_REQUIRES_DECISIONS_KIND=decisions-laya npm start/);
     assert.equal(result.stderr, '');
   });
 

@@ -13,8 +13,8 @@ async function mock(options) {
 after(() => Promise.all(servers.map((server) => server.close())));
 
 // Runs decide() in a temporary production app against the settings and prints one JSON line.
-async function decide(systemone) {
-  const dir = createApp({ name: 'mock-server-app', private: true, cds: { requires: { systemone } } });
+async function decide(decisions) {
+  const dir = createApp({ name: 'mock-server-app', private: true, cds: { requires: { decisions } } });
   const script = `
     const cds = require('@sap/cds');
     const out = (value) => console.log(JSON.stringify(value));
@@ -32,7 +32,7 @@ async function decide(systemone) {
     (async () => {
       await cds.plugins;
       try {
-        const srv = await cds.connect.to('systemone');
+        const srv = await cds.connect.to('decisions');
         out(await srv.decide(request));
       } catch (e) { out({ error: e.code || e.name, message: e.message, status: e.status, providerCode: e.providerCode }); }
     })().catch((e) => { console.error(e); process.exit(1); });`;
@@ -43,17 +43,17 @@ async function decide(systemone) {
   }
 }
 const generic = (server, extra = {}) => ({
-  kind: 'systemone-generic',
+  kind: 'decisions-generic',
   credentials: { url: server.url },
   ...extra,
 });
 const cloudflare = (server, token = 't') => ({
-  kind: 'systemone-cloudflare',
+  kind: 'decisions-cloudflare',
   credentials: { url: server.url, token },
 });
 
-describe('cap-jev against the mock server', { concurrency: true }, () => {
-  test('systemone-generic gets the answer', async () => {
+describe('cap-decisions against the mock server', { concurrency: true }, () => {
+  test('decisions-generic gets the answer', async () => {
     const server = await mock();
     const result = await decide(generic(server));
     assert.equal(result.model, 'mock');
@@ -113,14 +113,14 @@ describe('cap-jev against the mock server', { concurrency: true }, () => {
     assert.equal(result.answers.department.choice, 'technical');
   });
 
-  test('systemone-cloudflare gets the unwrapped answer through format cloudflare', async () => {
+  test('decisions-cloudflare gets the unwrapped answer through format cloudflare', async () => {
     const server = await mock({ format: 'cloudflare', token: 't' });
     const result = await decide(cloudflare(server));
     assert.equal(result.model, 'mock');
     assert.equal(result.answers.department.choice, 'billing');
   });
 
-  test('systemone-cloudflare maps PROVIDER_ERROR with its providerCode', async () => {
+  test('decisions-cloudflare maps PROVIDER_ERROR with its providerCode', async () => {
     const server = await mock({ format: 'cloudflare', fail: { code: 'PROVIDER_ERROR', providerCode: 'E42' } });
     const result = await decide(cloudflare(server));
     assert.equal(result.error, 'PROVIDER_ERROR', JSON.stringify(result));
@@ -128,7 +128,7 @@ describe('cap-jev against the mock server', { concurrency: true }, () => {
     assert.equal(server.lines.length, 1);
   });
 
-  test('systemone-cloudflare finds the code of an HTTP error in the envelope', async () => {
+  test('decisions-cloudflare finds the code of an HTTP error in the envelope', async () => {
     const server = await mock({
       format: 'cloudflare',
       fail: { code: 'HTTP_ERROR', status: 403, providerCode: 'denied' },
@@ -141,7 +141,7 @@ describe('cap-jev against the mock server', { concurrency: true }, () => {
 
   test('a wrong token is HTTP_ERROR 401', async () => {
     const server = await mock({ token: 'right' });
-    const result = await decide({ kind: 'systemone-generic', credentials: { url: server.url, token: 'wrong' } });
+    const result = await decide({ kind: 'decisions-generic', credentials: { url: server.url, token: 'wrong' } });
     assert.equal(result.error, 'HTTP_ERROR', JSON.stringify(result));
     assert.equal(result.status, 401);
     assert.equal(result.providerCode, 'authentication_error');
@@ -150,7 +150,7 @@ describe('cap-jev against the mock server', { concurrency: true }, () => {
 
   test('the right token gets the answer', async () => {
     const server = await mock({ token: 'right' });
-    const result = await decide({ kind: 'systemone-generic', credentials: { url: server.url, token: 'right' } });
+    const result = await decide({ kind: 'decisions-generic', credentials: { url: server.url, token: 'right' } });
     assert.equal(result.model, 'mock');
   });
 });

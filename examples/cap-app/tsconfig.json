@@ -4,7 +4,7 @@
     "noEmit": true,
     "rootDir": "../..",
     "baseUrl": "../..",
-    "paths": { "cap-jev": ["./src/index.ts"] }
+    "paths": { "cap-decisions": ["./src/index.ts"] }
   },
   "include": ["srv/**/*.ts"]
 }

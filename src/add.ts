@@ -1,10 +1,10 @@
 /**
- * The `cds add systemone` facet. It is registered by `cds-plugin.js` only while `@sap/cds-dk` runs `cds add`,
+ * The `cds add decisions` facet. It is registered by `cds-plugin.js` only while `@sap/cds-dk` runs `cds add`,
  * because only then `cds.add` exists. It reads and writes the files; the decisions are in `add-core.ts`.
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { planSystemOne } from './add-core';
+import { planDecisions } from './add-core';
 import type { AddOptions } from './add-core';
 
 interface CliOption {
@@ -43,22 +43,22 @@ function readText(root: string, file: string): string | undefined {
   }
 }
 
-// The `cds add systemone` facet: collects the project's files, asks `planSystemOne` and writes what it returns.
-class SystemOneFacet extends cds.add.Plugin {
+// The `cds add decisions` facet: collects the project's files, asks `planDecisions` and writes what it returns.
+class DecisionsFacet extends cds.add.Plugin {
   static help(): string {
-    return 'System One decisions with cap-jev';
+    return 'Decision models with cap-decisions';
   }
 
   options(): Record<string, CliOption> {
     return {
-      kind: { type: 'string', help: 'The kind to use in the target profile. Default: systemone-laya' },
-      'with-fixtures': { type: 'boolean', help: 'Write an example test/data/systemone.json for the mock' },
+      kind: { type: 'string', help: 'The kind to use in the target profile. Default: decisions-laya' },
+      'with-fixtures': { type: 'boolean', help: 'Write an example test/data/decisions.json for the mock' },
     };
   }
 
   async run(): Promise<void> {
     if (cds.add.readProject().isJava) {
-      throw 'cap-jev is a Node.js plugin and cannot be added to a Java project.';
+      throw 'cap-decisions is a Node.js plugin and cannot be added to a Java project.';
     }
     const root = cds.root;
     const cli = cds.cli?.options ?? {};
@@ -70,11 +70,11 @@ class SystemOneFacet extends cds.add.Plugin {
     };
     let plan;
     try {
-      plan = planSystemOne({
+      plan = planDecisions({
         packageJsonText: readText(root, 'package.json'),
         cdsrcPrivateText: readText(root, '.cdsrc-private.json'),
         gitignore: readText(root, '.gitignore'),
-        fixturesExist: fs.existsSync(path.join(root, 'test/data/systemone.json')),
+        fixturesExist: fs.existsSync(path.join(root, 'test/data/decisions.json')),
         kinds: cds.env.requires?.kinds ?? {},
         options,
       });
@@ -90,4 +90,4 @@ class SystemOneFacet extends cds.add.Plugin {
   }
 }
 
-export = SystemOneFacet;
+export = DecisionsFacet;

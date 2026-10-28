@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { SystemOneError } from '../validation';
+import { DecisionsError } from '../validation';
 import type {
   Answer,
   ChoiceQuestion,
@@ -144,7 +144,7 @@ export function completeAnswer(
   questionId: string,
 ): Answer {
   const random = createRandom(seedFor(state, questionId));
-  const missing = (field: string) => new SystemOneError('INVALID_CONFIG', `A ${question.type} answer needs ${field}`);
+  const missing = (field: string) => new DecisionsError('INVALID_CONFIG', `A ${question.type} answer needs ${field}`);
   let generated: Record<string, unknown>;
   if (question.type === 'noul') {
     if (typeof partial.noul !== 'number') throw missing('noul');

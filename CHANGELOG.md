@@ -1,6 +1,44 @@
 # Changelog
 
-This changelog starts with 0.5.0. Earlier versions are described in the [GitHub releases](https://github.com/hendrik77/cap-jev/releases) up to v0.4.3.
+This changelog starts with 0.5.0. Earlier versions are described in the [GitHub releases](https://github.com/hendrik77/cap-decisions/releases) up to v0.4.3.
+
+## 0.10.0: Renamed to cap-decisions
+
+The package serves decision models of several providers (TypeSafe Jev, Laya, Cloudflare Clef, SubQ Snap), so `cap-jev` is now `cap-decisions`. The reasons are in [ADR 0008](docs/decisions/0008-rename-to-cap-decisions.md); the steps are in [Migrating from cap-jev](README.md#migrating-from-cap-jev). The wire format is unchanged: requests, responses, the question types and the mock server's default path `/v1/systemone` stay, so no provider or server needs a change.
+
+### Breaking: renamed to cap-decisions
+
+| What | Up to 0.9.2 | From 0.10.0 |
+| --- | --- | --- |
+| Package | `cap-jev` | `cap-decisions` |
+| Release archive | `cap-jev-<version>.tgz` | `cap-decisions-<version>.tgz` |
+| Entry points | `cap-jev/mock-server`, `cap-jev/testing`, `cap-jev/providers/*` | `cap-decisions/mock-server`, `cap-decisions/testing`, `cap-decisions/providers/*` |
+| Service | `cds.requires.systemone`, `cds.connect.to('systemone')` | `cds.requires.decisions`, `cds.connect.to('decisions')` |
+| Facet | `cds add systemone` | `cds add decisions` |
+| Kinds | `systemone-<x>`, such as `systemone-laya`, `systemone-defaults` | `decisions-<x>`, such as `decisions-laya`, `decisions-defaults` |
+| Environment variables | `CDS_REQUIRES_SYSTEMONE_*` | `CDS_REQUIRES_DECISIONS_*` |
+| Mock server token | `CAP_JEV_MOCK_TOKEN` | `CAP_DECISIONS_MOCK_TOKEN`; the old name is not read |
+| Log channel | `systemone` | `decisions` |
+| Types | `SystemOneService`, `SystemOneError`, `SystemOneErrorCode`, `SystemOneSettings`, `SystemOneCredentials` | `DecisionsService`, `DecisionsError`, `DecisionsErrorCode`, `DecisionsSettings`, `DecisionsCredentials` |
+| Error brand | `Symbol.for('cap-jev.SystemOneError')` | `Symbol.for('cap-decisions.DecisionsError')` |
+| Bin | `cap-jev-mock` | `cap-decisions-mock` |
+| Mock fixtures | `test/data/systemone.json` | `test/data/decisions.json` |
+
+`DecisionRequest`, `DecisionResult`, `DecisionOptions`, `DecideOptions`, `decide()` and the error codes keep their names. There are no aliases for the old names.
+
+- A provider package built against `cap-jev` must change its peer dependency to `"cap-decisions": ">=0.10.0"`, its imports, its base class and its kind names.
+- The error brand changed, so `cap-jev` and `cap-decisions` in one application do not recognise each other's errors with `instanceof`. Install a provider package together with `cap-decisions` only.
+- The messages of `DecisionsError` say "decision provider" or "decision request" where they said "System One"; the error codes are the same.
+
+### Added
+
+- `cds-plugin.js` logs an error on the `decisions` channel when `cds.requires.systemone` is still set, pointing to the migration section, so an old configuration does not silently fall back to the defaults.
+
+### Documentation
+
+- The README describes the package as a CAP plugin for decision models, as a community project that is not affiliated with SAP or TypeSafe, and has the section "Migrating from cap-jev".
+- ADR 0008 records the rename; the planned ADR on npm publication becomes ADR 0009.
+- The GitHub repository moves to `hendrik77/cap-decisions`; GitHub redirects the old URLs, including the archives of earlier releases.
 
 ## 0.9.2: Windows and review feedback
 

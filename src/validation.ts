@@ -14,10 +14,10 @@ function json(value: unknown, ancestors = new Set<object>()): boolean {
   if (value === null || typeof value === 'string' || typeof value === 'boolean' || finite(value)) return true;
   if (typeof value !== 'object') return false;
   if (!Array.isArray(value) && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
-    throw new SystemOneError('INVALID_REQUEST', 'Request content contains an unsupported object; use plain JSON data');
+    throw new DecisionsError('INVALID_REQUEST', 'Request content contains an unsupported object; use plain JSON data');
   }
   if (ancestors.has(value))
-    throw new SystemOneError('INVALID_REQUEST', 'Request content contains a circular reference');
+    throw new DecisionsError('INVALID_REQUEST', 'Request content contains a circular reference');
   ancestors.add(value);
   try {
     for (const child of Array.isArray(value) ? value : Object.values(value)) {
@@ -30,7 +30,7 @@ function json(value: unknown, ancestors = new Set<object>()): boolean {
 }
 
 /**
- * The code of a {@link SystemOneError}.
+ * The code of a {@link DecisionsError}.
  *
  * - `INVALID_CONFIG`: the settings, the token or the endpoint are invalid or missing.
  * - `INVALID_REQUEST`: the request does not match the question schema or the limits; nothing was sent.
@@ -43,7 +43,7 @@ function json(value: unknown, ancestors = new Set<object>()): boolean {
  *
  * The union may grow in a minor release (ADR 0006); code that switches over it needs a default branch.
  */
-export type SystemOneErrorCode =
+export type DecisionsErrorCode =
   | 'INVALID_CONFIG'
   | 'INVALID_REQUEST'
   | 'INVALID_RESPONSE'
@@ -54,7 +54,7 @@ export type SystemOneErrorCode =
   | 'ABORTED';
 
 /** The error every failure of `decide()` and of connecting the service is raised as. */
-export class SystemOneError extends Error {
+export class DecisionsError extends Error {
   /** The HTTP status of an `HTTP_ERROR`; otherwise usually unset. */
   readonly status?: number;
   /** The provider's machine-readable error code, when the response had one. */
@@ -62,30 +62,30 @@ export class SystemOneError extends Error {
 
   constructor(
     /** What kind of failure this is; branch on it, not on the message. */
-    public readonly code: SystemOneErrorCode,
+    public readonly code: DecisionsErrorCode,
     message: string,
     options: { status?: number; providerCode?: string | number; cause?: unknown } = {},
   ) {
     super(message, { cause: options.cause });
-    this.name = 'SystemOneError';
+    this.name = 'DecisionsError';
     this.status = options.status;
     this.providerCode = options.providerCode;
   }
 
   /**
-   * `instanceof SystemOneError` also holds for an error of another copy of `cap-jev`, as when an application and
+   * `instanceof DecisionsError` also holds for an error of another copy of `cap-decisions`, as when an application and
    * CAP load the package through different paths (seen on Windows) or a provider package brings its own copy.
    * Subclasses keep the usual check.
    */
   static [Symbol.hasInstance](value: unknown): boolean {
     if (Function.prototype[Symbol.hasInstance].call(this, value)) return true;
-    return this === SystemOneError && typeof value === 'object' && value !== null && brand in value;
+    return this === DecisionsError && typeof value === 'object' && value !== null && brand in value;
   }
 }
 
 // A global symbol, so that every copy of the module marks its errors the same way.
-const brand = Symbol.for('cap-jev.SystemOneError');
-Object.defineProperty(SystemOneError.prototype, brand, { value: true });
+const brand = Symbol.for('cap-decisions.DecisionsError');
+Object.defineProperty(DecisionsError.prototype, brand, { value: true });
 
 // Accepts a provider code only when it is a safe integer or a short token, so no message text leaks into `providerCode`.
 export function machineCode(raw: unknown): string | number | undefined {
@@ -97,18 +97,18 @@ export function machineCode(raw: unknown): string | number | undefined {
 // Checks a request against the shape of the API and the provider's limits before anything is sent.
 export function validateRequest(input: unknown, limits: ProviderLimits = {}): asserts input is DecisionRequest {
   if (!record(input) || !content(input.state) || !record(input.questions) || !Object.keys(input.questions).length) {
-    throw new SystemOneError('INVALID_REQUEST', 'state and a non-empty questions map are required');
+    throw new DecisionsError('INVALID_REQUEST', 'state and a non-empty questions map are required');
   }
   if (limits.questions !== undefined && Object.keys(input.questions).length > limits.questions) {
-    throw new SystemOneError('INVALID_REQUEST', `At most ${limits.questions} questions are supported`);
+    throw new DecisionsError('INVALID_REQUEST', `At most ${limits.questions} questions are supported`);
   }
   for (const [id, raw] of Object.entries(input.questions)) {
     if (!id || !record(raw) || !content(raw.instructions)) {
-      throw new SystemOneError('INVALID_REQUEST', 'Each question needs an id and instructions');
+      throw new DecisionsError('INVALID_REQUEST', 'Each question needs an id and instructions');
     }
     const question = raw as Record<string, unknown>;
     if (question.criteria !== undefined && !json(question.criteria)) {
-      throw new SystemOneError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
+      throw new DecisionsError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
     }
     if (question.type === 'choice') {
       if (
@@ -117,7 +117,7 @@ export function validateRequest(input: unknown, limits: ProviderLimits = {}): as
         (limits.choiceOptions !== undefined && Object.keys(question.criteria).length > limits.choiceOptions) ||
         Object.entries(question.criteria).some(([label, value]) => !label || (value !== null && !content(value)))
       ) {
-        throw new SystemOneError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
+        throw new DecisionsError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
       }
     } else if (question.type === 'score') {
       if (
@@ -126,7 +126,7 @@ export function validateRequest(input: unknown, limits: ProviderLimits = {}): as
         (limits.scoreCriteria?.max !== undefined && question.criteria.length > limits.scoreCriteria.max) ||
         !question.criteria.every(content)
       ) {
-        throw new SystemOneError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
+        throw new DecisionsError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
       }
     } else if (question.type === 'noul') {
       if (
@@ -134,10 +134,10 @@ export function validateRequest(input: unknown, limits: ProviderLimits = {}): as
         (!record(question.criteria) ||
           Object.entries(question.criteria).some(([key, value]) => !['true', 'false'].includes(key) || !content(value)))
       ) {
-        throw new SystemOneError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
+        throw new DecisionsError('INVALID_REQUEST', `Invalid criteria for question ${id}`);
       }
     } else {
-      throw new SystemOneError('INVALID_REQUEST', `Unknown question type for ${id}`);
+      throw new DecisionsError('INVALID_REQUEST', `Unknown question type for ${id}`);
     }
   }
 }
@@ -164,7 +164,7 @@ export function isLoopbackHost(hostname: string): boolean {
     octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
   );
 }
-const invalidConfig = (message: string) => new SystemOneError('INVALID_CONFIG', message);
+const invalidConfig = (message: string) => new DecisionsError('INVALID_CONFIG', message);
 
 // Checks the `limits` setting of a kind.
 function validateLimits(limits: unknown): void {
@@ -187,14 +187,14 @@ function validateLimits(limits: unknown): void {
   }
 }
 
-// Checks `cds.requires.systemone`; returns warnings for unknown keys, which providers may extend.
+// Checks `cds.requires.decisions`; returns warnings for unknown keys, which providers may extend.
 export function validateSettings(
   settings: unknown,
   extraKeys: readonly string[] = [],
   extraCredentialKeys: readonly string[] = [],
 ): string[] {
   const values = settings === undefined ? {} : settings;
-  if (!plain(values)) throw invalidConfig('cds.requires.systemone must be an object');
+  if (!plain(values)) throw invalidConfig('cds.requires.decisions must be an object');
   if (Object.hasOwn(values, 'model')) {
     throw invalidConfig('The model setting was renamed to modelId; CAP reads model as the CDS model of a service');
   }
@@ -219,7 +219,7 @@ export function validateSettings(
   for (const key of ['queued', 'outboxed', 'outbox']) {
     if (values[key]) {
       throw invalidConfig(
-        `${key} is not supported: a decision needs an answer, so the systemone service cannot be queued`,
+        `${key} is not supported: a decision needs an answer, so the decisions service cannot be queued`,
       );
     }
   }
@@ -236,7 +236,7 @@ export function validateSettings(
   const known = new Set([...SETTINGS_KEYS, ...CAP_SETTINGS_KEYS, ...extraKeys]);
   return Object.keys(values)
     .filter((key) => !known.has(key))
-    .map((key) => `Unknown setting "${key}" for cds.requires.systemone is ignored`);
+    .map((key) => `Unknown setting "${key}" for cds.requires.decisions is ignored`);
 }
 
 // True when the probabilities cover exactly the labels and add up to 1 (within 0.02).
@@ -264,15 +264,15 @@ export function validateResult(raw: unknown, questions: Questions): asserts raw 
     (raw.usage.output_tokens as number) < 0 ||
     Object.keys(raw.answers).length !== Object.keys(questions).length
   ) {
-    throw new SystemOneError('INVALID_RESPONSE', 'System One response has invalid metadata or answers');
+    throw new DecisionsError('INVALID_RESPONSE', 'Decision response has invalid metadata or answers');
   }
   for (const [id, question] of Object.entries(questions)) {
     const answer = raw.answers[id];
     if (!record(answer) || answer.type !== question.type) {
-      throw new SystemOneError('INVALID_RESPONSE', `Missing or mismatched answer for ${id}`);
+      throw new DecisionsError('INVALID_RESPONSE', `Missing or mismatched answer for ${id}`);
     }
     if (question.type === 'noul') {
-      if (!probability(answer.noul)) throw new SystemOneError('INVALID_RESPONSE', `Invalid noul answer for ${id}`);
+      if (!probability(answer.noul)) throw new DecisionsError('INVALID_RESPONSE', `Invalid noul answer for ${id}`);
     } else if (question.type === 'choice') {
       const labels = Object.keys(question.criteria);
       if (
@@ -281,7 +281,7 @@ export function validateResult(raw: unknown, questions: Questions): asserts raw 
         !distribution(answer.probabilities, labels) ||
         !probability(answer.confidence)
       ) {
-        throw new SystemOneError('INVALID_RESPONSE', `Invalid choice answer for ${id}`);
+        throw new DecisionsError('INVALID_RESPONSE', `Invalid choice answer for ${id}`);
       }
     } else {
       const labels = question.criteria.map((_, index) => String(index));
@@ -295,7 +295,7 @@ export function validateResult(raw: unknown, questions: Questions): asserts raw 
         !distribution(answer.probabilities, labels) ||
         !probability(answer.confidence)
       ) {
-        throw new SystemOneError('INVALID_RESPONSE', `Invalid score answer for ${id}`);
+        throw new DecisionsError('INVALID_RESPONSE', `Invalid score answer for ${id}`);
       }
     }
   }

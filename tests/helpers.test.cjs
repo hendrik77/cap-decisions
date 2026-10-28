@@ -6,20 +6,20 @@ const { createApp, runInApp, removeApp } = require('./helpers/app.cjs');
 
 const root = path.resolve(__dirname, '..');
 
-test('temporary apps resolve the local cap-jev and a single @sap/cds', async () => {
+test('temporary apps resolve the local cap-decisions and a single @sap/cds', async () => {
   const dir = createApp({
     name: 'x',
     private: true,
-    dependencies: { 'cap-jev': '*', '@sap/cds': '*' },
-    cds: { requires: { systemone: { kind: 'systemone-laya' } } },
+    dependencies: { 'cap-decisions': '*', '@sap/cds': '*' },
+    cds: { requires: { decisions: { kind: 'decisions-laya' } } },
   });
   try {
     const result = await runInApp(
       dir,
       `const cds = require('@sap/cds');
        cds.plugins.then(() => console.log(JSON.stringify({
-         kind: cds.env.requires.systemone.kind,
-         resolved: require.resolve('cap-jev'),
+         kind: cds.env.requires.decisions.kind,
+         resolved: require.resolve('cap-decisions'),
          cdsPath: require.resolve('@sap/cds'),
        })));`,
     );

@@ -1,12 +1,12 @@
 {
-  "name": "cap-jev",
-  "version": "0.9.2",
-  "description": "Internal System One decision service for SAP CAP",
+  "name": "cap-decisions",
+  "version": "0.10.0",
+  "description": "CAP plugin for decision models (Jev, Laya, Clef, …). Community project, not affiliated with SAP or TypeSafe.",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "cap-jev-mock": "dist/mock-server-cli.js"
+    "cap-decisions-mock": "dist/mock-server-cli.js"
   },
   "exports": {
     ".": {
@@ -39,14 +39,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hendrik77/cap-jev.git"
+    "url": "https://github.com/hendrik77/cap-decisions.git"
   },
   "keywords": [
     "sap",
     "cap",
-    "system-one",
+    "decisions",
+    "decision-model",
+    "decision-service",
     "jev",
-    "decision-service"
+    "system-one"
   ],
   "author": "Hendrik Neumann",
   "files": [
@@ -96,25 +98,25 @@
   },
   "cds": {
     "requires": {
-      "systemone": {
-        "kind": "systemone-generic",
+      "decisions": {
+        "kind": "decisions-generic",
         "[development]": {
-          "kind": "systemone-mock"
+          "kind": "decisions-mock"
         },
         "[test]": {
-          "kind": "systemone-mock"
+          "kind": "decisions-mock"
         }
       },
       "kinds": {
-        "systemone-defaults": {
-          "impl": "cap-jev",
+        "decisions-defaults": {
+          "impl": "cap-decisions",
           "timeoutMs": 10000
         },
-        "systemone-generic": {
-          "kind": "systemone-defaults"
+        "decisions-generic": {
+          "kind": "decisions-defaults"
         },
-        "systemone-typesafe": {
-          "kind": "systemone-defaults",
+        "decisions-typesafe": {
+          "kind": "decisions-defaults",
           "modelId": "jev-latest",
           "requiresToken": true,
           "limits": {
@@ -128,9 +130,9 @@
             "url": "https://api.typesafe.ai/v1/systemone"
           }
         },
-        "systemone-subq": {
-          "kind": "systemone-defaults",
-          "impl": "cap-jev/providers/subq",
+        "decisions-subq": {
+          "kind": "decisions-defaults",
+          "impl": "cap-decisions/providers/subq",
           "modelId": "subq-snap-preview",
           "requiresToken": true,
           "limits": {
@@ -145,21 +147,21 @@
             "url": "https://api.subq.ai/v1/systemone"
           }
         },
-        "systemone-cloudflare": {
-          "kind": "systemone-defaults",
-          "impl": "cap-jev/providers/cloudflare",
+        "decisions-cloudflare": {
+          "kind": "decisions-defaults",
+          "impl": "cap-decisions/providers/cloudflare",
           "modelId": "clef",
           "requiresToken": true,
           "limits": {
             "questions": 64
           }
         },
-        "systemone-mock": {
-          "kind": "systemone-defaults",
-          "impl": "cap-jev/providers/mock"
+        "decisions-mock": {
+          "kind": "decisions-defaults",
+          "impl": "cap-decisions/providers/mock"
         },
-        "systemone-laya": {
-          "kind": "systemone-defaults",
+        "decisions-laya": {
+          "kind": "decisions-defaults",
           "limits": {
             "choiceOptions": 100
           },

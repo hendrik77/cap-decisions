@@ -12,20 +12,20 @@ const execFileAsync = promisify(execFile);
 const root = path.resolve(__dirname, '..');
 
 // The kit runs against the built-in kinds that talk to a server. Each call registers its own describe block.
-for (const kind of ['systemone-generic', 'systemone-laya', 'systemone-typesafe']) {
+for (const kind of ['decisions-generic', 'decisions-laya', 'decisions-typesafe']) {
   testProviderKind({ kind, packageDir: root });
 }
 
 // SubQ speaks the Jev protocol, but reports errors as { detail: { error_type, message } }.
 testProviderKind({
-  kind: 'systemone-subq',
+  kind: 'decisions-subq',
   packageDir: root,
   encodeError: ({ code, status, message }) => ({ status, body: { detail: { error_type: code, message } } }),
 });
 
 // Cloudflare wraps the answer in an envelope and reports errors as { success: false, errors: [{ code }] }.
 testProviderKind({
-  kind: 'systemone-cloudflare',
+  kind: 'decisions-cloudflare',
   packageDir: root,
   encode: (response) => ({ success: true, errors: [], result: response }),
   encodeError: ({ code, status, message }) => ({
@@ -38,11 +38,11 @@ describe('the kit itself', () => {
   test('rejects options without a kind or with unknown options', () => {
     assert.throws(() => testProviderKind({}), /kind/);
     assert.throws(() => testProviderKind(undefined), /options/);
-    assert.throws(() => testProviderKind({ kind: 'systemone-generic', encode: 'no' }), /encode/);
-    assert.throws(() => testProviderKind({ kind: 'systemone-generic', unknown: true }), /unknown/);
+    assert.throws(() => testProviderKind({ kind: 'decisions-generic', encode: 'no' }), /encode/);
+    assert.throws(() => testProviderKind({ kind: 'decisions-generic', unknown: true }), /unknown/);
   });
 
-  test('requiring cap-jev/testing does not load @sap/cds', async () => {
+  test('requiring cap-decisions/testing does not load @sap/cds', async () => {
     const script = `
       require(${JSON.stringify(path.join(root, 'dist/testing.js'))});
       const loaded = Object.keys(require.cache).filter((file) => file.includes('@sap/cds'));
@@ -51,13 +51,13 @@ describe('the kit itself', () => {
     assert.deepEqual(JSON.parse(stdout), []);
   });
 
-  test('is exported as cap-jev/testing with types', () => {
+  test('is exported as cap-decisions/testing with types', () => {
     const pkg = require('../package.json');
     assert.deepEqual(pkg.exports['./testing'], {
       types: './dist/testing.d.ts',
       default: './dist/testing.js',
     });
-    assert.equal(typeof require('cap-jev/testing').testProviderKind, 'function');
+    assert.equal(typeof require('cap-decisions/testing').testProviderKind, 'function');
   });
 
   test('cds-plugin.js does not load dist/testing.js', async () => {
@@ -72,16 +72,16 @@ describe('the kit itself', () => {
 });
 
 const GOOD_UNWRAP = `if (typeof payload !== 'object' || !payload || !('data' in payload)) {
-      throw new SystemOneError('INVALID_RESPONSE', 'missing data');
+      throw new DecisionsError('INVALID_RESPONSE', 'missing data');
     }
     return payload.data;`;
 
 // A provider package in a temporary directory, with the symlinks a development install has.
-// `plugin` is the content of its cds-plugin.js; `cds` and `capJev` are 'link' (the real package, as installed),
+// `plugin` is the content of its cds-plugin.js; `cds` and `capDecisions` are 'link' (the real package, as installed),
 // 'fake' (an empty package that is not the real one) or 'none'; `named: false` leaves out the package name.
 function writeProvider({ unwrap, plugin = '// CAP discovers the package through this file.\n', ...layout }) {
-  const { cds = 'link', capJev = 'link', named = true } = layout;
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-provider-')));
+  const { cds = 'link', capDecisions = 'link', named = true } = layout;
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-provider-')));
   const write = (file, content) => {
     fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
     fs.writeFileSync(path.join(dir, file), content);
@@ -89,16 +89,16 @@ function writeProvider({ unwrap, plugin = '// CAP discovers the package through 
   write(
     'package.json',
     JSON.stringify({
-      ...(named ? { name: 'cap-jev-provider-kit-test' } : {}),
+      ...(named ? { name: 'cap-decisions-provider-kit-test' } : {}),
       version: '0.0.0',
       private: true,
       main: 'srv/service.js',
       cds: {
         requires: {
           kinds: {
-            'systemone-kit-test': {
-              kind: 'systemone-defaults',
-              impl: 'cap-jev-provider-kit-test',
+            'decisions-kit-test': {
+              kind: 'decisions-defaults',
+              impl: 'cap-decisions-provider-kit-test',
               requiresToken: true,
               limits: { choiceOptions: 5 },
             },
@@ -110,8 +110,8 @@ function writeProvider({ unwrap, plugin = '// CAP discovers the package through 
   write('cds-plugin.js', plugin);
   write(
     'srv/service.js',
-    `const { SystemOneService, SystemOneError } = require('cap-jev');
-class KitTestService extends SystemOneService {
+    `const { DecisionsService, DecisionsError } = require('cap-decisions');
+class KitTestService extends DecisionsService {
   unwrap(payload) {
     ${unwrap}
   }
@@ -121,8 +121,8 @@ module.exports = KitTestService;
   );
   fs.mkdirSync(path.join(dir, 'node_modules/@sap'), { recursive: true });
   const fake = (name) => write(`node_modules/${name}/package.json`, JSON.stringify({ name, version: '0.0.0' }));
-  if (capJev === 'link') fs.symlinkSync(root, path.join(dir, 'node_modules/cap-jev'), 'dir');
-  else fake('cap-jev');
+  if (capDecisions === 'link') fs.symlinkSync(root, path.join(dir, 'node_modules/cap-decisions'), 'dir');
+  else fake('cap-decisions');
   if (cds === 'link') {
     fs.symlinkSync(
       fs.realpathSync(path.join(root, 'node_modules/@sap/cds')),
@@ -134,7 +134,7 @@ module.exports = KitTestService;
     'test/provider.test.cjs',
     `const { testProviderKind } = require(${JSON.stringify(path.join(root, 'dist/testing.js'))});
 testProviderKind({
-  kind: process.env.KIT_KIND || 'systemone-kit-test',
+  kind: process.env.KIT_KIND || 'decisions-kit-test',
   packageDir: ${JSON.stringify(dir)},
   ...(process.env.KIT_NO_ENCODE ? {} : { encode: (response) => ({ data: response }) }),
   ...(process.env.KIT_ENCODE_THROWS
@@ -200,9 +200,9 @@ describe('a provider package', () => {
   test('an unknown kind fails with a readable message', async () => {
     const dir = writeProvider({ unwrap: GOOD_UNWRAP });
     try {
-      const result = await runTests(dir, { KIT_KIND: 'systemone-does-not-exist' });
+      const result = await runTests(dir, { KIT_KIND: 'decisions-does-not-exist' });
       assert.notEqual(result.code, 0, result.output);
-      assert.match(result.output, /systemone-does-not-exist is not a known kind/);
+      assert.match(result.output, /decisions-does-not-exist is not a known kind/);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -211,16 +211,16 @@ describe('a provider package', () => {
   test('runs in an existing app with appDir', async () => {
     const dir = writeProvider({ unwrap: GOOD_UNWRAP });
     const app = createApp(
-      { name: 'kit-app', private: true, dependencies: { 'cap-jev-provider-kit-test': '*' } },
+      { name: 'kit-app', private: true, dependencies: { 'cap-decisions-provider-kit-test': '*' } },
       {},
-      { links: { 'cap-jev-provider-kit-test': dir } },
+      { links: { 'cap-decisions-provider-kit-test': dir } },
     );
     try {
       fs.writeFileSync(
         path.join(dir, 'test/provider.test.cjs'),
         `const { testProviderKind } = require(${JSON.stringify(path.join(root, 'dist/testing.js'))});
 testProviderKind({
-  kind: 'systemone-kit-test',
+  kind: 'decisions-kit-test',
   appDir: ${JSON.stringify(app)},
   encode: (response) => ({ data: response }),
 });
@@ -266,7 +266,7 @@ describe('the kit reports a package that is set up wrongly', () => {
   test('two copies of @sap/cds', () => failsWith({ cds: 'fake' }, /Two copies of @sap\/cds would be loaded/));
 
   test('no @sap/cds anywhere', () =>
-    failsWith({ cds: 'none', capJev: 'fake' }, /@sap\/cds cannot be resolved from .* or from cap-jev/));
+    failsWith({ cds: 'none', capDecisions: 'fake' }, /@sap\/cds cannot be resolved from .* or from cap-decisions/));
 
   test('a CAP process that crashes while it starts reports its error output', () =>
     failsWith(
@@ -318,13 +318,13 @@ childProcess.spawn = (...args) => {
 describe('the kit validates its options', () => {
   test('packageDir, appDir, settings and credentials must have the right type', () => {
     assert.throws(
-      () => testProviderKind({ kind: 'systemone-generic', packageDir: 5 }),
+      () => testProviderKind({ kind: 'decisions-generic', packageDir: 5 }),
       /packageDir must be a directory/,
     );
-    assert.throws(() => testProviderKind({ kind: 'systemone-generic', appDir: '' }), /appDir must be a directory/);
-    assert.throws(() => testProviderKind({ kind: 'systemone-generic', settings: [] }), /settings must be an object/);
+    assert.throws(() => testProviderKind({ kind: 'decisions-generic', appDir: '' }), /appDir must be a directory/);
+    assert.throws(() => testProviderKind({ kind: 'decisions-generic', settings: [] }), /settings must be an object/);
     assert.throws(
-      () => testProviderKind({ kind: 'systemone-generic', credentials: 'x' }),
+      () => testProviderKind({ kind: 'decisions-generic', credentials: 'x' }),
       /credentials must be an object/,
     );
   });

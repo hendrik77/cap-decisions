@@ -10,7 +10,7 @@ Written on 2026-10-21 against `main` at v0.8.0 (`718296f`). It continues the [0.
 - [How the work is done](#how-the-work-is-done)
 - [0.9.0: stable surface, SubQ Snap, provider test kit, coverage](#090-stable-surface-subq-snap-provider-test-kit-coverage)
 - [0.9.1: reviews](#091-reviews)
-- [0.9.2: release candidate and acceptance](#092-release-candidate-and-acceptance)
+- [0.10.x: release candidate and acceptance](#010x-release-candidate-and-acceptance)
 - [1.0.0: npm publication](#100-npm-publication)
 - [Later](#later)
 - [Progress](#progress)
@@ -198,7 +198,7 @@ Each accepted finding is fixed red-green in its own commit. The release follows 
 
 The fixes are grouped into tasks for H9, done in this order: A transport and service hooks, B service settings and destinations, C mock, mock server and kit, D release check and CI, E documentation and JSDoc. The last column names the commit once a fix is in. The H7 checklist items not listed here were found fine as they are: the mock server binds to loopback by default, compares a SHA-256 digest of the token with `timingSafeEqual` and limits bodies to 1 MiB; `cds add systemone` writes only its four files below `cds.root` and checks the profile name against `[A-Za-z0-9_-]+`; `cds-plugin.js` catches every error of the facet registration; the workflows have `contents: read` by default and `contents: write` only for the release job, and use `$GITHUB_REF_NAME` through the environment, not through expression interpolation in scripts. The `security-review` skill reviews a diff, and the branch had none, so the checklist was worked through by hand.
 
-## 0.9.2: release candidate and acceptance
+## 0.10.x: release candidate and acceptance
 
 Goal: everything that 1.0.0 needs is in place and verified against the real models, except the publication itself.
 
@@ -208,13 +208,13 @@ Before 1.0.0, each of the five targets passes a full acceptance run. The maintai
 
 | Target | Kind | Model | The maintainer provides |
 | --- | --- | --- | --- |
-| TypeSafe Jev | `systemone-typesafe` | `jev-latest` | a TypeSafe API token |
-| Cloudflare Clef | `systemone-cloudflare` | `clef` | `accountId` and a token with only Workers AI Read and Edit |
-| Local Laya | `systemone-laya` | the server's | a Laya server on `127.0.0.1:8000` |
-| Local Jev model | `systemone-generic` with `credentials.url` | the server's | a Jev-compatible server running on the machine |
-| SubQ Snap | `systemone-subq` (H2) | `subq-snap-preview` | a SubQ API key with credits (a request without credits fails with 402) |
+| TypeSafe Jev | `decisions-typesafe` | `jev-latest` | a TypeSafe API token |
+| Cloudflare Clef | `decisions-cloudflare` | `clef` | `accountId` and a token with only Workers AI Read and Edit |
+| Local Laya | `decisions-laya` | the server's | a Laya server on `127.0.0.1:8000` |
+| Local Jev model | `decisions-generic` with `credentials.url` | the server's | a Jev-compatible server running on the machine |
+| SubQ Snap | `decisions-subq` (H2) | `subq-snap-preview` | a SubQ API key with credits (a request without credits fails with 402) |
 
-1. *agent*, red-green: `scripts/acceptance.cjs` (not in the package). `node scripts/acceptance.cjs --kind <kind> --archive <cap-jev-x.y.z.tgz> [--url <url>]` creates a fresh app, installs the archive, runs `cds add systemone --kind <kind>`, takes the token from the environment variable `CAP_JEV_ACCEPTANCE_TOKEN` (never from an argument, never printed) and runs the checks in the production profile:
+1. *agent*, red-green: `scripts/acceptance.cjs` (not in the package). `node scripts/acceptance.cjs --kind <kind> --archive <cap-decisions-x.y.z.tgz> [--url <url>]` creates a fresh app, installs the archive, runs `cds add decisions --kind <kind>`, takes the token from the environment variable `CAP_DECISIONS_ACCEPTANCE_TOKEN` (never from an argument, never printed) and runs the checks in the production profile:
    - connecting validates the settings; a missing token fails with `INVALID_CONFIG` (token kinds);
    - `choice`, `score` and `noul` answers come back typed: the choice is one of the offered labels, the score is in range, `noul` has its fields;
    - several questions in one request;
@@ -225,31 +225,41 @@ Before 1.0.0, each of the five targets passes a full acceptance run. The maintai
    - the example app's handler end to end: a refund ticket is routed;
    - the latency of each call.
 
-   It prints one line per check (`pass`, `fail` or `skipped` with the reason) and ends with a Markdown result block. Its own tests in `tests/acceptance-script.test.cjs` run it against `cap-jev-mock` for all five kinds (`--format cloudflare` for Cloudflare, `--token` for the token kinds), so the script is tested before anyone runs it against a real model.
+   It prints one line per check (`pass`, `fail` or `skipped` with the reason) and ends with a Markdown result block. Its own tests in `tests/acceptance-script.test.cjs` run it against `cap-decisions-mock` for all five kinds (`--format cloudflare` for Cloudflare, `--token` for the token kinds), so the script is tested before anyone runs it against a real model.
 
-2. *agent*: `docs/acceptance.md`: the prerequisites per target (accounts, tokens and their permissions, how to start Laya and a local Jev server), the commands, what each check shows, and one result table per target: date, `cap-jev` archive, CAP and Node versions, model or server version, result, notes.
-3. *user*: run all five against the 0.9.2 archive and paste the output into the session; the main session records it in `docs/acceptance.md`.
-4. A failure caused by `cap-jev` becomes a finding, fixed red-green in 0.9.3, and the affected runs are repeated on 0.9.3. A provider difference (another limit, another error format, a model that answers outside the offered labels) changes the kind's settings or is documented in the README. Runs that are older than a change to the transport, the validation or a kind are repeated.
+2. *agent*: `docs/acceptance.md`: the prerequisites per target (accounts, tokens and their permissions, how to start Laya and a local Jev server), the commands, what each check shows, and one result table per target: date, `cap-decisions` archive, CAP and Node versions, model or server version, result, notes.
+3. *user*: run all five against the 0.10.x archive and paste the output into the session; the main session records it in `docs/acceptance.md`.
+4. A failure caused by `cap-decisions` becomes a finding, fixed red-green in the next patch release, and the affected runs are repeated on it. A provider difference (another limit, another error format, a model that answers outside the offered labels) changes the kind's settings or is documented in the README. Runs that are older than a change to the transport, the validation or a kind are repeated.
 5. 1.0.0 is released only when all five runs pass on the release candidate that becomes 1.0.0. If a target is unavailable, 1.0.0 waits.
 
 ### H11 Publication readiness (*agent*, *main*)
 
 1. `package.json`: `homepage` and `bugs`; check `files`, `exports`, `bin`, `engines`, the peer range from H1.
 2. The release workflow runs `npm publish --dry-run` after `npm pack`, so the publication step is exercised on every release before 1.0.0.
-3. Decide the publication method in ADR `docs/decisions/0008-npm-publication.md`: npm trusted publishing from GitHub Actions (OIDC, no long-lived token, provenance automatic) or an npm token secret with `npm publish --provenance`. Recommended: trusted publishing.
-4. *user*: create the npm account or organisation, reserve the name with the chosen method, and configure the trusted publisher (repository, workflow file `release.yml`).
+3. Decide the publication method in ADR `docs/decisions/0009-npm-publication.md`: npm trusted publishing from GitHub Actions (OIDC, no long-lived token, provenance automatic) or an npm token secret with `npm publish --provenance`. Recommended: trusted publishing.
+4. *user*: create the npm account or organisation and configure the trusted publisher (repository, workflow file `release.yml`). Reserving the name takes a first publication, so it waits for the user acceptance test (H13) like every other publication.
 
-### H12 Release 0.9.2 (*main*)
+### H12 Release candidate 0.10.x (*main*)
 
-The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.9.0 again from the published archive, and `npm publish --dry-run` in the workflow log. Then the acceptance runs of H10 on the published 0.9.2 archive.
+The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.10.0 again from the published archive, and `npm publish --dry-run` in the workflow log. Then the acceptance runs of H10 on the published archive.
 
 ## 1.0.0: npm publication
 
-- All five acceptance runs in `docs/acceptance.md` pass on the release candidate that becomes 1.0.0 (H10).
-- ADRs 0006, 0007 and 0008 accepted; the README's stability table matches ADR 0006; semantic versioning applies from here.
+### H13 User acceptance test (*user*)
+
+A separate step after the acceptance runs of H10 and before anything is published to npm. The maintainer tests the release candidate that becomes 1.0.0 in their own way and decides the scope; H10's script and checklist are not required for it. The results go into `docs/acceptance.md`, in a section of their own.
+
+1. *user*: run the user acceptance test on the release candidate's GitHub archive, after all five runs of H10 have passed on it.
+2. A failure caused by `cap-decisions` becomes a finding, fixed red-green in a new release candidate; H10's affected runs and the user acceptance test are repeated on it.
+3. Nothing is published to npm, not even to reserve the name, until the maintainer has signed off the user acceptance test in the session. Until then the release workflow only runs `npm publish --dry-run` (H11).
+
+### Publication
+
+- All five acceptance runs in `docs/acceptance.md` pass on the release candidate that becomes 1.0.0 (H10), and the maintainer has signed off the user acceptance test on it (H13).
+- ADRs 0006, 0007, 0008 and 0009 accepted; the README's stability table matches ADR 0006; semantic versioning applies from here.
 - The release workflow publishes with the method from H11, with provenance; the release archives stay attached to GitHub releases.
-- The install instructions switch to `npm add cap-jev`, or `cds add systemone -p cap-jev`, which installs and configures in one step; `release:check` checks the npm instructions instead of the archive URLs.
-- Smoke test: `npm add cap-jev` in a fresh app, `cds add systemone`, development on the mock, production through `npx cap-jev-mock`, and `npm view cap-jev` shows the provenance.
+- The install instructions switch to `npm add cap-decisions`, or `cds add decisions -p cap-decisions`, which installs and configures in one step; `release:check` checks the npm instructions instead of the archive URLs.
+- Smoke test: `npm add cap-decisions` in a fresh app, `cds add decisions`, development on the mock, production through `npx cap-decisions-mock`, and `npm view cap-decisions` shows the provenance.
 
 ## Later
 
@@ -258,7 +268,7 @@ The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.9.0 again 
 - Images in a request (`images`, which SubQ Snap accepts; see H2): a request field, a kind setting that says whether the provider accepts them, and limits for their number and size.
 - Separate provider packages (ADR 0001, option D), when a provider needs heavy dependencies.
 - The mock refusing `credentials.url` without a `kind` in development, if the warning proves insufficient.
-- `cds add systemone` for `.cdsrc.json` projects and for credentials beyond the token (such as Cloudflare's `accountId`), if needed.
+- `cds add decisions` for `.cdsrc.json` projects and for credentials beyond the token (such as Cloudflare's `accountId`), if needed.
 - Coverage of child processes (`NODE_V8_COVERAGE` merged with `c8`), if the command-line files need it.
 
 ## Progress
@@ -273,8 +283,10 @@ The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.9.0 again 
 | H6–H8 | Done on 2026-10-23: 30 findings (F1–F30), 21 to fix, 9 accepted |
 | H9 | Done: F1–F21 fixed red-green, one commit each; 678 tests (657 pass, 21 skipped, 0 fail) on CAP 10.1.1 and CAP 9.9.4; coverage 99.0 / 96.3 / 98.1 |
 | Release 0.9.1 | Released on 2026-10-23 (PR #11, merge `f1f010d`, tag `v0.9.1`, release workflow run 39947217412). Smoke test from the published archive: the provider package runs the kit (14 pass, 4 skipped, 0 fail); `cds add systemone --kind systemone-subq` works; development answers from the mock; production with the empty token fails with `INVALID_CONFIG`. ADR 0006 and ADR 0007 still wait for the maintainer's review |
-| Release 0.9.2 | Feedback of issue #12 (F31–F37) and the Windows CI job (F38), released as 0.9.2 on 2026-10-27. The release candidate and acceptance work of the section [0.9.2](#092-release-candidate-and-acceptance) moves after the rename to `cap-decisions` (0.10.0), decided by the maintainer on 2026-10-27 |
-| H10–H12 | Open |
+| Release 0.9.2 | Feedback of issue #12 (F31–F37) and the Windows CI job (F38), released as 0.9.2 on 2026-10-27. The release candidate and acceptance work of the section [0.10.x](#010x-release-candidate-and-acceptance) moves after the rename to `cap-decisions` (0.10.0), decided by the maintainer on 2026-10-27 |
+| Rename 0.10.0 | `cap-jev` becomes `cap-decisions`: package, service `decisions`, kinds `decisions-<x>`, types `Decisions…`; the wire format stays (ADR 0008). The npm publication ADR becomes 0009 |
+| H10–H12 | Open, on 0.10.x |
+| H13 | Open: user acceptance test before any npm publication, added on 2026-10-28 at the maintainer's request |
 
 ## Blocked tests
 

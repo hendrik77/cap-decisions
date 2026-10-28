@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { parseMockOptions, loadFixtures, mockDecision, DEFAULT_FIXTURES } = require('../dist/providers/mock-core');
 const { mockResult } = require('../dist/providers/mock-engine');
-const { SystemOneError } = require('../dist/validation');
+const { DecisionsError } = require('../dist/validation');
 
 const request = {
   state: 'I was billed twice. Please refund me.',
@@ -21,13 +21,13 @@ const request = {
 };
 
 const invalidConfig = (message) => (error) => {
-  assert.ok(error instanceof SystemOneError);
+  assert.ok(error instanceof DecisionsError);
   assert.equal(error.code, 'INVALID_CONFIG');
   assert.match(error.message, message);
   return true;
 };
 const failsWith = (code, status) => (error) => {
-  assert.ok(error instanceof SystemOneError);
+  assert.ok(error instanceof DecisionsError);
   assert.equal(error.code, code);
   if (status !== undefined) assert.equal(error.status, status);
   return true;
@@ -88,19 +88,19 @@ describe('parseMockOptions', () => {
   test('rejects an unknown fail code and HTTP_ERROR without status with messages for the setting', () => {
     assert.throws(
       () => parseMockOptions({ fail: 'BOOM' }),
-      invalidConfig(/^cds\.requires\.systemone\.fail: code must be one of INVALID_RESPONSE, HTTP_ERROR/),
+      invalidConfig(/^cds\.requires\.decisions\.fail: code must be one of INVALID_RESPONSE, HTTP_ERROR/),
     );
     assert.throws(
       () => parseMockOptions({ fail: { code: 'HTTP_ERROR' } }),
-      invalidConfig(/^cds\.requires\.systemone\.fail: HTTP_ERROR needs a status from 400 to 599$/),
+      invalidConfig(/^cds\.requires\.decisions\.fail: HTTP_ERROR needs a status from 400 to 599$/),
     );
     assert.throws(
       () => parseMockOptions({ fail: { status: 503 } }),
-      invalidConfig(/^cds\.requires\.systemone\.fail needs a code$/),
+      invalidConfig(/^cds\.requires\.decisions\.fail needs a code$/),
     );
     assert.throws(
       () => parseMockOptions({ fail: { code: 'TIMEOUT', status: 503 } }),
-      invalidConfig(/^cds\.requires\.systemone\.fail: status only goes with HTTP_ERROR$/),
+      invalidConfig(/^cds\.requires\.decisions\.fail: status only goes with HTTP_ERROR$/),
     );
   });
 });
@@ -119,7 +119,7 @@ describe('loadFixtures', () => {
   test.after(() => dirs.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })));
 
   test('exports the default path', () => {
-    assert.equal(DEFAULT_FIXTURES, 'test/data/systemone.json');
+    assert.equal(DEFAULT_FIXTURES, 'test/data/decisions.json');
   });
 
   test('a missing default file gives no rules', async () => {

@@ -13,7 +13,7 @@ async function inApp(credentials, body) {
   const dir = createApp({
     name: 'subq-app',
     private: true,
-    cds: { requires: { systemone: { kind: 'systemone-subq', credentials } } },
+    cds: { requires: { decisions: { kind: 'decisions-subq', credentials } } },
   });
   const script = `
     const cds = require('@sap/cds');
@@ -24,7 +24,7 @@ async function inApp(credentials, body) {
     (async () => {
       await cds.plugins;
       try {
-        const srv = await cds.connect.to('systemone');
+        const srv = await cds.connect.to('decisions');
         ${body}
       } catch (e) { out({ error: e.code || e.name, message: e.message, status: e.status, providerCode: e.providerCode }); }
     })().catch((e) => { console.error(e); process.exit(1); });`;

@@ -1,4 +1,4 @@
-import type { MockSettings, SystemOneSettings } from '../src';
+import type { MockSettings, DecisionsSettings } from '../src';
 import MockService, { MockService as NamedMockService } from '../src/providers/mock';
 
 export const full: MockSettings = {
@@ -12,11 +12,11 @@ export const full: MockSettings = {
 };
 export const detailedFail: MockSettings = { fail: { code: 'HTTP_ERROR', status: 503, providerCode: 'overloaded' } };
 export const empty: MockSettings = {};
-export const asBase: SystemOneSettings = full;
+export const asBase: DecisionsSettings = full;
 
 // @ts-expect-error The strategy is limited to keywords and seeded.
 export const wrongStrategy: MockSettings = { strategy: 'random' };
-// @ts-expect-error fail takes a System One error code.
+// @ts-expect-error fail takes a decision error code.
 export const wrongFail: MockSettings = { fail: 'UNKNOWN' };
 // @ts-expect-error latencyMs is a number.
 export const wrongLatency: MockSettings = { latencyMs: '50' };

@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
-import type { DecisionRequest, SystemOneCredentials, SystemOneSettings } from './types';
-import { MAX_TIMEOUT_MS, SystemOneError, isInvalidHeaderValue, isLoopbackHost, machineCode } from './validation';
+import type { DecisionRequest, DecisionsCredentials, DecisionsSettings } from './types';
+import { MAX_TIMEOUT_MS, DecisionsError, isInvalidHeaderValue, isLoopbackHost, machineCode } from './validation';
 
 const MAX_RETRIES = 2;
 const RETRY_STATUSES = new Set([429, 502, 503, 504, 529]);
@@ -9,7 +9,7 @@ const MAX_RESPONSE_BYTES = 1024 * 1024;
 const optionalRequire = createRequire(__filename);
 
 /** The destination resolver threw; the destination itself may be fine, so the next call resolves it again. */
-export class DestinationResolveError extends SystemOneError {}
+export class DestinationResolveError extends DecisionsError {}
 
 export interface ResolvedDestination {
   url?: string;
@@ -18,7 +18,7 @@ export interface ResolvedDestination {
 export type DestinationResolver = (name: string) => Promise<ResolvedDestination | null>;
 
 export interface TransportHooks {
-  endpoint(credentials: SystemOneCredentials): string | undefined;
+  endpoint(credentials: DecisionsCredentials): string | undefined;
   unwrap(payload: unknown): unknown;
   errorCode(payload: unknown): string | number | undefined;
 }
@@ -29,10 +29,10 @@ export interface TransportOptions {
 }
 
 // Names why a request stopped: the caller's own signal means ABORTED, otherwise the deadline passed (TIMEOUT).
-function interruption(signal: AbortSignal, caller?: AbortSignal, cause?: unknown): SystemOneError {
+function interruption(signal: AbortSignal, caller?: AbortSignal, cause?: unknown): DecisionsError {
   if (caller?.aborted)
-    return new SystemOneError('ABORTED', 'System One request was cancelled', { cause: cause ?? caller.reason });
-  return new SystemOneError('TIMEOUT', 'System One request timed out', { cause: cause ?? signal.reason });
+    return new DecisionsError('ABORTED', 'Decision request was cancelled', { cause: cause ?? caller.reason });
+  return new DecisionsError('TIMEOUT', 'Decision request timed out', { cause: cause ?? signal.reason });
 }
 
 // Waits between retries, but ends early with ABORTED or TIMEOUT so a backoff never outlives the request's deadline.
@@ -80,16 +80,16 @@ function endpoint(url: string | undefined, authorized: boolean): URL {
   try {
     parsed = new URL(url ?? '');
   } catch (error) {
-    throw new SystemOneError('INVALID_CONFIG', 'A complete endpoint URL is required', { cause: error });
+    throw new DecisionsError('INVALID_CONFIG', 'A complete endpoint URL is required', { cause: error });
   }
   if (!['https:', 'http:'].includes(parsed.protocol) || !parsed.host) {
-    throw new SystemOneError('INVALID_CONFIG', 'Endpoint URL must use HTTP or HTTPS');
+    throw new DecisionsError('INVALID_CONFIG', 'Endpoint URL must use HTTP or HTTPS');
   }
   if (parsed.username || parsed.password) {
-    throw new SystemOneError('INVALID_CONFIG', 'Endpoint URL must not contain user name or password');
+    throw new DecisionsError('INVALID_CONFIG', 'Endpoint URL must not contain user name or password');
   }
   if (authorized && parsed.protocol === 'http:' && !isLoopbackHost(parsed.hostname)) {
-    throw new SystemOneError('INVALID_CONFIG', 'Token requires HTTPS or a loopback endpoint');
+    throw new DecisionsError('INVALID_CONFIG', 'Token requires HTTPS or a loopback endpoint');
   }
   return parsed;
 }
@@ -125,12 +125,12 @@ async function retryNetworkFailure(
 ): Promise<void> {
   if (signal.aborted || Date.now() >= deadlineAt) throw interruption(signal, caller, error);
   if (attempt === MAX_RETRIES) {
-    throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
+    throw new DecisionsError('NETWORK_ERROR', 'Decision request failed', { cause: error });
   }
   // Like HTTP failures, a retry that does not fit into the remaining time fails at once with its cause.
   const delay = backoff(attempt);
   if (delay >= deadlineAt - Date.now()) {
-    throw new SystemOneError('NETWORK_ERROR', 'System One request failed', { cause: error });
+    throw new DecisionsError('NETWORK_ERROR', 'Decision request failed', { cause: error });
   }
   await pause(delay, signal, caller);
 }
@@ -191,7 +191,7 @@ function errorType(payload: unknown): string | number | undefined {
  * The HTTP side of every provider: resolves the endpoint (fixed URL or BTP destination), sends the POST with the token,
  * and applies the timeout, retries and size limits. Knows no CAP; providers adjust it through `TransportHooks`.
  */
-export class SystemOneTransport {
+export class DecisionsTransport {
   private readonly url?: URL;
   private readonly timeoutMs: number;
   private readonly token?: string;
@@ -201,29 +201,29 @@ export class SystemOneTransport {
   private readonly hooks: Partial<TransportHooks>;
   private readonly destinationResolver?: DestinationResolver;
 
-  constructor(settings: SystemOneSettings, options: TransportOptions = {}) {
+  constructor(settings: DecisionsSettings, options: TransportOptions = {}) {
     this.hooks = options.hooks ?? {};
     this.destinationResolver = options.destinationResolver;
     const credentials = settings.credentials ?? {};
     this.requiresToken = settings.requiresToken === true;
     if (this.requiresToken && !credentials.token && !credentials.destination) {
-      throw new SystemOneError('INVALID_CONFIG', 'This provider requires a token');
+      throw new DecisionsError('INVALID_CONFIG', 'This provider requires a token');
     }
     if (
       credentials.destination !== undefined &&
       (typeof credentials.destination !== 'string' || !credentials.destination.trim())
     ) {
-      throw new SystemOneError('INVALID_CONFIG', 'destination must be a non-empty name');
+      throw new DecisionsError('INVALID_CONFIG', 'destination must be a non-empty name');
     }
     if (!credentials.destination) {
       this.url = endpoint(this.hooks.endpoint?.(credentials) ?? credentials.url, !!credentials.token);
     }
     if (typeof credentials.token === 'string' && isInvalidHeaderValue(credentials.token)) {
-      throw new SystemOneError('INVALID_CONFIG', 'token must contain only visible ASCII characters');
+      throw new DecisionsError('INVALID_CONFIG', 'token must contain only visible ASCII characters');
     }
     this.timeoutMs = settings.timeoutMs as number;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs <= 0 || this.timeoutMs > MAX_TIMEOUT_MS)
-      throw new SystemOneError('INVALID_CONFIG', `timeoutMs must be a positive integer at most ${MAX_TIMEOUT_MS}`);
+      throw new DecisionsError('INVALID_CONFIG', `timeoutMs must be a positive integer at most ${MAX_TIMEOUT_MS}`);
     this.token = credentials.token;
     this.destination = credentials.destination;
     this.modelId = settings.modelId;
@@ -239,14 +239,14 @@ export class SystemOneTransport {
       try {
         sdk = optionalRequire('@sap-cloud-sdk/connectivity');
       } catch (error) {
-        throw new SystemOneError(
+        throw new DecisionsError(
           'INVALID_CONFIG',
           'Install @sap-cloud-sdk/connectivity to use credentials.destination',
           { cause: error },
         );
       }
       if (typeof sdk.getDestination !== 'function') {
-        throw new SystemOneError('INVALID_CONFIG', 'The Cloud SDK does not expose getDestination');
+        throw new DecisionsError('INVALID_CONFIG', 'The Cloud SDK does not expose getDestination');
       }
       resolver = (destinationName) => sdk.getDestination!({ destinationName });
     }
@@ -256,12 +256,12 @@ export class SystemOneTransport {
     } catch (error) {
       throw new DestinationResolveError('INVALID_CONFIG', 'Could not resolve destination', { cause: error });
     }
-    if (!destination) throw new SystemOneError('INVALID_CONFIG', 'Destination was not found');
+    if (!destination) throw new DecisionsError('INVALID_CONFIG', 'Destination was not found');
     const headers: Record<string, string> = {};
     for (const [key, value] of Object.entries(destination.headers ?? {})) {
-      if (typeof value !== 'string') throw new SystemOneError('INVALID_CONFIG', 'Destination headers must be strings');
+      if (typeof value !== 'string') throw new DecisionsError('INVALID_CONFIG', 'Destination headers must be strings');
       if (isInvalidHeaderValue(value)) {
-        throw new SystemOneError(
+        throw new DecisionsError(
           'INVALID_CONFIG',
           `Destination header ${key.toLowerCase()} must contain only visible ASCII characters`,
         );
@@ -271,7 +271,7 @@ export class SystemOneTransport {
     const authorized = !!(headers.authorization || this.token);
     const url = endpoint(destination.url, authorized);
     if (this.requiresToken && !authorized) {
-      throw new SystemOneError('INVALID_CONFIG', 'This provider requires a token');
+      throw new DecisionsError('INVALID_CONFIG', 'This provider requires a token');
     }
     return { url, headers };
   }
@@ -316,9 +316,11 @@ export class SystemOneTransport {
           payload = await errorPayload(response);
         } catch (error) {
           if (signal.aborted) throw interruption(signal, options.signal, error);
-          throw new SystemOneError('INVALID_RESPONSE', 'Failed reading System One error response', { cause: error });
+          throw new DecisionsError('INVALID_RESPONSE', 'Failed reading the error response of the decision provider', {
+            cause: error,
+          });
         }
-        throw new SystemOneError('HTTP_ERROR', `System One returned HTTP ${response.status}`, {
+        throw new DecisionsError('HTTP_ERROR', `Decision provider returned HTTP ${response.status}`, {
           status: response.status,
           providerCode: this.providerCode(payload),
         });
@@ -331,17 +333,17 @@ export class SystemOneTransport {
         await retryNetworkFailure(error, attempt, deadlineAt, signal, options.signal);
         continue;
       }
-      if (text === undefined) throw new SystemOneError('INVALID_RESPONSE', 'System One response is too large');
+      if (text === undefined) throw new DecisionsError('INVALID_RESPONSE', 'Decision response is too large');
       let payload: unknown;
       try {
         payload = JSON.parse(text);
       } catch (error) {
         if (signal.aborted) throw interruption(signal, options.signal, error);
-        throw new SystemOneError('INVALID_RESPONSE', 'System One returned invalid JSON', { cause: error });
+        throw new DecisionsError('INVALID_RESPONSE', 'Decision provider returned invalid JSON', { cause: error });
       }
       return { payload: this.hooks.unwrap?.(payload) ?? payload, attempts: attempt + 1 };
     }
-    throw new SystemOneError('NETWORK_ERROR', 'System One retries exhausted');
+    throw new DecisionsError('NETWORK_ERROR', 'Decision request retries exhausted');
   }
 
   private providerCode(payload: unknown): string | number | undefined {

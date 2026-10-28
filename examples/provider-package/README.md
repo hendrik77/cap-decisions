@@ -1,10 +1,10 @@
-# cap-jev-provider-acme
+# cap-decisions-provider-acme
 
-A minimal provider package for [cap-jev](../../README.md). It shows how a package adds a `systemone-<provider>` kind with its own `SystemOneService` subclass. The package is private and only used by the tests.
+A minimal provider package for [cap-decisions](../../README.md). It shows how a package adds a `decisions-<provider>` kind with its own `DecisionsService` subclass. The package is private and only used by the tests.
 
 Acme wraps the Jev answer in `{ "data": <result> }` and addresses its API by region. The package contributes:
 
-- the kind `systemone-acme` in the `cds` section of `package.json` (`impl` points at this package, token required, at most 20 choice options),
+- the kind `decisions-acme` in the `cds` section of `package.json` (`impl` points at this package, token required, at most 20 choice options),
 - `srv/acme-service.js`, a subclass that overrides `endpoint`, `unwrap` and `init`,
 - `cds-plugin.js`, so that CAP discovers the package configuration.
 
@@ -12,24 +12,24 @@ Acme wraps the Jev answer in `{ "data": <result> }` and addresses its API by reg
 
 ```json
 {
-  "dependencies": { "cap-jev": "^0.9.2", "cap-jev-provider-acme": "^1.0.0" },
+  "dependencies": { "cap-decisions": "^0.10.0", "cap-decisions-provider-acme": "^1.0.0" },
   "cds": {
     "requires": {
-      "systemone": { "kind": "systemone-acme", "credentials": { "region": "eu", "token": "…" } }
+      "decisions": { "kind": "decisions-acme", "credentials": { "region": "eu", "token": "…" } }
     }
   }
 }
 ```
 
-Put the token in a secret source instead of this file (see [Provider configuration](../../README.md#provider-configuration)). With `@sap/cds-dk`, `cds add systemone --kind systemone-acme` selects the package's kind for the `production` profile: it finds `systemone-acme` among the installed kinds, writes it to `cds.requires.systemone["[production]"].kind`, and, because the kind requires a token, adds an empty `credentials.token` to `.cdsrc-private.json` and the `.gitignore` line. Set `credentials.region` yourself. `tests/cds-add.test.cjs` does this with this package.
+Put the token in a secret source instead of this file (see [Provider configuration](../../README.md#provider-configuration)). With `@sap/cds-dk`, `cds add decisions --kind decisions-acme` selects the package's kind for the `production` profile: it finds `decisions-acme` among the installed kinds, writes it to `cds.requires.decisions["[production]"].kind`, and, because the kind requires a token, adds an empty `credentials.token` to `.cdsrc-private.json` and the `.gitignore` line. Set `credentials.region` yourself. `tests/cds-add.test.cjs` does this with this package.
 
 ## Tests
 
-`test/provider.test.cjs` runs the test kit of `cap-jev` (`cap-jev/testing`, experimental) for `systemone-acme`: the checks every kind must pass, with Acme's `{ "data": ... }` wire format as the adapter. The repository's `npm test` runs it; run it alone with `node --test examples/provider-package/test/provider.test.cjs`. See [Testing a provider package](../../docs/providers.md#testing-a-provider-package).
+`test/provider.test.cjs` runs the test kit of `cap-decisions` (`cap-decisions/testing`, experimental) for `decisions-acme`: the checks every kind must pass, with Acme's `{ "data": ... }` wire format as the adapter. The repository's `npm test` runs it; run it alone with `node --test examples/provider-package/test/provider.test.cjs`. See [Testing a provider package](../../docs/providers.md#testing-a-provider-package).
 
 ## Rules for provider packages
 
-- Declare `cap-jev` and `@sap/cds` as peer dependencies, so that the application's single copies are used. A second copy breaks `instanceof` checks and CAP events.
+- Declare `cap-decisions` and `@sap/cds` as peer dependencies, so that the application's single copies are used. A second copy breaks `instanceof` checks and CAP events.
 - When overriding `init()`, call `await super.init()`.
 - Do not reassign `this.on`; register handlers with it as usual.
 - Declare extra service settings in `static settingsKeys` and extra credentials in `static credentialKeys`. Everything else is rejected or logged as unknown.

@@ -1,5 +1,5 @@
 /**
- * The planner of the `cds add systemone` facet. It is pure: it takes the contents of the application's files
+ * The planner of the `cds add decisions` facet. It is pure: it takes the contents of the application's files
  * and the options, and returns the files to write and the messages to print. It imports no CAP code and
  * touches no files, so the facet (`add.ts`) does the reading and writing.
  */
@@ -34,18 +34,18 @@ export interface AddPlan {
 
 type Json = Record<string, unknown>;
 
-const DEFAULT_KIND = 'systemone-laya';
+const DEFAULT_KIND = 'decisions-laya';
 const DEFAULT_PROFILE = 'production';
-const BASE_KIND = 'systemone-defaults';
-const MOCK_IMPL = 'cap-jev/providers/mock';
+const BASE_KIND = 'decisions-defaults';
+const MOCK_IMPL = 'cap-decisions/providers/mock';
 const PROFILE = /^[A-Za-z0-9_-]+$/;
 const PACKAGE_JSON = 'package.json';
 const CDSRC_PRIVATE = '.cdsrc-private.json';
 const GITIGNORE = '.gitignore';
-const FIXTURES = 'test/data/systemone.json';
+const FIXTURES = 'test/data/decisions.json';
 
 const record = (value: unknown): value is Json => typeof value === 'object' && value !== null && !Array.isArray(value);
-const say = (text: string) => `[systemone] ${text}`;
+const say = (text: string) => `[decisions] ${text}`;
 
 // Adds missing keys deeply and never overwrites a value the user set.
 function mergeInto(target: Json, source: Json): Json {
@@ -89,7 +89,7 @@ export function resolveKind(kinds: Record<string, unknown>, name: string): Json 
 
 const isMock = (kinds: Record<string, unknown>, name: string) => resolveKind(kinds, name)?.impl === MOCK_IMPL;
 
-// The kinds `--kind` offers: System One kinds except the base and the mock.
+// The kinds `--kind` offers: decisions kinds except the base and the mock.
 function selectableKinds(kinds: Record<string, unknown>): string[] {
   return Object.keys(kinds)
     .filter((name) => name !== BASE_KIND && kindChain(kinds, name).includes(BASE_KIND) && !isMock(kinds, name))
@@ -103,7 +103,7 @@ function chooseKind(kinds: Record<string, unknown>, kind: unknown): string {
   if (!Object.hasOwn(kinds, kind)) throw new Error(`Unknown kind "${kind}". ${list}`);
   if (kind === BASE_KIND) throw new Error(`The kind "${kind}" only holds shared settings and cannot be used. ${list}`);
   if (isMock(kinds, kind)) throw new Error(`The kind "${kind}" is the mock and cannot be used for a profile. ${list}`);
-  if (!kindChain(kinds, kind).includes(BASE_KIND)) throw new Error(`"${kind}" is not a System One kind. ${list}`);
+  if (!kindChain(kinds, kind).includes(BASE_KIND)) throw new Error(`"${kind}" is not a decisions kind. ${list}`);
   return kind;
 }
 
@@ -159,7 +159,7 @@ function gitignoreText(text: string | undefined): string | undefined {
   return `${existing}${separator}${CDSRC_PRIVATE}${eol}`;
 }
 
-/** The text of the example `test/data/systemone.json`: one fixed answer and one simulated failure. */
+/** The text of the example `test/data/decisions.json`: one fixed answer and one simulated failure. */
 export function exampleFixtures(): string {
   return `[
   {
@@ -186,8 +186,8 @@ function isLocalUrl(url: unknown): boolean {
   }
 }
 
-// Plans `cds add systemone` as data (files to write, messages): no file access, so it can be tested without CAP.
-export function planSystemOne(input: AddInput): AddPlan {
+// Plans `cds add decisions` as data (files to write, messages): no file access, so it can be tested without CAP.
+export function planDecisions(input: AddInput): AddPlan {
   const { kinds, options } = input;
   const profile = chooseProfile(options.for);
   const kind = chooseKind(kinds, options.kind ?? DEFAULT_KIND);
@@ -206,13 +206,13 @@ export function planSystemOne(input: AddInput): AddPlan {
   // package.json: the kind goes into the profile.
   const cds = child(pkg, 'cds', 'cds', PACKAGE_JSON);
   const requires = child(cds, 'requires', 'cds.requires', PACKAGE_JSON);
-  const systemone = child(requires, 'systemone', 'cds.requires.systemone', PACKAGE_JSON);
-  const section = child(systemone, key, `cds.requires.systemone["${key}"]`, PACKAGE_JSON);
+  const decisions = child(requires, 'decisions', 'cds.requires.decisions', PACKAGE_JSON);
+  const section = child(decisions, key, `cds.requires.decisions["${key}"]`, PACKAGE_JSON);
 
-  if (typeof systemone.kind === 'string') {
+  if (typeof decisions.kind === 'string') {
     messages.push(
       say(
-        `cds.requires.systemone.kind is "${systemone.kind}" in ${PACKAGE_JSON}. It applies to every profile and turns off the mock in development and test. Move it into a profile, for example "${key}": { "kind": "${systemone.kind}" }.`,
+        `cds.requires.decisions.kind is "${decisions.kind}" in ${PACKAGE_JSON}. It applies to every profile and turns off the mock in development and test. Move it into a profile, for example "${key}": { "kind": "${decisions.kind}" }.`,
       ),
     );
   }
@@ -247,13 +247,13 @@ export function planSystemOne(input: AddInput): AddPlan {
     const root = cdsrc ?? {};
     const credentials = child(
       child(
-        child(child(root, 'requires', 'requires', CDSRC_PRIVATE), 'systemone', 'requires.systemone', CDSRC_PRIVATE),
+        child(child(root, 'requires', 'requires', CDSRC_PRIVATE), 'decisions', 'requires.decisions', CDSRC_PRIVATE),
         key,
-        `requires.systemone["${key}"]`,
+        `requires.decisions["${key}"]`,
         CDSRC_PRIVATE,
       ),
       'credentials',
-      `requires.systemone["${key}"].credentials`,
+      `requires.decisions["${key}"].credentials`,
       CDSRC_PRIVATE,
     );
     const token = credentials.token;
@@ -283,7 +283,7 @@ export function planSystemOne(input: AddInput): AddPlan {
     }
   }
 
-  // test/data/systemone.json
+  // test/data/decisions.json
   if (options.withFixtures === true) {
     if (input.fixturesExist && !force) {
       messages.push(say(`Kept the existing ${FIXTURES}. Use --force to replace it with the example fixtures.`));
@@ -298,19 +298,19 @@ export function planSystemOne(input: AddInput): AddPlan {
   // Next steps for the kind that is configured now.
   if (configured) {
     // The application's own URL, in the profile or at service level, wins over the kind's.
-    const url = [section, systemone, settings]
+    const url = [section, decisions, settings]
       .map((source) => (record(source.credentials) ? source.credentials.url : undefined))
       .find((value) => typeof value === 'string' && value !== '');
     if (typeof url !== 'string' || !url) {
       messages.push(
         say(
-          `Next: the kind ${kind} has no URL. Set credentials.url under cds.requires.systemone["${key}"] in ${PACKAGE_JSON}.`,
+          `Next: the kind ${kind} has no URL. Set credentials.url under cds.requires.decisions["${key}"] in ${PACKAGE_JSON}.`,
         ),
       );
     } else if (isLocalUrl(url)) {
       messages.push(
         say(
-          `Next: to try it locally, start the mock server with "npx cap-jev-mock" and run your application with CDS_ENV=${profile}.`,
+          `Next: to try it locally, start the mock server with "npx cap-decisions-mock" and run your application with CDS_ENV=${profile}.`,
         ),
       );
     }

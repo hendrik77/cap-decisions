@@ -20,7 +20,7 @@ const npm = (args, options) =>
 
 test('installed package registers an internal CAP service with decide()', { timeout: 300_000 }, async () => {
   const root = path.resolve(__dirname, '..');
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-integration-'));
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-integration-'));
   const fixture = path.join(temp, 'cap-app');
   fs.cpSync(path.join(root, 'examples/cap-app'), fixture, {
     recursive: true,
@@ -67,7 +67,7 @@ test('installed package registers an internal CAP service with decide()', { time
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(fixture, 'package.json')));
-    pkg.cds.requires['systemone'].credentials = { url: `http://127.0.0.1:${server.address().port}/v1/systemone` };
+    pkg.cds.requires['decisions'].credentials = { url: `http://127.0.0.1:${server.address().port}/v1/systemone` };
     pkg.dependencies['@sap/cds'] = `file:${path.join(root, 'node_modules/@sap/cds')}`;
     fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(pkg));
     const pack = npm(['pack', '--ignore-scripts', '--pack-destination', temp], {
@@ -77,7 +77,7 @@ test('installed package registers an internal CAP service with decide()', { time
     });
     assert.equal(pack.status, 0, pack.error?.message ?? pack.stderr);
     const tarball = path.join(temp, pack.stdout.trim().split('\n').at(-1));
-    pkg.dependencies['cap-jev'] = `file:${tarball}`;
+    pkg.dependencies['cap-decisions'] = `file:${tarball}`;
     fs.writeFileSync(path.join(fixture, 'package.json'), JSON.stringify(pkg));
     const install = npm(['install', '--prefer-offline', '--ignore-scripts', '--no-audit', '--no-fund'], {
       cwd: fixture,
@@ -86,9 +86,14 @@ test('installed package registers an internal CAP service with decide()', { time
     });
     assert.equal(install.status, 0, install.error?.message ?? install.stderr);
     // On Windows the bin is a .cmd shim, which spawnSync cannot run without a shell; run its target with node there.
-    const shim = path.join(fixture, 'node_modules', '.bin', windows ? 'cap-jev-mock.cmd' : 'cap-jev-mock');
+    const shim = path.join(fixture, 'node_modules', '.bin', windows ? 'cap-decisions-mock.cmd' : 'cap-decisions-mock');
     assert.ok(fs.existsSync(shim), `missing ${shim}`);
-    const target = path.join(fixture, 'node_modules', 'cap-jev', require('../package.json').bin['cap-jev-mock']);
+    const target = path.join(
+      fixture,
+      'node_modules',
+      'cap-decisions',
+      require('../package.json').bin['cap-decisions-mock'],
+    );
     const bin = spawnSync(windows ? process.execPath : shim, windows ? [target, '--version'] : ['--version'], {
       cwd: fixture,
       encoding: 'utf8',
@@ -100,10 +105,10 @@ test('installed package registers an internal CAP service with decide()', { time
       const cds = require('@sap/cds');
       (async () => {
         await cds.plugins;
-        const service = await cds.connect.to('systemone');
+        const service = await cds.connect.to('decisions');
         if (!(service instanceof cds.Service)) throw new Error('Not a CAP Service');
         const logs = [];
-        cds.log('systemone').debug = (...args) => logs.push(args);
+        cds.log('decisions').debug = (...args) => logs.push(args);
         service.before('decide', request => { if (request.data.state === 'original private state') request.data.state = 'modified private state'; });
         const result = await service.decide({ state: 'original private state', questions: { answer: { type: 'noul', instructions: 'Refund?' } } });
         if (result.answers.answer.noul !== 0.8) throw new Error('Wrong result');
@@ -117,7 +122,7 @@ test('installed package registers an internal CAP service with decide()', { time
         process.stdout.write('ok');
       })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
     `;
-    // The example selects systemone-laya only in production; development uses the mock provider.
+    // The example selects decisions-laya only in production; development uses the mock provider.
     const production = { ...process.env, CDS_ENV: 'production' };
     const run = await execFileAsync(process.execPath, ['-e', script], {
       cwd: fixture,
@@ -131,11 +136,11 @@ test('installed package registers an internal CAP service with decide()', { time
       const cds = require('@sap/cds');
       (async () => {
         await cds.plugins;
-        class Fake extends require('cap-jev').SystemOneService {
+        class Fake extends require('cap-decisions').DecisionsService {
           async init() { this.on('decide', () => ({ model: 'fake', answers: { answer: { type: 'noul', noul: 0.25 } }, usage: { input_tokens: 0, output_tokens: 0 } })); await cds.Service.prototype.init.call(this); }
         }
-        cds.requires.systemone.impl = Fake;
-        const service = await cds.connect.to('systemone');
+        cds.requires.decisions.impl = Fake;
+        const service = await cds.connect.to('decisions');
         const result = await service.decide({ state: 'test', questions: { answer: { type: 'noul', instructions: 'Refund?' } } });
         if (result.answers.answer.noul !== 0.25) throw new Error('Replacement impl was not used');
         process.stdout.write('ok');
@@ -156,8 +161,8 @@ test('installed package registers an internal CAP service with decide()', { time
       const cds = require('@sap/cds');
       (async () => {
         await cds.plugins;
-        cds.requires.systemone.credentials = { url: 'invalid' };
-        try { await cds.connect.to('systemone'); throw new Error('Expected invalid config'); }
+        cds.requires.decisions.credentials = { url: 'invalid' };
+        try { await cds.connect.to('decisions'); throw new Error('Expected invalid config'); }
         catch (error) { if (error.code !== 'INVALID_CONFIG') throw error; }
         process.stdout.write('ok');
       })().catch(error => { process.stderr.write(String(error)); process.exitCode = 1; });
@@ -232,21 +237,24 @@ test('installed package registers an internal CAP service with decide()', { time
     );
     assert.equal(received.length, requestsBefore, 'the mock must not call the fake server');
     // The facet is part of the archive and runs from the installed package.
-    assert.ok(fs.existsSync(path.join(fixture, 'node_modules/cap-jev/dist/add.js')), 'dist/add.js is installed');
-    assert.ok(fs.existsSync(path.join(fixture, 'node_modules/cap-jev/dist/add-core.js')), 'add-core.js is installed');
+    assert.ok(fs.existsSync(path.join(fixture, 'node_modules/cap-decisions/dist/add.js')), 'dist/add.js is installed');
+    assert.ok(
+      fs.existsSync(path.join(fixture, 'node_modules/cap-decisions/dist/add-core.js')),
+      'add-core.js is installed',
+    );
     // The test kit for provider packages is part of the archive and loads without @sap/cds.
     for (const file of ['dist/testing.js', 'dist/testing.d.ts']) {
-      assert.ok(fs.existsSync(path.join(fixture, 'node_modules/cap-jev', file)), `${file} is installed`);
+      assert.ok(fs.existsSync(path.join(fixture, 'node_modules/cap-decisions', file)), `${file} is installed`);
     }
     const kit = await execFileAsync(
       process.execPath,
-      ['-e', `const { testProviderKind } = require('cap-jev/testing'); console.log(typeof testProviderKind);`],
+      ['-e', `const { testProviderKind } = require('cap-decisions/testing'); console.log(typeof testProviderKind);`],
       { cwd: fixture, encoding: 'utf8', timeout: 30_000 },
     );
     assert.equal(kit.stdout.trim(), 'function');
     const cdsBin = path.join(path.dirname(require.resolve('@sap/cds-dk/package.json')), 'bin/cds.js');
     const add = (...args) =>
-      execFileAsync(process.execPath, [cdsBin, 'add', 'systemone', ...args], {
+      execFileAsync(process.execPath, [cdsBin, 'add', 'decisions', ...args], {
         cwd: fixture,
         encoding: 'utf8',
         env: development,
@@ -254,16 +262,16 @@ test('installed package registers an internal CAP service with decide()', { time
       });
     const projectFile = (name) => path.join(fixture, name);
     const before = fs.readFileSync(projectFile('package.json'), 'utf8');
-    const kept = await add('--kind', 'systemone-typesafe');
-    assert.match(kept.stdout, /\[systemone\].*systemone-laya.*--force/);
+    const kept = await add('--kind', 'decisions-typesafe');
+    assert.match(kept.stdout, /\[decisions\].*decisions-laya.*--force/);
     assert.equal(fs.readFileSync(projectFile('package.json'), 'utf8'), before);
     assert.equal(fs.existsSync(projectFile('.cdsrc-private.json')), false);
-    const forced = await add('--kind', 'systemone-typesafe', '--force');
-    assert.match(forced.stdout, /\[systemone\].*Replaced the kind systemone-laya/);
+    const forced = await add('--kind', 'decisions-typesafe', '--force');
+    assert.match(forced.stdout, /\[decisions\].*Replaced the kind decisions-laya/);
     const configured = JSON.parse(fs.readFileSync(projectFile('package.json'), 'utf8'));
-    assert.equal(configured.cds.requires.systemone['[production]'].kind, 'systemone-typesafe');
+    assert.equal(configured.cds.requires.decisions['[production]'].kind, 'decisions-typesafe');
     assert.deepEqual(JSON.parse(fs.readFileSync(projectFile('.cdsrc-private.json'), 'utf8')), {
-      requires: { systemone: { '[production]': { credentials: { token: '' } } } },
+      requires: { decisions: { '[production]': { credentials: { token: '' } } } },
     });
     assert.match(fs.readFileSync(projectFile('.gitignore'), 'utf8'), /^\.cdsrc-private\.json$/m);
   } finally {

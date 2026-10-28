@@ -1,8 +1,8 @@
 const { test, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
-const { SystemOneTransport } = require('../dist/transport');
-const { SystemOneError } = require('../dist');
+const { DecisionsTransport } = require('../dist/transport');
+const { DecisionsError } = require('../dist');
 
 const questions = {
   team: { type: 'choice', instructions: 'Which team?', criteria: { billing: 'Payments', technical: 'Bugs' } },
@@ -62,7 +62,7 @@ const settingsFor = async (options = {}) => {
 const decide = async (options = {}, request = { state: { text: 'Refund me' }, questions }, transportOptions) =>
   (await post(options, request, transportOptions)).payload;
 const post = async (options = {}, request = { state: { text: 'Refund me' }, questions }, transportOptions) =>
-  new SystemOneTransport(await settingsFor(options), transportOptions).post(request);
+  new DecisionsTransport(await settingsFor(options), transportOptions).post(request);
 
 test('sends multiple typed questions and returns TypeSafe answers', async () => {
   handler = async (req, res) => {
@@ -108,7 +108,7 @@ test('an unwrap hook error is passed on without a retry', async () => {
   };
   const hooks = {
     unwrap: () => {
-      throw new SystemOneError('PROVIDER_ERROR', 'from hook', { providerCode: 7 });
+      throw new DecisionsError('PROVIDER_ERROR', 'from hook', { providerCode: 7 });
     },
   };
   await assert.rejects(decide({}, undefined, { hooks }), (error) => error.code === 'PROVIDER_ERROR');
@@ -129,17 +129,17 @@ test('the endpoint hook supplies the URL and falls back to credentials.url', asy
     assert.equal(req.url, '/v1/systemone?account=acct');
     res.end(JSON.stringify(result));
   };
-  assert.deepEqual((await new SystemOneTransport(settings, { hooks }).post({ state: 'x', questions })).payload, result);
+  assert.deepEqual((await new DecisionsTransport(settings, { hooks }).post({ state: 'x', questions })).payload, result);
   assert.equal(seen.accountId, 'acct');
   const fallback = { timeoutMs: 1000, credentials: { url } };
   handler = (req, res) => {
     assert.equal(req.url, '/v1/systemone');
     res.end(JSON.stringify(result));
   };
-  const transport = new SystemOneTransport(fallback, { hooks: { endpoint: () => undefined } });
+  const transport = new DecisionsTransport(fallback, { hooks: { endpoint: () => undefined } });
   assert.deepEqual((await transport.post({ state: 'x', questions })).payload, result);
   assert.throws(
-    () => new SystemOneTransport({ timeoutMs: 1000 }, { hooks: { endpoint: () => 'not a URL' } }),
+    () => new DecisionsTransport({ timeoutMs: 1000 }, { hooks: { endpoint: () => 'not a URL' } }),
     (error) => error.code === 'INVALID_CONFIG',
   );
 });
@@ -147,29 +147,29 @@ test('the endpoint hook supplies the URL and falls back to credentials.url', asy
 test('a hook that throws while building the endpoint fails the construction', () => {
   const hooks = {
     endpoint: () => {
-      throw new SystemOneError('INVALID_CONFIG', 'Hook needs more');
+      throw new DecisionsError('INVALID_CONFIG', 'Hook needs more');
     },
   };
   assert.throws(
-    () => new SystemOneTransport({ timeoutMs: 1000 }, { hooks }),
+    () => new DecisionsTransport({ timeoutMs: 1000 }, { hooks }),
     (error) => error.code === 'INVALID_CONFIG' && error.message === 'Hook needs more',
   );
 });
 
 test('requiresToken needs a token without a destination', async () => {
   assert.throws(
-    () => new SystemOneTransport({ timeoutMs: 1000, requiresToken: true, credentials: { url: 'https://example.com' } }),
+    () => new DecisionsTransport({ timeoutMs: 1000, requiresToken: true, credentials: { url: 'https://example.com' } }),
     (error) => error.code === 'INVALID_CONFIG' && /token/.test(error.message),
   );
   assert.doesNotThrow(
     () =>
-      new SystemOneTransport({
+      new DecisionsTransport({
         timeoutMs: 1000,
         requiresToken: true,
         credentials: { url: 'https://example.com', token: 't' },
       }),
   );
-  assert.doesNotThrow(() => new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com' } }));
+  assert.doesNotThrow(() => new DecisionsTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com' } }));
 });
 
 test('works without token or model', async () => {
@@ -209,7 +209,7 @@ test('rejects invalid endpoint and timeout settings', () => {
     { credentials: { url: 'https://example.com' } },
   ]) {
     assert.throws(
-      () => new SystemOneTransport(settings),
+      () => new DecisionsTransport(settings),
       (error) => error.code === 'INVALID_CONFIG',
     );
   }
@@ -217,7 +217,7 @@ test('rejects invalid endpoint and timeout settings', () => {
 
 test('accepts the maximum supported timeout', () => {
   assert.doesNotThrow(
-    () => new SystemOneTransport({ timeoutMs: 2_147_483_647, credentials: { url: 'https://example.com' } }),
+    () => new DecisionsTransport({ timeoutMs: 2_147_483_647, credentials: { url: 'https://example.com' } }),
   );
 });
 
@@ -235,7 +235,7 @@ test('snapshots endpoint, token, destination, modelId and timeout settings', asy
       ['http://127.0.0.1/', 'original-token'],
     ]) {
       const settings = { timeoutMs: 1000, modelId: 'original-model', credentials: { url, token } };
-      const transport = new SystemOneTransport(settings, {
+      const transport = new DecisionsTransport(settings, {
         destinationResolver: async () => assert.fail('unexpected destination resolution'),
       });
       settings.credentials.token = 'changed-token';
@@ -295,7 +295,7 @@ test('reports timeout', async () => {
 
 test('rejects a token over non-loopback HTTP before sending', async () => {
   assert.throws(
-    () => new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'http://example.com', token: 'secret' } }),
+    () => new DecisionsTransport({ timeoutMs: 1000, credentials: { url: 'http://example.com', token: 'secret' } }),
     (error) => error.code === 'INVALID_CONFIG',
   );
 });
@@ -309,7 +309,7 @@ test('requires an endpoint and never calls fetch when it is missing', async () =
   };
   try {
     assert.throws(
-      () => new SystemOneTransport({ timeoutMs: 1000 }),
+      () => new DecisionsTransport({ timeoutMs: 1000 }),
       (error) => error.code === 'INVALID_CONFIG',
     );
     assert.equal(calls, 0);
@@ -429,7 +429,7 @@ test('supports caller abort', async () => {
   handler = (_req, res) => {
     setTimeout(() => res.end(JSON.stringify(result)), 200);
   };
-  const cancelled = new SystemOneTransport({ timeoutMs: 1000, credentials: { url: await endpoint() } }).post(
+  const cancelled = new DecisionsTransport({ timeoutMs: 1000, credentials: { url: await endpoint() } }).post(
     { state: 'x', questions },
     { signal: controller.signal },
   );
@@ -558,7 +558,7 @@ test('timeout and caller cancellation interrupt response body reading without re
       received();
     };
     const controller = new globalThis.AbortController();
-    const transport = new SystemOneTransport({
+    const transport = new DecisionsTransport({
       timeoutMs: cancelled ? 1000 : 100,
       credentials: { url: await endpoint() },
     });
@@ -585,7 +585,7 @@ test('caller abort during a retry pause cancels the wait with the abort cause', 
   };
   const controller = new globalThis.AbortController();
   const started = Date.now();
-  const pending = new SystemOneTransport({ timeoutMs: 5000, credentials: { url: await endpoint() } }).post(
+  const pending = new DecisionsTransport({ timeoutMs: 5000, credentials: { url: await endpoint() } }).post(
     { state: 'x', questions },
     { signal: controller.signal },
   );
@@ -607,7 +607,7 @@ test('a destination resolver failure during post is INVALID_CONFIG and sends not
     return new globalThis.Response('{}');
   };
   try {
-    const transport = new SystemOneTransport(
+    const transport = new DecisionsTransport(
       { timeoutMs: 1000, credentials: { destination: 'broken' } },
       {
         destinationResolver: async () => {
@@ -628,7 +628,7 @@ test('a destination resolver failure during post is INVALID_CONFIG and sends not
 test('an endpoint with another protocol than HTTP or HTTPS is INVALID_CONFIG', () => {
   for (const url of ['ftp://example.com/post', 'file:///tmp/post']) {
     assert.throws(
-      () => new SystemOneTransport({ timeoutMs: 1000, credentials: { url } }),
+      () => new DecisionsTransport({ timeoutMs: 1000, credentials: { url } }),
       (error) => error.code === 'INVALID_CONFIG' && /HTTP or HTTPS/.test(error.message),
     );
   }
@@ -637,7 +637,7 @@ test('an endpoint with another protocol than HTTP or HTTPS is INVALID_CONFIG', (
 test('a destination name must be a non-empty string', () => {
   for (const destination of ['  ', 42, {}]) {
     assert.throws(
-      () => new SystemOneTransport({ timeoutMs: 1000, credentials: { destination } }),
+      () => new DecisionsTransport({ timeoutMs: 1000, credentials: { destination } }),
       (error) => error.code === 'INVALID_CONFIG' && /non-empty name/.test(error.message),
     );
   }
@@ -651,7 +651,7 @@ test('an already aborted caller signal fails with ABORTED before anything is sen
     return new globalThis.Response('{}');
   };
   try {
-    const transport = new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com/post' } });
+    const transport = new DecisionsTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com/post' } });
     await assert.rejects(
       transport.post({ state: 'x', questions }, { signal: globalThis.AbortSignal.abort(new Error('before')) }),
       (error) => error.code === 'ABORTED' && error.cause.message === 'before',
@@ -671,7 +671,7 @@ test('a caller abort while the destination resolves fails with ABORTED and sends
   };
   try {
     const controller = new globalThis.AbortController();
-    const transport = new SystemOneTransport(
+    const transport = new DecisionsTransport(
       { timeoutMs: 1000, credentials: { destination: 'aborting' } },
       {
         destinationResolver: async () => {
@@ -704,7 +704,7 @@ test('a caller abort while a retriable response is released stops before the pau
     };
   };
   try {
-    const transport = new SystemOneTransport({ timeoutMs: 5000, credentials: { url: 'https://example.com/post' } });
+    const transport = new DecisionsTransport({ timeoutMs: 5000, credentials: { url: 'https://example.com/post' } });
     await assert.rejects(
       transport.post({ state: 'x', questions }, { signal: controller.signal }),
       (error) => error.code === 'ABORTED',
@@ -719,7 +719,7 @@ test('an error response without a body is an HTTP_ERROR without a provider code'
   const original = globalThis.fetch;
   globalThis.fetch = async () => new globalThis.Response(null, { status: 500 });
   try {
-    const transport = new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com/post' } });
+    const transport = new DecisionsTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com/post' } });
     await assert.rejects(
       transport.post({ state: 'x', questions }),
       (error) => error.code === 'HTTP_ERROR' && error.status === 500 && error.providerCode === undefined,
@@ -757,10 +757,10 @@ test('an error response whose body breaks while it is read is INVALID_RESPONSE w
       { status: 500 },
     );
   try {
-    const transport = new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com/post' } });
+    const transport = new DecisionsTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com/post' } });
     await assert.rejects(transport.post({ state: 'x', questions }), (error) => {
       assert.equal(error.code, 'INVALID_RESPONSE');
-      assert.equal(error.message, 'Failed reading System One error response');
+      assert.equal(error.message, 'Failed reading the error response of the decision provider');
       assert.equal(error.cause.message, 'body broke');
       return true;
     });
@@ -791,7 +791,7 @@ test('a redirect is not followed and is an HTTP_ERROR without retry', async () =
 test('a token that is invalid in a header is INVALID_CONFIG without the value', () => {
   for (const token of ['sec\nret', 'sec\u00e9ret', 'sec\x7fret']) {
     assert.throws(
-      () => new SystemOneTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com', token } }),
+      () => new DecisionsTransport({ timeoutMs: 1000, credentials: { url: 'https://example.com', token } }),
       (error) => error.code === 'INVALID_CONFIG' && /token/.test(error.message) && !error.message.includes('sec'),
     );
   }
@@ -805,7 +805,7 @@ test('a destination header value that is invalid in a header is INVALID_CONFIG n
     return new globalThis.Response('{}');
   };
   try {
-    const transport = new SystemOneTransport(
+    const transport = new DecisionsTransport(
       { timeoutMs: 1000, credentials: { destination: 'bad' } },
       {
         destinationResolver: async () => ({
@@ -836,7 +836,7 @@ test('a success body over 1 MiB is INVALID_RESPONSE without a retry, and one at 
   };
   await assert.rejects(
     decide(),
-    (error) => error.code === 'INVALID_RESPONSE' && error.message === 'System One response is too large',
+    (error) => error.code === 'INVALID_RESPONSE' && error.message === 'Decision response is too large',
   );
   assert.equal(calls, 1);
   handler = (_req, res) => {
@@ -865,7 +865,7 @@ test('a response body that cannot be cancelled before a retry does not escape as
     return new globalThis.Response(JSON.stringify(result));
   };
   try {
-    const transport = new SystemOneTransport({ timeoutMs: 5000, credentials: { url: 'https://example.com/x' } });
+    const transport = new DecisionsTransport({ timeoutMs: 5000, credentials: { url: 'https://example.com/x' } });
     const { payload } = await transport.post({ state: 'x', questions });
     assert.equal(payload.model, result.model);
     assert.equal(calls, 2);
@@ -880,9 +880,9 @@ test('an endpoint URL with a user name or password is INVALID_CONFIG without ech
     /user name or password/.test(error.message) &&
     !error.message.includes('hunter2');
   for (const url of ['https://user:hunter2@example.com/x', 'https://hunter2@example.com/x']) {
-    assert.throws(() => new SystemOneTransport({ timeoutMs: 1000, credentials: { url } }), check);
+    assert.throws(() => new DecisionsTransport({ timeoutMs: 1000, credentials: { url } }), check);
   }
-  const transport = new SystemOneTransport(
+  const transport = new DecisionsTransport(
     { timeoutMs: 1000, credentials: { destination: 'd' } },
     { destinationResolver: async () => ({ url: 'https://user:hunter2@example.com/x' }) },
   );
@@ -890,7 +890,7 @@ test('an endpoint URL with a user name or password is INVALID_CONFIG without ech
 });
 
 test('a token is accepted over HTTP to any loopback address and refused to look-alikes', () => {
-  const make = (url) => new SystemOneTransport({ timeoutMs: 1000, credentials: { url, token: 'secret' } });
+  const make = (url) => new DecisionsTransport({ timeoutMs: 1000, credentials: { url, token: 'secret' } });
   for (const url of ['http://127.0.0.2:9/x', 'http://127.0.0.1:9/x', 'http://localhost:9/x', 'http://[::1]:9/x']) {
     assert.doesNotThrow(() => make(url), url);
   }
