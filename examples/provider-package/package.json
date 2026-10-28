@@ -1,5 +1,5 @@
 {
-  "name": "cap-jev-provider-acme",
+  "name": "cap-decisions-provider-acme",
   "version": "0.0.0",
   "private": true,
   "description": "Example provider package for cap-decisions",
@@ -19,7 +19,7 @@
       "kinds": {
         "decisions-acme": {
           "kind": "decisions-defaults",
-          "impl": "cap-jev-provider-acme",
+          "impl": "cap-decisions-provider-acme",
           "requiresToken": true,
           "limits": {
             "choiceOptions": 20

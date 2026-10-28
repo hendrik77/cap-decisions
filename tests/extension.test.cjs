@@ -52,8 +52,8 @@ const decide = `${connect}
 const acmeApp = (credentials, extra = {}) => ({
   decisions: { kind: 'decisions-acme', ...extra, credentials },
   options: {
-    links: { 'cap-jev-provider-acme': providerPackage },
-    dependencies: { 'cap-jev-provider-acme': '*' },
+    links: { 'cap-decisions-provider-acme': providerPackage },
+    dependencies: { 'cap-decisions-provider-acme': '*' },
   },
 });
 const inAcmeApp = (credentials, body, extra) => {
@@ -64,7 +64,7 @@ const inAcmeApp = (credentials, body, extra) => {
 const envelopeSubclass = `
 const { DecisionsService, DecisionsError } = require('cap-decisions');
 
-class AcmeSystemOne extends DecisionsService {
+class AcmeDecisions extends DecisionsService {
   endpoint(credentials) {
     return credentials.url;
   }
@@ -77,7 +77,7 @@ class AcmeSystemOne extends DecisionsService {
   }
 }
 
-module.exports = AcmeSystemOne;
+module.exports = AcmeDecisions;
 `;
 
 describe('app-local subclass', () => {
@@ -90,7 +90,7 @@ describe('app-local subclass', () => {
        out({ name: srv.constructor.name, result });`,
       { files: { 'srv/acme-decisions.js': envelopeSubclass } },
     );
-    assert.equal(result.name, 'AcmeSystemOne');
+    assert.equal(result.name, 'AcmeDecisions');
     assert.deepEqual(result.result, noulResult);
     assert.equal(server.received.length, 1);
   });
@@ -202,7 +202,7 @@ describe('provider package', () => {
       credentials(),
       `const fs = require('node:fs');
        const path = require('node:path');
-       const providerDir = fs.realpathSync(path.join(process.cwd(), 'node_modules/cap-jev-provider-acme'));
+       const providerDir = fs.realpathSync(path.join(process.cwd(), 'node_modules/cap-decisions-provider-acme'));
        const real = (file) => fs.realpathSync(file);
        const fromProvider = (name) => real(require.resolve(name, { paths: [providerDir] }));
        ${connect}

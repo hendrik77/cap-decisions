@@ -250,8 +250,8 @@ describe('cds add decisions', { concurrency: true }, () => {
 
   test('selects the kind of a provider package', { timeout: TIMEOUT }, async () => {
     const options = {
-      packageJson: { dependencies: { 'cap-jev-provider-acme': '*' } },
-      links: { 'cap-jev-provider-acme': providerPackage },
+      packageJson: { dependencies: { 'cap-decisions-provider-acme': '*' } },
+      links: { 'cap-decisions-provider-acme': providerPackage },
     };
     await withApp(options, async (dir) => {
       const unknown = await add(dir, '--kind', 'decisions-nope');

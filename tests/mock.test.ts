@@ -16,7 +16,7 @@ export const asBase: DecisionsSettings = full;
 
 // @ts-expect-error The strategy is limited to keywords and seeded.
 export const wrongStrategy: MockSettings = { strategy: 'random' };
-// @ts-expect-error fail takes a System One error code.
+// @ts-expect-error fail takes a decision error code.
 export const wrongFail: MockSettings = { fail: 'UNKNOWN' };
 // @ts-expect-error latencyMs is a number.
 export const wrongLatency: MockSettings = { latencyMs: '50' };
