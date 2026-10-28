@@ -33,7 +33,7 @@ describe('cds-plugin.js', () => {
     assert.equal(errors.length, 1);
     assert.match(errors[0], /cds\.requires\.systemone/);
     assert.match(errors[0], /renamed to decisions in 0\.10\.0/);
-    assert.match(errors[0], /Migrating from cap-jev/);
+    assert.match(errors[0], /0\.10\.0 entry of the CHANGELOG/);
   });
 
   test('logs nothing without a model setting', async () => {

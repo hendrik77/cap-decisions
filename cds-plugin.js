@@ -17,7 +17,7 @@ if (cds.env.requires?.systemone !== undefined) {
   cds
     .log('decisions')
     .error(
-      'cds.requires.systemone is no longer read: the service was renamed to decisions in 0.10.0, and its kinds from systemone-<x> to decisions-<x>. See "Migrating from cap-jev" in the README of cap-decisions.',
+      'cds.requires.systemone is no longer read: the service was renamed to decisions in 0.10.0, and its kinds from systemone-<x> to decisions-<x>. See the 0.10.0 entry of the CHANGELOG of cap-decisions for the new names.',
     );
 }
 

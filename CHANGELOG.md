@@ -4,7 +4,7 @@ This changelog starts with 0.5.0. Earlier versions are described in the [GitHub 
 
 ## 0.10.0: Renamed to cap-decisions
 
-The package serves decision models of several providers (TypeSafe Jev, Laya, Cloudflare Clef, SubQ Snap), so `cap-jev` is now `cap-decisions`. The reasons are in [ADR 0008](docs/decisions/0008-rename-to-cap-decisions.md); the steps are in [Migrating from cap-jev](README.md#migrating-from-cap-jev). The wire format is unchanged: requests, responses, the question types and the mock server's default path `/v1/systemone` stay, so no provider or server needs a change.
+The package serves decision models of several providers (TypeSafe Jev, Laya, Cloudflare Clef, SubQ Snap), so `cap-jev` is now `cap-decisions`. The reasons are in [ADR 0008](docs/decisions/0008-rename-to-cap-decisions.md); the new names are in the table below. The wire format is unchanged: requests, responses, the question types and the mock server's default path `/v1/systemone` stay, so no provider or server needs a change.
 
 ### Breaking: renamed to cap-decisions
 
