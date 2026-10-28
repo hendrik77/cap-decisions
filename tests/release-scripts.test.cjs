@@ -11,7 +11,7 @@ const notesScript = path.join(repository, 'scripts', 'release-notes.cjs');
 const { checkRelease, findMachinePaths, checkArchive } = require(checkScript);
 const { releaseNotes } = require(notesScript);
 
-const url = (a, b = a) => `https://github.com/hendrik77/cap-jev/releases/download/v${a}/cap-jev-${b}.tgz`;
+const url = (a, b = a) => `https://github.com/hendrik77/cap-decisions/releases/download/v${a}/cap-decisions-${b}.tgz`;
 const dirs = [];
 
 const workflow = (cds = '[9, 10]') =>
@@ -19,23 +19,27 @@ const workflow = (cds = '[9, 10]') =>
 
 const files = (version) => ({
   '.github/workflows/ci.yml': workflow(),
-  'package.json': JSON.stringify({ name: 'cap-jev', version, peerDependencies: { '@sap/cds': '^9 || ^10' } }),
+  'package.json': JSON.stringify({ name: 'cap-decisions', version, peerDependencies: { '@sap/cds': '^9 || ^10' } }),
   'examples/provider-package/package.json': JSON.stringify({
-    name: 'cap-jev-acme',
+    name: 'cap-decisions-acme',
     peerDependencies: { 'cap-decisions': '>=0.5.0', '@sap/cds': '^9 || ^10' },
   }),
-  'package-lock.json': JSON.stringify({ name: 'cap-jev', version, packages: { '': { name: 'cap-jev', version } } }),
+  'package-lock.json': JSON.stringify({
+    name: 'cap-decisions',
+    version,
+    packages: { '': { name: 'cap-decisions', version } },
+  }),
   'examples/cap-app/package.json': JSON.stringify({ dependencies: { 'cap-decisions': `^${version}` } }),
-  'examples/provider-package/README.md': `# Acme\n\n{ "dependencies": { "cap-decisions": "^${version}", "cap-jev-provider-acme": "^1.0.0" } }\n`,
+  'examples/provider-package/README.md': `# Acme\n\n{ "dependencies": { "cap-decisions": "^${version}", "cap-decisions-provider-acme": "^1.0.0" } }\n`,
   'docs/providers.md': `# Providers
 `,
-  'README.md': `# cap-jev\n\nnpm install ${url(version)}\n`,
+  'README.md': `# cap-decisions\n\nnpm install ${url(version)}\n`,
   'examples/cap-app/README.md': `# Example\n\ncurl -fLO ${url(version)}\n`,
   'CHANGELOG.md': `# Changelog\n\n## ${version}: A title\n\n### Added\n\n- Something.\n\n## 0.0.1\n\n- Old.\n`,
 });
 
 const tree = (overrides = {}) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-release-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-release-'));
   dirs.push(root);
   for (const [name, content] of Object.entries({ ...files('1.2.3'), ...overrides })) {
     if (content === null) continue;
@@ -121,7 +125,7 @@ describe('checkRelease', () => {
   });
 
   test('fails on a README without an archive URL', () => {
-    const failures = checkRelease({ root: tree({ 'README.md': '# cap-jev\n' }) });
+    const failures = checkRelease({ root: tree({ 'README.md': '# cap-decisions\n' }) });
     assert.equal(failures.length, 1);
     assert.match(failures[0], /^README\.md/);
   });
@@ -140,17 +144,17 @@ describe('checkRelease', () => {
   });
 
   test('fails on an archive file name with the wrong version', () => {
-    const readme = `curl -fLO ${url('1.2.3')}\nnpm install ./cap-jev-1.2.2.tgz\n\nIt records \`file:cap-jev-1.2.2.tgz\`.\n`;
+    const readme = `curl -fLO ${url('1.2.3')}\nnpm install ./cap-decisions-1.2.2.tgz\n\nIt records \`file:cap-decisions-1.2.2.tgz\`.\n`;
     const failures = checkRelease({ root: tree({ 'README.md': readme }) });
     assert.equal(failures.length, 2);
     for (const failure of failures) {
       assert.match(failure, /^README\.md/);
-      assert.match(failure, /cap-jev-1\.2\.2\.tgz/);
+      assert.match(failure, /cap-decisions-1\.2\.2\.tgz/);
     }
   });
 
   test('accepts the placeholder archive name', () => {
-    const readme = `curl -fLO ${url('1.2.3')}\nInstall the resulting \`cap-jev-<version>.tgz\` file.\n`;
+    const readme = `curl -fLO ${url('1.2.3')}\nInstall the resulting \`cap-decisions-<version>.tgz\` file.\n`;
     assert.deepEqual(checkRelease({ root: tree({ 'README.md': readme }) }), []);
   });
 
@@ -180,9 +184,12 @@ describe('checkRelease', () => {
 
   describe('CAP support policy', () => {
     const pkg = (range) =>
-      JSON.stringify({ name: 'cap-jev', version: '1.2.3', peerDependencies: { '@sap/cds': range } });
+      JSON.stringify({ name: 'cap-decisions', version: '1.2.3', peerDependencies: { '@sap/cds': range } });
     const provider = (range) =>
-      JSON.stringify({ name: 'cap-jev-acme', peerDependencies: { 'cap-decisions': '>=0.5.0', '@sap/cds': range } });
+      JSON.stringify({
+        name: 'cap-decisions-acme',
+        peerDependencies: { 'cap-decisions': '>=0.5.0', '@sap/cds': range },
+      });
 
     test('passes when the peer ranges name the CAP majors of the CI matrix', () => {
       assert.deepEqual(checkRelease({ root: tree() }), []);
@@ -232,7 +239,7 @@ describe('checkRelease', () => {
     });
 
     test('fails on a missing peer range', () => {
-      const body = JSON.stringify({ name: 'cap-jev', version: '1.2.3' });
+      const body = JSON.stringify({ name: 'cap-decisions', version: '1.2.3' });
       const failures = checkRelease({ root: tree({ 'package.json': body }) });
       assert.equal(failures.length, 1);
       assert.match(failures[0], /^package\.json: expected @sap\/cds peer range \^9 \|\| \^10 .*, found none$/);
@@ -392,11 +399,11 @@ describe('findMachinePaths', () => {
 });
 
 const packArchive = (files) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-archive-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-archive-'));
   dirs.push(dir);
   fs.mkdirSync(path.join(dir, 'package'));
   for (const [name, content] of Object.entries(files)) fs.writeFileSync(path.join(dir, 'package', name), content);
-  const file = path.join(dir, 'cap-jev-1.2.3.tgz');
+  const file = path.join(dir, 'cap-decisions-1.2.3.tgz');
   execFileSync('tar', ['-czf', file, '-C', dir, 'package']);
   return file;
 };
@@ -411,9 +418,9 @@ describe('checkArchive', () => {
   });
 
   test('reports an unreadable archive', () => {
-    const failures = checkArchive(path.join(os.tmpdir(), 'cap-jev-no-such-archive.tgz'));
+    const failures = checkArchive(path.join(os.tmpdir(), 'cap-decisions-no-such-archive.tgz'));
     assert.equal(failures.length, 1);
-    assert.match(failures[0], /cap-jev-no-such-archive\.tgz/);
+    assert.match(failures[0], /cap-decisions-no-such-archive\.tgz/);
   });
 });
 

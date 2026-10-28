@@ -12,21 +12,21 @@ The package is not yet published to npm. Install a release archive from [GitHub 
 
 ```sh
 npm config set allow-remote root --location=project
-npm install https://github.com/hendrik77/cap-jev/releases/download/v0.9.2/cap-jev-0.9.2.tgz
+npm install https://github.com/hendrik77/cap-decisions/releases/download/v0.10.0/cap-decisions-0.10.0.tgz
 ```
 
 or download the archive and install the file, which works with every npm version:
 
 ```sh
-curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.2/cap-jev-0.9.2.tgz
-npm install ./cap-jev-0.9.2.tgz
+curl -fLO https://github.com/hendrik77/cap-decisions/releases/download/v0.10.0/cap-decisions-0.10.0.tgz
+npm install ./cap-decisions-0.10.0.tgz
 ```
 
 The shell commands in this README and the guides are for a POSIX shell (bash, zsh, Git Bash, WSL). In PowerShell, write `curl.exe` instead of `curl`, because `curl` is an alias for `Invoke-WebRequest` in Windows PowerShell 5.1; for environment variables see [local development](docs/local-development.md#settings).
 
-The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-jev-0.9.2.tgz`; keep the archive in the project.
+The first way records the URL in `package.json` and writes `allow-remote=root` to the project's `.npmrc`, so later `npm ci` runs work too. The second records `file:cap-decisions-0.10.0.tgz`; keep the archive in the project.
 
-To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-jev-<version>.tgz` file.
+To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-decisions-<version>.tgz` file.
 
 After npm publication, use `npm install cap-decisions`.
 

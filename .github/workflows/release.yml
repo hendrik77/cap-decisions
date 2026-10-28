@@ -33,12 +33,12 @@ jobs:
       - run: npm pack
       - name: Check the archive for machine paths
         shell: bash
-        run: npm run release:check -- --archive "cap-jev-${GITHUB_REF_NAME#v}.tgz"
+        run: npm run release:check -- --archive "cap-decisions-${GITHUB_REF_NAME#v}.tgz"
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${GITHUB_REF_NAME#v}"
           title="$(node scripts/release-notes.cjs "$version" --notes release-notes.md)"
-          gh release create "$GITHUB_REF_NAME" "cap-jev-$version.tgz" \
+          gh release create "$GITHUB_REF_NAME" "cap-decisions-$version.tgz" \
             --verify-tag --title "$title" --notes-file release-notes.md

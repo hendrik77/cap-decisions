@@ -12,7 +12,7 @@ Acme wraps the Jev answer in `{ "data": <result> }` and addresses its API by reg
 
 ```json
 {
-  "dependencies": { "cap-decisions": "^0.9.2", "cap-decisions-provider-acme": "^1.0.0" },
+  "dependencies": { "cap-decisions": "^0.10.0", "cap-decisions-provider-acme": "^1.0.0" },
   "cds": {
     "requires": {
       "decisions": { "kind": "decisions-acme", "credentials": { "region": "eu", "token": "…" } }

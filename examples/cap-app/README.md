@@ -63,8 +63,8 @@ In production (`CDS_TYPESCRIPT=true npm start -- --production`), [`package.json`
 For a copy of the app outside this repository, install `cap-decisions` from a release archive as described in the [main README](../../README.md#install-and-use), for example:
 
 ```sh
-curl -fLO https://github.com/hendrik77/cap-jev/releases/download/v0.9.2/cap-jev-0.9.2.tgz
-npm install ./cap-jev-0.9.2.tgz
+curl -fLO https://github.com/hendrik77/cap-decisions/releases/download/v0.10.0/cap-decisions-0.10.0.tgz
+npm install ./cap-decisions-0.10.0.tgz
 ```
 
 The [`package.json`](package.json) of this app already contains what `cds add decisions` writes with its default options: `cds.requires.decisions["[production]"].kind` is `decisions-laya`. `decisions-laya` needs no token, so there is no `.cdsrc-private.json`. In an application of your own, run `cds add decisions` after the installation (it needs `@sap/cds-dk`; see [Set up with `cds add decisions`](../../README.md#set-up-with-cds-add-decisions)). `--with-fixtures` writes an example `test/data/decisions.json`; this app keeps its own rule file there.

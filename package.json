@@ -1,7 +1,7 @@
 {
   "name": "cap-decisions",
-  "version": "0.9.2",
-  "description": "Internal System One decision service for SAP CAP",
+  "version": "0.10.0",
+  "description": "CAP plugin for decision models (Jev, Laya, Clef, …). Community project, not affiliated with SAP or TypeSafe.",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -39,14 +39,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hendrik77/cap-jev.git"
+    "url": "https://github.com/hendrik77/cap-decisions.git"
   },
   "keywords": [
     "sap",
     "cap",
-    "system-one",
+    "decisions",
+    "decision-model",
+    "decision-service",
     "jev",
-    "decision-service"
+    "system-one"
   ],
   "author": "Hendrik Neumann",
   "files": [
