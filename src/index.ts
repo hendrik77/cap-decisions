@@ -1,12 +1,12 @@
-// The main entry of the package, `cap-jev`: the service, `DecisionsError` and the types, nothing else. The HTTP mock
-// server, its command line (`bin` `cap-jev-mock`), the providers and the test kit are separate entry points in
+// The main entry of the package, `cap-decisions`: the service, `DecisionsError` and the types, nothing else. The HTTP mock
+// server, its command line (`bin` `cap-decisions-mock`), the providers and the test kit are separate entry points in
 // `exports` of package.json (see the README and docs/decisions/0006).
 import cds from '@sap/cds';
 import { DestinationResolveError, DecisionsTransport } from './transport';
 import type { DecisionRequest, DecisionResult, Questions, DecisionsCredentials, DecisionsSettings } from './types';
 import { DecisionsError, validateRequest, validateResult, validateSettings } from './validation';
 
-const signalKey = Symbol('systemone.callerSignal');
+const signalKey = Symbol('decisions.callerSignal');
 type SignalRequest<Q extends Questions = Questions> = cds.Request<DecisionRequest<Q>> & { [signalKey]?: AbortSignal };
 
 /** Options of {@link DecisionsService.decide}. */
@@ -16,7 +16,7 @@ export interface DecideOptions {
 }
 
 /**
- * The CAP service behind `cds.connect.to('systemone')`. It validates the settings, sends a decision request to the
+ * The CAP service behind `cds.connect.to('decisions')`. It validates the settings, sends a decision request to the
  * configured Jev endpoint with retries and a deadline, and checks the answers. A provider whose protocol differs
  * extends it and overrides the hooks `endpoint`, `unwrap` and `errorCode`.
  */
@@ -45,7 +45,7 @@ export class DecisionsService extends cds.Service {
     this.settings = (this as cds.Service & { options?: DecisionsSettings }).options ?? {};
     const { settingsKeys, credentialKeys } = this.constructor as typeof DecisionsService;
     const warnings = validateSettings(this.settings, settingsKeys, credentialKeys);
-    for (const warning of warnings) cds.log('systemone').warn(warning);
+    for (const warning of warnings) cds.log('decisions').warn(warning);
     await this.setup(this.settings);
     // CAP's `on` handler that does the work: validates the request, calls the provider and checks the result.
     this.on('decide', async (request: SignalRequest) => {
@@ -53,7 +53,7 @@ export class DecisionsService extends cds.Service {
       validateRequest(request.data, this.settings.limits);
       const { result, attempts } = await this.call(request.data, { signal: request[signalKey] });
       validateResult(result, request.data.questions);
-      cds.log('systemone').debug('decision completed', {
+      cds.log('decisions').debug('decision completed', {
         latencyMs: Math.round(performance.now() - started),
         attempts,
         model: result.model,
@@ -85,7 +85,7 @@ export class DecisionsService extends cds.Service {
     } catch (error) {
       if (!(error instanceof DestinationResolveError)) throw error;
       cds
-        .log('systemone')
+        .log('decisions')
         .warn(
           `Could not resolve destination ${settings.credentials?.destination} at start-up; it is resolved again for each call`,
         );

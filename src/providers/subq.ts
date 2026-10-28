@@ -5,7 +5,7 @@ const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /**
- * The provider class of `systemone-subq`. SubQ answers errors as `{ detail: { error_type, message } }`; this class
+ * The provider class of `decisions-subq`. SubQ answers errors as `{ detail: { error_type, message } }`; this class
  * reads `error_type` as `providerCode`. The message is never exposed.
  * @experimental While SubQ's model is in preview.
  */

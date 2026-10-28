@@ -120,7 +120,7 @@ export interface DecisionsCredentials {
   url?: string;
   /** Bearer token. */
   token?: string;
-  /** Account ID; `systemone-cloudflare` builds the URL from it. */
+  /** Account ID; `decisions-cloudflare` builds the URL from it. */
   accountId?: string;
   /** Name of a BTP Destination service entry that supplies the URL and headers. */
   destination?: string;
@@ -136,7 +136,7 @@ export interface ProviderLimits {
   scoreCriteria?: { min?: number; max?: number };
 }
 
-/** The settings of the `systemone` service, under `cds.requires.systemone`. */
+/** The settings of the `decisions` service, under `cds.requires.decisions`. */
 export interface DecisionsSettings {
   /** Model name, sent as `model` in the request body. */
   modelId?: string;
@@ -150,9 +150,9 @@ export interface DecisionsSettings {
   credentials?: DecisionsCredentials;
 }
 
-/** The settings of the `systemone-mock` kind. */
+/** The settings of the `decisions-mock` kind. */
 export interface MockSettings extends DecisionsSettings {
-  /** Path of the fixtures file, relative to the project root (default `test/data/systemone.json`). */
+  /** Path of the fixtures file, relative to the project root (default `test/data/decisions.json`). */
   fixtures?: string;
   /** How answers are made when no rule matches: `keywords` matches words of the state to the choices, `seeded` uses the seed alone. */
   strategy?: 'keywords' | 'seeded';

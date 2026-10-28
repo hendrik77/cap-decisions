@@ -8,7 +8,7 @@ import { DEFAULT_FIXTURES, loadFixtures, mockDecision, parseMockOptions } from '
 import type { MockRule } from './mock-fixtures';
 
 const WARNING =
-  'Using the mock provider: answers are simulated. Set a kind such as systemone-laya to use a real endpoint in development.';
+  'Using the mock provider: answers are simulated. Set a kind such as decisions-laya to use a real endpoint in development.';
 
 const invalidConfig = (message: string) => new DecisionsError('INVALID_CONFIG', message);
 
@@ -28,7 +28,7 @@ function wait(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * The provider class of `systemone-mock`. It answers in-process from fixtures and a deterministic engine, never
+ * The provider class of `decisions-mock`. It answers in-process from fixtures and a deterministic engine, never
  * touches the network, and refuses the `production` profile unless `allowInProduction` is true.
  */
 export default class MockService extends DecisionsService {
@@ -53,7 +53,7 @@ export default class MockService extends DecisionsService {
     this.fail = fail;
     this.fixtureSource = fixtures ?? DEFAULT_FIXTURES;
     this.rules = await loadFixtures(cds.root, this.fixtureSource, fixtures !== undefined);
-    cds.log('systemone').warn(WARNING);
+    cds.log('decisions').warn(WARNING);
   }
 
   private async delay(signal?: AbortSignal): Promise<void> {

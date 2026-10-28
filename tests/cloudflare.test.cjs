@@ -13,7 +13,7 @@ async function inApp(credentials, body) {
   const dir = createApp({
     name: 'cloudflare-app',
     private: true,
-    cds: { requires: { systemone: { kind: 'systemone-cloudflare', credentials } } },
+    cds: { requires: { decisions: { kind: 'decisions-cloudflare', credentials } } },
   });
   const script = `
     const cds = require('@sap/cds');
@@ -22,7 +22,7 @@ async function inApp(credentials, body) {
     (async () => {
       await cds.plugins;
       try {
-        const srv = await cds.connect.to('systemone');
+        const srv = await cds.connect.to('decisions');
         ${body}
       } catch (e) { out({ error: e.code || e.name, message: e.message, status: e.status, providerCode: e.providerCode }); }
     })().catch((e) => { console.error(e); process.exit(1); });`;

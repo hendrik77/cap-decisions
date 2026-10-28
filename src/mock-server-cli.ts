@@ -6,7 +6,7 @@ import { startMockServer } from './mock-server';
 import type { MockServerOptions } from './mock-server';
 import { DecisionsError, isLoopbackHost } from './validation';
 
-const HELP = `Usage: cap-jev-mock [options]
+const HELP = `Usage: cap-decisions-mock [options]
 
 Starts a local mock of a Jev-compatible decision server.
 
@@ -20,15 +20,15 @@ Options:
   --fail <CODE>          Fail every request with this error code, such as HTTP_ERROR
   --status <n>           HTTP status for --fail HTTP_ERROR
   --provider-code <code> Provider error code for --fail
-  --token <token>        Require this bearer token (default: env CAP_JEV_MOCK_TOKEN)
+  --token <token>        Require this bearer token (default: env CAP_DECISIONS_MOCK_TOKEN)
   --format <name>        jev or cloudflare (default jev)
   --quiet                Do not log requests
   -h, --help             Show this help
   -v, --version          Show the version
 
 Example:
-  npx cap-jev-mock
-  CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya npm start
+  npx cap-decisions-mock
+  CDS_REQUIRES_DECISIONS_KIND=decisions-laya npm start
 `;
 
 // A mistake in the command line; reported as a short message with exit code 2, not a stack trace.
@@ -80,7 +80,7 @@ function toOptions(values: ReturnType<typeof parse>): MockServerOptions {
   if (values.strategy !== undefined) options.strategy = values.strategy;
   if (values['latency-ms'] !== undefined) options.latencyMs = number('--latency-ms', values['latency-ms']);
   if (values.format !== undefined) options.format = values.format;
-  const token = values.token ?? (process.env.CAP_JEV_MOCK_TOKEN || undefined);
+  const token = values.token ?? (process.env.CAP_DECISIONS_MOCK_TOKEN || undefined);
   if (token !== undefined) options.token = token;
   if (!values.quiet) options.log = (line: string) => process.stdout.write(`${line}\n`);
   const status = values.status === undefined ? undefined : number('--status', values.status);
@@ -124,7 +124,7 @@ async function main(): Promise<void> {
   } catch (error) {
     if (error instanceof DecisionsError) throw error;
     const { host = '127.0.0.1', port = 8000 } = options;
-    process.stderr.write(`cap-jev-mock: cannot listen on ${host}:${port}: ${(error as Error).message}\n`);
+    process.stderr.write(`cap-decisions-mock: cannot listen on ${host}:${port}: ${(error as Error).message}\n`);
     process.exitCode = 1;
     return;
   }
@@ -135,19 +135,19 @@ async function main(): Promise<void> {
   process.once('SIGTERM', stop);
   if (!isLoopbackHost(server.host)) {
     const open = options.token === undefined ? ' and unprotected' : '';
-    process.stderr.write(`cap-jev-mock: warning: the server is reachable from the network${open}\n`);
+    process.stderr.write(`cap-decisions-mock: warning: the server is reachable from the network${open}\n`);
   }
-  process.stdout.write(`cap-jev mock server listening on ${server.url}\n`);
+  process.stdout.write(`cap-decisions mock server listening on ${server.url}\n`);
 }
 
 main().catch((error: unknown) => {
   process.exitCode = 2;
   if (error instanceof UsageError) {
-    process.stderr.write(`cap-jev-mock: ${error.message}\nRun cap-jev-mock --help for the options.\n`);
+    process.stderr.write(`cap-decisions-mock: ${error.message}\nRun cap-decisions-mock --help for the options.\n`);
   } else if (error instanceof DecisionsError) {
-    process.stderr.write(`cap-jev-mock: ${error.message}\n`);
+    process.stderr.write(`cap-decisions-mock: ${error.message}\n`);
   } else {
     process.exitCode = 1;
-    process.stderr.write(`cap-jev-mock: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(`cap-decisions-mock: ${error instanceof Error ? error.message : String(error)}\n`);
   }
 });

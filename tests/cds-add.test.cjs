@@ -32,7 +32,7 @@ async function cds(dir, ...args) {
     return { status: error.code ?? 1, stdout: error.stdout ?? '', stderr: error.stderr ?? '' };
   }
 }
-const add = (dir, ...args) => cds(dir, 'add', 'systemone', ...args);
+const add = (dir, ...args) => cds(dir, 'add', 'decisions', ...args);
 
 // The relative path and content of every file in the app, without node_modules.
 function snapshot(dir, base = dir) {
@@ -47,7 +47,7 @@ function snapshot(dir, base = dir) {
 }
 const read = (dir, file) => fs.readFileSync(path.join(dir, file), 'utf8');
 const readJson = (dir, file) => JSON.parse(read(dir, file));
-const lines = (result) => (result.stdout + result.stderr).split('\n').filter((line) => line.startsWith('[systemone]'));
+const lines = (result) => (result.stdout + result.stderr).split('\n').filter((line) => line.startsWith('[decisions]'));
 
 async function withApp(options, body) {
   const { packageJson = {}, files, links } = options;
@@ -59,7 +59,7 @@ async function withApp(options, body) {
   }
 }
 
-// Connects to systemone in a fresh process of the app and prints one JSON line.
+// Connects to decisions in a fresh process of the app and prints one JSON line.
 function connect(dir, { env = {}, body }) {
   return runInApp(
     dir,
@@ -73,7 +73,7 @@ function connect(dir, { env = {}, body }) {
     (async () => {
       await cds.plugins;
       try {
-        const srv = await cds.connect.to('systemone');
+        const srv = await cds.connect.to('decisions');
         ${body}
       } catch (e) { out({ error: e.code || e.name, message: e.message }); }
     })().catch((e) => { console.error(e); process.exit(1); });`,
@@ -82,15 +82,15 @@ function connect(dir, { env = {}, body }) {
 }
 const decide = `out({ name: srv.constructor.name, result: await srv.decide(request) });`;
 
-describe('cds add systemone', { concurrency: true }, () => {
+describe('cds add decisions', { concurrency: true }, () => {
   test('sets the production kind, keeps the mock in development and is idempotent', { timeout: TIMEOUT }, async () => {
     await withApp({}, async (dir) => {
       const first = await add(dir);
       assert.equal(first.status, 0, first.stderr);
-      assert.match(first.stdout, /\[systemone\].*systemone-laya/);
-      assert.ok(lines(first).every((line) => line.startsWith('[systemone] ')));
-      assert.deepEqual(readJson(dir, 'package.json').cds.requires.systemone, {
-        '[production]': { kind: 'systemone-laya' },
+      assert.match(first.stdout, /\[decisions\].*decisions-laya/);
+      assert.ok(lines(first).every((line) => line.startsWith('[decisions] ')));
+      assert.deepEqual(readJson(dir, 'package.json').cds.requires.decisions, {
+        '[production]': { kind: 'decisions-laya' },
       });
       assert.deepEqual(Object.keys(snapshot(dir)), ['package.json']);
 
@@ -110,7 +110,7 @@ describe('cds add systemone', { concurrency: true }, () => {
       const server = await startMockServer({ port: 0, log: (line) => requests.push(line) });
       servers.push(server);
       const production = await connect(dir, {
-        env: { CDS_ENV: 'production', CDS_REQUIRES_SYSTEMONE_CREDENTIALS_URL: server.url },
+        env: { CDS_ENV: 'production', CDS_REQUIRES_DECISIONS_CREDENTIALS_URL: server.url },
         body: decide,
       });
       assert.equal(production.name, 'DecisionsService');
@@ -120,19 +120,19 @@ describe('cds add systemone', { concurrency: true }, () => {
     });
   });
 
-  test('--kind systemone-typesafe writes a token placeholder and .gitignore', { timeout: TIMEOUT }, async () => {
+  test('--kind decisions-typesafe writes a token placeholder and .gitignore', { timeout: TIMEOUT }, async () => {
     await withApp({}, async (dir) => {
-      const first = await add(dir, '--kind', 'systemone-typesafe');
+      const first = await add(dir, '--kind', 'decisions-typesafe');
       assert.equal(first.status, 0, first.stderr);
       assert.match(first.stdout, /\.cdsrc-private\.json/);
-      assert.equal(readJson(dir, 'package.json').cds.requires.systemone['[production]'].kind, 'systemone-typesafe');
+      assert.equal(readJson(dir, 'package.json').cds.requires.decisions['[production]'].kind, 'decisions-typesafe');
       assert.deepEqual(readJson(dir, '.cdsrc-private.json'), {
-        requires: { systemone: { '[production]': { credentials: { token: '' } } } },
+        requires: { decisions: { '[production]': { credentials: { token: '' } } } },
       });
       assert.match(read(dir, '.gitignore'), /^\.cdsrc-private\.json$/m);
 
       const before = snapshot(dir);
-      const second = await add(dir, '--kind', 'systemone-typesafe');
+      const second = await add(dir, '--kind', 'decisions-typesafe');
       assert.equal(second.status, 0, second.stderr);
       assert.deepEqual(snapshot(dir), before);
 
@@ -143,13 +143,13 @@ describe('cds add systemone', { concurrency: true }, () => {
     });
   });
 
-  test('--kind systemone-subq writes a token placeholder and no URL reminder', { timeout: TIMEOUT }, async () => {
+  test('--kind decisions-subq writes a token placeholder and no URL reminder', { timeout: TIMEOUT }, async () => {
     await withApp({}, async (dir) => {
-      const result = await add(dir, '--kind', 'systemone-subq');
+      const result = await add(dir, '--kind', 'decisions-subq');
       assert.equal(result.status, 0, result.stderr);
-      assert.equal(readJson(dir, 'package.json').cds.requires.systemone['[production]'].kind, 'systemone-subq');
+      assert.equal(readJson(dir, 'package.json').cds.requires.decisions['[production]'].kind, 'decisions-subq');
       assert.deepEqual(readJson(dir, '.cdsrc-private.json'), {
-        requires: { systemone: { '[production]': { credentials: { token: '' } } } },
+        requires: { decisions: { '[production]': { credentials: { token: '' } } } },
       });
       assert.match(read(dir, '.gitignore'), /^\.cdsrc-private\.json$/m);
       assert.doesNotMatch(result.stdout + result.stderr, /credentials\.url/);
@@ -165,8 +165,8 @@ describe('cds add systemone', { concurrency: true }, () => {
     await withApp({}, async (dir) => {
       const result = await add(dir, '--for', 'hybrid');
       assert.equal(result.status, 0, result.stderr);
-      assert.deepEqual(readJson(dir, 'package.json').cds.requires.systemone, {
-        '[hybrid]': { kind: 'systemone-laya' },
+      assert.deepEqual(readJson(dir, 'package.json').cds.requires.decisions, {
+        '[hybrid]': { kind: 'decisions-laya' },
       });
     });
   });
@@ -175,20 +175,20 @@ describe('cds add systemone', { concurrency: true }, () => {
     await withApp({}, async (dir) => {
       const result = await add(dir, '--with-fixtures');
       assert.equal(result.status, 0, result.stderr);
-      assert.match(result.stdout, /test\/data\/systemone\.json/);
-      const rules = readJson(dir, 'test/data/systemone.json');
+      assert.match(result.stdout, /test\/data\/decisions\.json/);
+      const rules = readJson(dir, 'test/data/decisions.json');
       assert.equal(rules.length, 2);
       const answer = await connect(dir, { body: decide });
       assert.equal(answer.result.answers.department.choice, 'billing');
       assert.match(answer.result.model, /mock/);
 
-      fs.writeFileSync(path.join(dir, 'test/data/systemone.json'), '[]\n');
+      fs.writeFileSync(path.join(dir, 'test/data/decisions.json'), '[]\n');
       const kept = await add(dir, '--with-fixtures');
       assert.equal(kept.status, 0, kept.stderr);
-      assert.equal(read(dir, 'test/data/systemone.json'), '[]\n');
+      assert.equal(read(dir, 'test/data/decisions.json'), '[]\n');
       const forced = await add(dir, '--with-fixtures', '--force');
       assert.equal(forced.status, 0, forced.stderr);
-      assert.equal(readJson(dir, 'test/data/systemone.json').length, 2);
+      assert.equal(readJson(dir, 'test/data/decisions.json').length, 2);
     });
   });
 
@@ -196,15 +196,15 @@ describe('cds add systemone', { concurrency: true }, () => {
     await withApp({}, async (dir) => {
       assert.equal((await add(dir)).status, 0);
       const before = snapshot(dir);
-      const kept = await add(dir, '--kind', 'systemone-typesafe');
+      const kept = await add(dir, '--kind', 'decisions-typesafe');
       assert.equal(kept.status, 0, kept.stderr);
-      assert.match(kept.stdout, /systemone-laya/);
+      assert.match(kept.stdout, /decisions-laya/);
       assert.match(kept.stdout, /--force/);
       assert.deepEqual(snapshot(dir), before);
 
-      const forced = await add(dir, '--kind', 'systemone-typesafe', '--force');
+      const forced = await add(dir, '--kind', 'decisions-typesafe', '--force');
       assert.equal(forced.status, 0, forced.stderr);
-      assert.equal(readJson(dir, 'package.json').cds.requires.systemone['[production]'].kind, 'systemone-typesafe');
+      assert.equal(readJson(dir, 'package.json').cds.requires.decisions['[production]'].kind, 'decisions-typesafe');
       assert.ok(Object.hasOwn(snapshot(dir), '.cdsrc-private.json'));
     });
   });
@@ -212,15 +212,15 @@ describe('cds add systemone', { concurrency: true }, () => {
   test('an unknown kind fails, lists the selectable kinds and writes nothing', { timeout: TIMEOUT }, async () => {
     await withApp({}, async (dir) => {
       const before = snapshot(dir);
-      const result = await add(dir, '--kind', 'systemone-nope');
+      const result = await add(dir, '--kind', 'decisions-nope');
       assert.notEqual(result.status, 0);
       const output = result.stdout + result.stderr;
-      assert.match(output, /Unknown kind "systemone-nope"/);
-      assert.match(output, /systemone-laya/);
+      assert.match(output, /Unknown kind "decisions-nope"/);
+      assert.match(output, /decisions-laya/);
       assert.doesNotMatch(output, /\n\s+at /, 'no stack trace');
       assert.deepEqual(snapshot(dir), before);
 
-      const mock = await add(dir, '--kind', 'systemone-mock');
+      const mock = await add(dir, '--kind', 'decisions-mock');
       assert.notEqual(mock.status, 0);
       assert.match(mock.stdout + mock.stderr, /mock/);
       assert.deepEqual(snapshot(dir), before);
@@ -233,8 +233,8 @@ describe('cds add systemone', { concurrency: true }, () => {
       assert.equal(result.status, 0, result.stderr);
       // The help text is bold even with NO_COLOR.
       const help = stripVTControlCharacters(result.stdout);
-      assert.match(help, /systemone\s+- System One decisions with cap-jev/);
-      assert.match(help, /cds add systemone\s+--kind[\s\S]*--with-fixtures/);
+      assert.match(help, /decisions\s+- Decision models with cap-decisions/);
+      assert.match(help, /cds add decisions\s+--kind[\s\S]*--with-fixtures/);
     });
   });
 
@@ -243,7 +243,7 @@ describe('cds add systemone', { concurrency: true }, () => {
       const before = snapshot(dir);
       const result = await add(dir);
       assert.notEqual(result.status, 0);
-      assert.match(result.stdout + result.stderr, /cap-jev is a Node\.js plugin/);
+      assert.match(result.stdout + result.stderr, /cap-decisions is a Node\.js plugin/);
       assert.deepEqual(snapshot(dir), before);
     });
   });
@@ -254,13 +254,13 @@ describe('cds add systemone', { concurrency: true }, () => {
       links: { 'cap-jev-provider-acme': providerPackage },
     };
     await withApp(options, async (dir) => {
-      const unknown = await add(dir, '--kind', 'systemone-nope');
-      assert.match(unknown.stdout + unknown.stderr, /systemone-acme/);
+      const unknown = await add(dir, '--kind', 'decisions-nope');
+      assert.match(unknown.stdout + unknown.stderr, /decisions-acme/);
 
-      const result = await add(dir, '--kind', 'systemone-acme');
+      const result = await add(dir, '--kind', 'decisions-acme');
       assert.equal(result.status, 0, result.stderr);
-      assert.equal(readJson(dir, 'package.json').cds.requires.systemone['[production]'].kind, 'systemone-acme');
-      assert.equal(readJson(dir, '.cdsrc-private.json').requires.systemone['[production]'].credentials.token, '');
+      assert.equal(readJson(dir, 'package.json').cds.requires.decisions['[production]'].kind, 'decisions-acme');
+      assert.equal(readJson(dir, '.cdsrc-private.json').requires.decisions['[production]'].credentials.token, '');
       assert.match(read(dir, '.gitignore'), /\.cdsrc-private\.json/);
     });
   });

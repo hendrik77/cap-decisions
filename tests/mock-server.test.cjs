@@ -54,7 +54,7 @@ const rejectsWith = (code, message) => (error) => {
   if (message) assert.match(error.message, message);
   return true;
 };
-const tempDir = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-mock-server-')));
+const tempDir = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-mock-server-')));
 
 describe('request table', () => {
   test('answers a valid request like the in-process mock', async () => {
@@ -451,7 +451,7 @@ describe('options', () => {
     try {
       fs.mkdirSync(path.join(root, 'test/data'), { recursive: true });
       fs.writeFileSync(
-        path.join(root, 'test/data/systemone.json'),
+        path.join(root, 'test/data/decisions.json'),
         JSON.stringify([{ when: { question: 'department' }, answer: { choice: 'technical' } }]),
       );
       await withServer({ root }, async (server) => {

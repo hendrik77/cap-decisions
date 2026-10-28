@@ -158,7 +158,7 @@ function withStubbedSdk(sdkSource, run) {
   const os = require('node:os');
   const path = require('node:path');
   const Module = require('node:module');
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-sdk-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-sdk-'));
   const file = path.join(dir, 'index.js');
   fs.writeFileSync(file, `module.exports = ${sdkSource};`);
   const resolve = Module._resolveFilename;
@@ -226,7 +226,7 @@ describe('destination at connect', () => {
     const dir = createApp(
       {
         name: 'destination-app',
-        cds: { requires: { systemone: { kind: 'systemone-generic', credentials: { destination: 'jev' } } } },
+        cds: { requires: { decisions: { kind: 'decisions-generic', credentials: { destination: 'jev' } } } },
       },
       {
         'sdk.js': sdkSource(server.url),
@@ -245,7 +245,7 @@ describe('destination at connect', () => {
          const out = (value) => console.log(JSON.stringify(value));
          (async () => {
            const warnings = [];
-           cds.log('systemone').warn = (...args) => warnings.push(args.join(' '));
+           cds.log('decisions').warn = (...args) => warnings.push(args.join(' '));
            try {
              ${script}
            } catch (error) {
@@ -267,7 +267,7 @@ describe('destination at connect', () => {
           if (calls++ === 0) throw new Error('destination service down');
           return { url: ${JSON.stringify(url)} };
         };`,
-      `const srv = await cds.connect.to('systemone');
+      `const srv = await cds.connect.to('decisions');
        const decision = await srv.decide(${JSON.stringify(noulRequest)});
        out({ model: decision.model, warnings });`,
     );
@@ -283,7 +283,7 @@ describe('destination at connect', () => {
   test('a destination that is not found still fails the connect', async () => {
     const result = await inApp(
       () => `exports.getDestination = async () => null;`,
-      `await cds.connect.to('systemone'); out({ ok: true });`,
+      `await cds.connect.to('decisions'); out({ ok: true });`,
     );
     assert.equal(result.error, 'INVALID_CONFIG');
     assert.match(result.message, /Destination was not found/);

@@ -1,12 +1,12 @@
 const cds = require('@sap/cds');
-const { DecisionsService, DecisionsError } = require('cap-jev');
+const { DecisionsService, DecisionsError } = require('cap-decisions');
 
 // Acme wraps the Jev answer in { data: <result> } and addresses its API by region.
 class AcmeService extends DecisionsService {
   static credentialKeys = ['region'];
 
   async init() {
-    cds.log('systemone').debug('initializing the Acme provider');
+    cds.log('decisions').debug('initializing the Acme provider');
     await super.init();
   }
 

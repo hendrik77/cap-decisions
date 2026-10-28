@@ -1,5 +1,11 @@
 import cds from '@sap/cds';
-import { DecisionsError, type Answers, type Questions, type DecisionsErrorCode, type DecisionsService } from 'cap-jev';
+import {
+  DecisionsError,
+  type Answers,
+  type Questions,
+  type DecisionsErrorCode,
+  type DecisionsService,
+} from 'cap-decisions';
 
 const questions = {
   department: {
@@ -26,7 +32,7 @@ const statuses: Partial<Record<DecisionsErrorCode, number>> = {
 
 export default class DecisionService extends cds.ApplicationService {
   async init(): Promise<void> {
-    const decisions = (await cds.connect.to('systemone')) as DecisionsService;
+    const decisions = (await cds.connect.to('decisions')) as DecisionsService;
     this.on('classify', async (request) => {
       const message: unknown = request.data.message;
       if (typeof message !== 'string' || !message.trim()) return request.reject(400, 'Message is required');

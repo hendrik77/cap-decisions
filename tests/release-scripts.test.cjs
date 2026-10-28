@@ -22,11 +22,11 @@ const files = (version) => ({
   'package.json': JSON.stringify({ name: 'cap-jev', version, peerDependencies: { '@sap/cds': '^9 || ^10' } }),
   'examples/provider-package/package.json': JSON.stringify({
     name: 'cap-jev-acme',
-    peerDependencies: { 'cap-jev': '>=0.5.0', '@sap/cds': '^9 || ^10' },
+    peerDependencies: { 'cap-decisions': '>=0.5.0', '@sap/cds': '^9 || ^10' },
   }),
   'package-lock.json': JSON.stringify({ name: 'cap-jev', version, packages: { '': { name: 'cap-jev', version } } }),
-  'examples/cap-app/package.json': JSON.stringify({ dependencies: { 'cap-jev': `^${version}` } }),
-  'examples/provider-package/README.md': `# Acme\n\n{ "dependencies": { "cap-jev": "^${version}", "cap-jev-provider-acme": "^1.0.0" } }\n`,
+  'examples/cap-app/package.json': JSON.stringify({ dependencies: { 'cap-decisions': `^${version}` } }),
+  'examples/provider-package/README.md': `# Acme\n\n{ "dependencies": { "cap-decisions": "^${version}", "cap-jev-provider-acme": "^1.0.0" } }\n`,
   'docs/providers.md': `# Providers
 `,
   'README.md': `# cap-jev\n\nnpm install ${url(version)}\n`,
@@ -87,7 +87,7 @@ describe('checkRelease', () => {
   });
 
   test('fails on the example range', () => {
-    const body = JSON.stringify({ dependencies: { 'cap-jev': '^1.2.2' } });
+    const body = JSON.stringify({ dependencies: { 'cap-decisions': '^1.2.2' } });
     const failures = checkRelease({ root: tree({ 'examples/cap-app/package.json': body }) });
     assert.equal(failures.length, 1);
     assert.match(failures[0], /examples\/cap-app\/package\.json/);
@@ -95,15 +95,15 @@ describe('checkRelease', () => {
     assert.match(failures[0], /\^1\.2\.2/);
   });
 
-  test('fails on the cap-jev range quoted in the provider package README', () => {
-    const readme = '{ "dependencies": { "cap-jev": "^1.2.2" } }\n';
+  test('fails on the cap-decisions range quoted in the provider package README', () => {
+    const readme = '{ "dependencies": { "cap-decisions": "^1.2.2" } }\n';
     const failures = checkRelease({ root: tree({ 'examples/provider-package/README.md': readme }) });
     assert.deepEqual(failures, [
-      'examples/provider-package/README.md: expected dependency cap-jev ^1.2.3, found ^1.2.2',
+      'examples/provider-package/README.md: expected dependency cap-decisions ^1.2.3, found ^1.2.2',
     ]);
   });
 
-  test('passes when the provider package README quotes no cap-jev range', () => {
+  test('passes when the provider package README quotes no cap-decisions range', () => {
     assert.deepEqual(checkRelease({ root: tree({ 'examples/provider-package/README.md': '# Acme\n' }) }), []);
   });
 
@@ -182,7 +182,7 @@ describe('checkRelease', () => {
     const pkg = (range) =>
       JSON.stringify({ name: 'cap-jev', version: '1.2.3', peerDependencies: { '@sap/cds': range } });
     const provider = (range) =>
-      JSON.stringify({ name: 'cap-jev-acme', peerDependencies: { 'cap-jev': '>=0.5.0', '@sap/cds': range } });
+      JSON.stringify({ name: 'cap-jev-acme', peerDependencies: { 'cap-decisions': '>=0.5.0', '@sap/cds': range } });
 
     test('passes when the peer ranges name the CAP majors of the CI matrix', () => {
       assert.deepEqual(checkRelease({ root: tree() }), []);

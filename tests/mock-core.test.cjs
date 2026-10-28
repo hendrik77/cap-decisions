@@ -88,19 +88,19 @@ describe('parseMockOptions', () => {
   test('rejects an unknown fail code and HTTP_ERROR without status with messages for the setting', () => {
     assert.throws(
       () => parseMockOptions({ fail: 'BOOM' }),
-      invalidConfig(/^cds\.requires\.systemone\.fail: code must be one of INVALID_RESPONSE, HTTP_ERROR/),
+      invalidConfig(/^cds\.requires\.decisions\.fail: code must be one of INVALID_RESPONSE, HTTP_ERROR/),
     );
     assert.throws(
       () => parseMockOptions({ fail: { code: 'HTTP_ERROR' } }),
-      invalidConfig(/^cds\.requires\.systemone\.fail: HTTP_ERROR needs a status from 400 to 599$/),
+      invalidConfig(/^cds\.requires\.decisions\.fail: HTTP_ERROR needs a status from 400 to 599$/),
     );
     assert.throws(
       () => parseMockOptions({ fail: { status: 503 } }),
-      invalidConfig(/^cds\.requires\.systemone\.fail needs a code$/),
+      invalidConfig(/^cds\.requires\.decisions\.fail needs a code$/),
     );
     assert.throws(
       () => parseMockOptions({ fail: { code: 'TIMEOUT', status: 503 } }),
-      invalidConfig(/^cds\.requires\.systemone\.fail: status only goes with HTTP_ERROR$/),
+      invalidConfig(/^cds\.requires\.decisions\.fail: status only goes with HTTP_ERROR$/),
     );
   });
 });
@@ -119,7 +119,7 @@ describe('loadFixtures', () => {
   test.after(() => dirs.forEach((dir) => fs.rmSync(dir, { recursive: true, force: true })));
 
   test('exports the default path', () => {
-    assert.equal(DEFAULT_FIXTURES, 'test/data/systemone.json');
+    assert.equal(DEFAULT_FIXTURES, 'test/data/decisions.json');
   });
 
   test('a missing default file gives no rules', async () => {

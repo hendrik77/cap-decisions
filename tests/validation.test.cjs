@@ -107,7 +107,7 @@ describe('validateSettings errors', () => {
       for (const value of [true, {}, 'yes', 1]) {
         assert.throws(() => validateSettings({ [key]: value }), {
           ...invalidConfig,
-          message: `${key} is not supported: a decision needs an answer, so the systemone service cannot be queued`,
+          message: `${key} is not supported: a decision needs an answer, so the decisions service cannot be queued`,
         });
       }
       assert.deepEqual(validateSettings({ [key]: false }), []);
@@ -164,8 +164,8 @@ describe('validateSettings extra credential keys', () => {
 
 describe('validateSettings warnings', () => {
   const full = {
-    kind: 'systemone-typesafe',
-    impl: 'cap-jev',
+    kind: 'decisions-typesafe',
+    impl: 'cap-decisions',
     modelId: 'jev-latest',
     timeoutMs: 10000,
     requiresToken: true,
@@ -181,7 +181,7 @@ describe('validateSettings warnings', () => {
 
   test('an unknown key produces one warning', () => {
     assert.deepEqual(validateSettings({ ...full, foo: 1 }), [
-      'Unknown setting "foo" for cds.requires.systemone is ignored',
+      'Unknown setting "foo" for cds.requires.decisions is ignored',
     ]);
   });
 
@@ -199,13 +199,13 @@ describe('validateSettings warnings', () => {
   });
 
   test('the options of a connected service produce no warning', async () => {
-    const dir = createApp({ name: 'settings-app', cds: { requires: { systemone: { kind: 'systemone-laya' } } } });
+    const dir = createApp({ name: 'settings-app', cds: { requires: { decisions: { kind: 'decisions-laya' } } } });
     try {
       const options = await runInApp(
         dir,
         `(async () => {
           const cds = require('@sap/cds');
-          const srv = await cds.connect.to('systemone');
+          const srv = await cds.connect.to('decisions');
           console.log(JSON.stringify(srv.options));
         })();`,
       );
@@ -216,11 +216,11 @@ describe('validateSettings warnings', () => {
   });
 });
 
-describe('queued systemone service', () => {
+describe('queued decisions service', () => {
   test('connecting fails with INVALID_CONFIG', async () => {
     const dir = createApp({
       name: 'queued-app',
-      cds: { requires: { systemone: { kind: 'systemone-laya', queued: true } } },
+      cds: { requires: { decisions: { kind: 'decisions-laya', queued: true } } },
     });
     try {
       const result = await runInApp(
@@ -228,7 +228,7 @@ describe('queued systemone service', () => {
         `(async () => {
           const cds = require('@sap/cds');
           try {
-            await cds.connect.to('systemone');
+            await cds.connect.to('decisions');
             console.log(JSON.stringify({ ok: true }));
           } catch (error) {
             console.log(JSON.stringify({ code: error.code, message: error.message }));
@@ -431,7 +431,7 @@ test('instanceof DecisionsError holds for an error of another copy of the module
   const fs = require('node:fs');
   const os = require('node:os');
   const path = require('node:path');
-  const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-copy-'));
+  const copy = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-copy-'));
   try {
     fs.cpSync(path.join(__dirname, '../dist'), copy, { recursive: true });
     const other = require(path.join(copy, 'validation.js'));

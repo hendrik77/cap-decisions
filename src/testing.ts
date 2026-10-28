@@ -23,7 +23,7 @@ import type {
   DecisionsSettings,
 } from './types';
 
-// This module is the test kit for provider packages (cap-jev/testing). It must not load @sap/cds: CAP runs in a
+// This module is the test kit for provider packages (cap-decisions/testing). It must not load @sap/cds: CAP runs in a
 // child process of the test, in a temporary app. It is not loaded by cds-plugin.js or by any other module.
 
 /**
@@ -55,10 +55,10 @@ export interface WireErrorInput {
  * @experimental
  */
 export interface ProviderKindTestOptions {
-  /** The kind under test, such as `systemone-acme`. */
+  /** The kind under test, such as `decisions-acme`. */
   kind: string;
   /**
-   * The provider package, linked into the temporary app. Default `process.cwd()`. When it is `cap-jev` itself,
+   * The provider package, linked into the temporary app. Default `process.cwd()`. When it is `cap-decisions` itself,
    * the built-in kinds are tested and nothing is linked.
    */
   packageDir?: string;
@@ -88,9 +88,9 @@ interface Normalized {
 }
 
 const OPTION_KEYS = ['kind', 'packageDir', 'appDir', 'settings', 'credentials', 'encode', 'encodeError'];
-const TEST_TOKEN = 'cap-jev-test-token';
+const TEST_TOKEN = 'cap-decisions-test-token';
 const TEST_TIMEOUT = 90_000;
-const MARK = '@@cap-jev-kit@@';
+const MARK = '@@cap-decisions-kit@@';
 
 const plain = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -154,37 +154,37 @@ function link(target: string, file: string): void {
   fs.symlinkSync(target, file, 'junction');
 }
 
-// Exactly one @sap/cds is loaded: the app, cap-jev and the provider package must reach the same real directory.
+// Exactly one @sap/cds is loaded: the app, cap-decisions and the provider package must reach the same real directory.
 function createTemporaryApp(options: Normalized): string {
   const packageDir = fs.realpathSync(options.packageDir);
   const { name } = readPackageJson(packageDir);
-  const own = name === 'cap-jev';
-  const capJev = own ? packageDir : (packageRoot('cap-jev', packageDir) ?? path.resolve(__dirname, '..'));
+  const own = name === 'cap-decisions';
+  const capJev = own ? packageDir : (packageRoot('cap-decisions', packageDir) ?? path.resolve(__dirname, '..'));
   const cds = packageRoot('@sap/cds', packageDir) ?? packageRoot('@sap/cds', capJev);
   if (!cds) {
     throw new Error(
-      `@sap/cds cannot be resolved from ${packageDir} or from cap-jev (${capJev}); install it as a development dependency`,
+      `@sap/cds cannot be resolved from ${packageDir} or from cap-decisions (${capJev}); install it as a development dependency`,
     );
   }
   const cdsOfCapJev = packageRoot('@sap/cds', capJev);
   if (cdsOfCapJev && cdsOfCapJev !== cds) {
     throw new Error(
-      `Two copies of @sap/cds would be loaded: ${cds} (from the provider package) and ${cdsOfCapJev} (from cap-jev). ` +
+      `Two copies of @sap/cds would be loaded: ${cds} (from the provider package) and ${cdsOfCapJev} (from cap-decisions). ` +
         'Install the same copy for both, for example with a single npm install',
     );
   }
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-kit-')));
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-kit-')));
   try {
-    const dependencies: Record<string, string> = { 'cap-jev': '*', '@sap/cds': '*' };
+    const dependencies: Record<string, string> = { 'cap-decisions': '*', '@sap/cds': '*' };
     if (!own) {
       if (!name) throw new Error(`${path.join(packageDir, 'package.json')} has no name`);
       dependencies[name] = '*';
     }
     fs.writeFileSync(
       path.join(dir, 'package.json'),
-      JSON.stringify({ name: 'cap-jev-kit-app', private: true, dependencies }, null, 2),
+      JSON.stringify({ name: 'cap-decisions-kit-app', private: true, dependencies }, null, 2),
     );
-    link(capJev, path.join(dir, 'node_modules/cap-jev'));
+    link(capJev, path.join(dir, 'node_modules/cap-decisions'));
     link(cds, path.join(dir, 'node_modules/@sap/cds'));
     if (!own && name) link(packageDir, path.join(dir, 'node_modules', name));
   } catch (error) {
@@ -217,13 +217,13 @@ const cds = require('@sap/cds');
     try {
       if (command.op === 'info') {
         const kinds = cds.requires.kinds || {};
-        const settings = cds.requires.systemone || {};
+        const settings = cds.requires.decisions || {};
         send({
           id,
           ok: true,
           info: {
             known: Object.hasOwn(kinds, command.kind),
-            kinds: Object.keys(kinds).filter((name) => name.startsWith('systemone')),
+            kinds: Object.keys(kinds).filter((name) => name.startsWith('decisions')),
             impl: settings.impl,
             modelId: settings.modelId,
             requiresToken: settings.requiresToken === true,
@@ -232,7 +232,7 @@ const cds = require('@sap/cds');
         });
         continue;
       }
-      const service = await cds.connect.to('systemone', command.options);
+      const service = await cds.connect.to('decisions', command.options);
       if (command.op === 'decide') send({ id, ok: true, result: await service.decide(command.request) });
       else send({ id, ok: true });
     } catch (error) {
@@ -275,7 +275,7 @@ class Child {
   constructor(dir: string, kind: string) {
     this.process = spawn(process.execPath, ['-e', CHILD_SOURCE], {
       cwd: dir,
-      env: { ...process.env, cds_requires_systemone_kind: kind },
+      env: { ...process.env, cds_requires_decisions_kind: kind },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     this.process.stdout.setEncoding('utf8');
@@ -432,7 +432,7 @@ function respondTo(decision: DecisionRequest): DecisionResult {
           : { score: SCORE };
     answers[id] = completeAnswer(question, partial, decision.state, id);
   }
-  return { model: 'cap-jev-test-model', answers, usage: { input_tokens: 3, output_tokens: 1 } } as DecisionResult;
+  return { model: 'cap-decisions-test-model', answers, usage: { input_tokens: 3, output_tokens: 1 } } as DecisionResult;
 }
 
 // Writes a JSON response of the fake provider.
@@ -726,7 +726,7 @@ export function testProviderKind(options: ProviderKindTestOptions): void {
     });
 
     test('an error response is HTTP_ERROR with its status and providerCode', { timeout: TEST_TIMEOUT }, async () => {
-      const code = 'cap_jev_test_error';
+      const code = 'cap_decisions_test_error';
       const wire = ctx().options.encodeError({
         code,
         status: 400,
@@ -765,7 +765,11 @@ export function testProviderKind(options: ProviderKindTestOptions): void {
 
     test('a decision that does not match the questions is INVALID_RESPONSE', { timeout: TEST_TIMEOUT }, async () => {
       serve((_request, response, body) => {
-        const mismatch = { model: 'cap-jev-test-model', answers: {}, usage: { input_tokens: 1, output_tokens: 0 } };
+        const mismatch = {
+          model: 'cap-decisions-test-model',
+          answers: {},
+          usage: { input_tokens: 1, output_tokens: 0 },
+        };
         sendJson(response, 200, ctx().options.encode(mismatch as unknown as DecisionResult, body as DecisionRequest));
       });
       failed(await decide(request({ q: noulQuestion() })), 'INVALID_RESPONSE', 'a decision without the answers');

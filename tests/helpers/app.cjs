@@ -8,15 +8,15 @@ const execFileAsync = promisify(execFile);
 const root = path.resolve(__dirname, '../..');
 
 /**
- * Creates a temporary CAP app whose node_modules/cap-jev and node_modules/@sap/cds are symlinks to the
+ * Creates a temporary CAP app whose node_modules/cap-decisions and node_modules/@sap/cds are symlinks to the
  * repository root and its @sap/cds copy, so that exactly one @sap/cds instance is loaded. `links` maps further
  * package names to directories that are symlinked into node_modules (for example a provider package).
  */
 function createApp(packageJson, files = {}, { links = {} } = {}) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-jev-app-')));
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-app-')));
   const pkg = {
     ...packageJson,
-    dependencies: { 'cap-jev': '*', '@sap/cds': '*', ...packageJson.dependencies },
+    dependencies: { 'cap-decisions': '*', '@sap/cds': '*', ...packageJson.dependencies },
   };
   fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify(pkg, null, 2));
   for (const [file, content] of Object.entries(files)) {
@@ -25,7 +25,7 @@ function createApp(packageJson, files = {}, { links = {} } = {}) {
     fs.writeFileSync(target, content);
   }
   fs.mkdirSync(path.join(dir, 'node_modules/@sap'), { recursive: true });
-  fs.symlinkSync(root, path.join(dir, 'node_modules/cap-jev'), 'dir');
+  fs.symlinkSync(root, path.join(dir, 'node_modules/cap-decisions'), 'dir');
   fs.symlinkSync(
     fs.realpathSync(path.join(root, 'node_modules/@sap/cds')),
     path.join(dir, 'node_modules/@sap/cds'),

@@ -47,9 +47,9 @@ describe('parseFixtures', () => {
     for (const raw of [{}, 'rules', null, undefined, 3]) {
       assert.throws(() => parseFixtures(raw), invalidConfig('fixtures must be an array of rules'));
     }
-    assert.throws(() => parseFixtures({}, 'test/data/systemone.json'), {
+    assert.throws(() => parseFixtures({}, 'test/data/decisions.json'), {
       code: 'INVALID_CONFIG',
-      message: 'test/data/systemone.json must be an array of rules',
+      message: 'test/data/decisions.json must be an array of rules',
     });
   });
 

@@ -5,7 +5,7 @@ export const full: MockServerOptions = {
   port: 0,
   host: '127.0.0.1',
   path: '/v1/systemone',
-  fixtures: 'test/data/systemone.json',
+  fixtures: 'test/data/decisions.json',
   root: '/tmp',
   strategy: 'seeded',
   latencyMs: 50,

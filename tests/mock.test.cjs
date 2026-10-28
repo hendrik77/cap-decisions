@@ -3,9 +3,9 @@ const assert = require('node:assert/strict');
 const { createApp, runInApp, removeApp } = require('./helpers/app.cjs');
 
 // Runs `body` inside an async function of a temporary app; the body prints one JSON line through out().
-async function inApp(systemone, body, { files, env, extra } = {}) {
+async function inApp(decisions, body, { files, env, extra } = {}) {
   const dir = createApp(
-    { name: 'mock-app', private: true, cds: systemone === undefined ? {} : { requires: { systemone } }, ...extra },
+    { name: 'mock-app', private: true, cds: decisions === undefined ? {} : { requires: { decisions } }, ...extra },
     files,
   );
   const script = `
@@ -38,7 +38,7 @@ async function inApp(systemone, body, { files, env, extra } = {}) {
   }
 }
 
-const connect = `const srv = await cds.connect.to('systemone');`;
+const connect = `const srv = await cds.connect.to('decisions');`;
 const decide = `${connect} const result = await srv.decide(request); out(result);`;
 const expectError = (actual, code, message) => {
   assert.equal(actual.error, code, JSON.stringify(actual));
@@ -48,45 +48,45 @@ const json = (value) => JSON.stringify(value);
 
 describe('activation', () => {
   const probe = `
-    const impl = cds.env.requires.systemone.impl;
-    const modelId = cds.env.requires.systemone.modelId;
-    const url = cds.env.requires.systemone.credentials && cds.env.requires.systemone.credentials.url;
+    const impl = cds.env.requires.decisions.impl;
+    const modelId = cds.env.requires.decisions.modelId;
+    const url = cds.env.requires.decisions.credentials && cds.env.requires.decisions.credentials.url;
     let name;
     let error;
-    try { name = (await cds.connect.to('systemone')).constructor.name; } catch (e) { error = e.code || e.name; }
+    try { name = (await cds.connect.to('decisions')).constructor.name; } catch (e) { error = e.code || e.name; }
     out({ impl, modelId, url, name, error });`;
-  const MOCK = 'cap-jev/providers/mock';
+  const MOCK = 'cap-decisions/providers/mock';
   const mock = { impl: MOCK, name: 'MockService' };
   const token = { token: 't' };
 
   const rows = [
     {
-      title: 'no systemone entry',
+      title: 'no decisions entry',
       config: undefined,
       development: mock,
       test: mock,
-      production: { impl: 'cap-jev', error: 'INVALID_CONFIG' },
+      production: { impl: 'cap-decisions', error: 'INVALID_CONFIG' },
     },
     {
       title: 'an explicit kind',
-      config: { kind: 'systemone-typesafe', credentials: token },
-      development: { impl: 'cap-jev', modelId: 'jev-latest', name: 'DecisionsService' },
-      test: { impl: 'cap-jev', modelId: 'jev-latest', name: 'DecisionsService' },
-      production: { impl: 'cap-jev', modelId: 'jev-latest', name: 'DecisionsService' },
+      config: { kind: 'decisions-typesafe', credentials: token },
+      development: { impl: 'cap-decisions', modelId: 'jev-latest', name: 'DecisionsService' },
+      test: { impl: 'cap-decisions', modelId: 'jev-latest', name: 'DecisionsService' },
+      production: { impl: 'cap-decisions', modelId: 'jev-latest', name: 'DecisionsService' },
     },
     {
       title: 'a kind only for production',
-      config: { '[production]': { kind: 'systemone-typesafe' }, credentials: token },
+      config: { '[production]': { kind: 'decisions-typesafe' }, credentials: token },
       development: mock,
       test: mock,
-      production: { impl: 'cap-jev', modelId: 'jev-latest', name: 'DecisionsService' },
+      production: { impl: 'cap-decisions', modelId: 'jev-latest', name: 'DecisionsService' },
     },
     {
       title: 'only credentials.url and no kind',
       config: { credentials: { url: 'https://example.com/v1/systemone' } },
       development: mock,
       test: mock,
-      production: { impl: 'cap-jev', url: 'https://example.com/v1/systemone', name: 'DecisionsService' },
+      production: { impl: 'cap-decisions', url: 'https://example.com/v1/systemone', name: 'DecisionsService' },
     },
   ];
 
@@ -103,8 +103,8 @@ describe('activation', () => {
   test('the package exports the provider entry point', async () => {
     const result = await inApp(
       undefined,
-      `const m = require('cap-jev/providers/mock');
-       out({ same: m.default === m.MockService, name: m.default.name, base: Object.getPrototypeOf(m.default) === require('cap-jev').DecisionsService, keys: m.default.settingsKeys });`,
+      `const m = require('cap-decisions/providers/mock');
+       out({ same: m.default === m.MockService, name: m.default.name, base: Object.getPrototypeOf(m.default) === require('cap-decisions').DecisionsService, keys: m.default.settingsKeys });`,
     );
     assert.deepEqual(result, {
       same: true,
@@ -117,14 +117,14 @@ describe('activation', () => {
 
 describe('production', () => {
   test('the mock kind is refused in production', async () => {
-    const result = await inApp({ kind: 'systemone-mock' }, `${connect} out({ ok: true });`, {
+    const result = await inApp({ kind: 'decisions-mock' }, `${connect} out({ ok: true });`, {
       env: { CDS_ENV: 'production' },
     });
     expectError(result, 'INVALID_CONFIG', /disabled in production.*allowInProduction: true/);
   });
 
   test('allowInProduction lets the mock answer in production', async () => {
-    const result = await inApp({ kind: 'systemone-mock', allowInProduction: true }, decide, {
+    const result = await inApp({ kind: 'decisions-mock', allowInProduction: true }, decide, {
       env: { CDS_ENV: 'production' },
     });
     assert.equal(result.model, 'mock');
@@ -132,7 +132,7 @@ describe('production', () => {
   });
 
   test('allowInProduction must be a boolean', async () => {
-    const result = await inApp({ kind: 'systemone-mock', allowInProduction: 'yes' }, connect, {
+    const result = await inApp({ kind: 'decisions-mock', allowInProduction: 'yes' }, connect, {
       env: { CDS_ENV: 'production' },
     });
     expectError(result, 'INVALID_CONFIG', /allowInProduction/);
@@ -164,7 +164,7 @@ describe('answers', () => {
 
   test('the seeded strategy answers deterministically with a valid choice', async () => {
     const result = await inApp(
-      { kind: 'systemone-mock', strategy: 'seeded' },
+      { kind: 'decisions-mock', strategy: 'seeded' },
       `${connect}
        const first = await srv.decide(request);
        const second = await srv.decide(request);
@@ -183,16 +183,16 @@ describe('fixtures', () => {
     const other = await srv.decide(departmentOnly('The integration errors'));
     out({ matched: matched.answers.department.choice, other: other.answers.department.choice });`;
 
-  test('test/data/systemone.json is used by default', async () => {
-    const result = await inApp(undefined, refundRun, { files: { 'test/data/systemone.json': refundToBilling() } });
+  test('test/data/decisions.json is used by default', async () => {
+    const result = await inApp(undefined, refundRun, { files: { 'test/data/decisions.json': refundToBilling() } });
     assert.deepEqual(result, { matched: 'billing', other: 'technical' });
   });
 
   test('fixtures names another file relative to the project root', async () => {
-    const result = await inApp({ kind: 'systemone-mock', fixtures: 'srv/rules.json' }, refundRun, {
+    const result = await inApp({ kind: 'decisions-mock', fixtures: 'srv/rules.json' }, refundRun, {
       files: {
         'srv/rules.json': refundToBilling(),
-        'test/data/systemone.json': refundToBilling({ choice: 'technical' }),
+        'test/data/decisions.json': refundToBilling({ choice: 'technical' }),
       },
     });
     assert.deepEqual(result, { matched: 'billing', other: 'technical' });
@@ -204,27 +204,27 @@ describe('fixtures', () => {
   });
 
   test('a missing configured file fails with INVALID_CONFIG', async () => {
-    const result = await inApp({ kind: 'systemone-mock', fixtures: 'srv/missing.json' }, connect);
+    const result = await inApp({ kind: 'decisions-mock', fixtures: 'srv/missing.json' }, connect);
     expectError(result, 'INVALID_CONFIG', /srv\/missing\.json/);
   });
 
   test('malformed JSON fails with INVALID_CONFIG on connect', async () => {
     const result = await inApp(undefined, `${connect} out({ ok: true });`, {
-      files: { 'test/data/systemone.json': '[{ not json' },
+      files: { 'test/data/decisions.json': '[{ not json' },
     });
-    expectError(result, 'INVALID_CONFIG', /test\/data\/systemone\.json/);
+    expectError(result, 'INVALID_CONFIG', /test\/data\/decisions\.json/);
   });
 
   test('an invalid rule fails with INVALID_CONFIG naming the rule', async () => {
     const result = await inApp(undefined, `${connect} out({ ok: true });`, {
-      files: { 'test/data/systemone.json': json([{ when: { question: 'q' }, answer: { choice: 'a' } }, { bogus: 1 }]) },
+      files: { 'test/data/decisions.json': json([{ when: { question: 'q' }, answer: { choice: 'a' } }, { bogus: 1 }]) },
     });
-    expectError(result, 'INVALID_CONFIG', /test\/data\/systemone\.json rule 1/);
+    expectError(result, 'INVALID_CONFIG', /test\/data\/decisions\.json rule 1/);
   });
 
   test('a fixture answer that does not fit fails with INVALID_CONFIG on decide', async () => {
     const result = await inApp(undefined, decide, {
-      files: { 'test/data/systemone.json': refundToBilling({ choice: 'nowhere' }) },
+      files: { 'test/data/decisions.json': refundToBilling({ choice: 'nowhere' }) },
     });
     expectError(result, 'INVALID_CONFIG', /rule 0.*department/);
   });
@@ -233,7 +233,7 @@ describe('fixtures', () => {
     const rules = json([
       { when: { stateIncludes: 'refund' }, fail: 'HTTP_ERROR', status: 503, providerCode: 'overloaded' },
     ]);
-    const result = await inApp(undefined, decide, { files: { 'test/data/systemone.json': rules } });
+    const result = await inApp(undefined, decide, { files: { 'test/data/decisions.json': rules } });
     assert.equal(result.error, 'HTTP_ERROR');
     assert.equal(result.status, 503);
     assert.equal(result.providerCode, 'overloaded');
@@ -251,7 +251,7 @@ describe('global fail', () => {
   ];
   for (const [fail, code, fields] of cases) {
     test(`fail ${json(fail)} throws ${code}`, async () => {
-      const result = await inApp({ kind: 'systemone-mock', fail }, decide);
+      const result = await inApp({ kind: 'decisions-mock', fail }, decide);
       assert.equal(result.error, code);
       assert.equal(result.status, fields.status);
       assert.equal(result.providerCode, fields.providerCode);
@@ -260,8 +260,8 @@ describe('global fail', () => {
 
   test('a global fail wins over fixture rules', async () => {
     const rules = json([{ when: { question: 'department' }, answer: { choice: 'billing' } }]);
-    const result = await inApp({ kind: 'systemone-mock', fail: 'NETWORK_ERROR' }, decide, {
-      files: { 'test/data/systemone.json': rules },
+    const result = await inApp({ kind: 'decisions-mock', fail: 'NETWORK_ERROR' }, decide, {
+      files: { 'test/data/decisions.json': rules },
     });
     assert.equal(result.error, 'NETWORK_ERROR');
   });
@@ -286,10 +286,10 @@ describe('global fail', () => {
     ];
     const result = await inApp(
       undefined,
-      `const MockService = require('cap-jev/providers/mock').default;
+      `const MockService = require('cap-decisions/providers/mock').default;
        const codes = [];
        for (const settings of ${json(configs)}) {
-         try { await new MockService('systemone', undefined, settings).init(); codes.push('ok'); } catch (e) { codes.push(e.code); }
+         try { await new MockService('decisions', undefined, settings).init(); codes.push('ok'); } catch (e) { codes.push(e.code); }
        }
        out(codes);`,
     );
@@ -300,7 +300,7 @@ describe('global fail', () => {
   });
 
   test('an unknown strategy fails on connect', async () => {
-    const result = await inApp({ kind: 'systemone-mock', strategy: 'random' }, connect);
+    const result = await inApp({ kind: 'decisions-mock', strategy: 'random' }, connect);
     expectError(result, 'INVALID_CONFIG', /strategy/);
   });
 });
@@ -318,20 +318,20 @@ describe('latency', () => {
     }`;
 
   test('latencyMs delays the answer', async () => {
-    const result = await inApp({ kind: 'systemone-mock', latencyMs: 50, timeoutMs: 1000 }, timed());
+    const result = await inApp({ kind: 'decisions-mock', latencyMs: 50, timeoutMs: 1000 }, timed());
     assert.equal(result.ok, true);
     assert.ok(result.elapsed >= 49, `elapsed ${result.elapsed}`);
   });
 
   test('latencyMs beyond timeoutMs gives TIMEOUT after about timeoutMs', async () => {
-    const result = await inApp({ kind: 'systemone-mock', latencyMs: 200, timeoutMs: 50 }, timed());
+    const result = await inApp({ kind: 'decisions-mock', latencyMs: 200, timeoutMs: 50 }, timed());
     assert.equal(result.error, 'TIMEOUT');
     assert.ok(result.elapsed >= 49 && result.elapsed < 180, `elapsed ${result.elapsed}`);
   });
 
   test('aborting during the delay gives ABORTED', async () => {
     const result = await inApp(
-      { kind: 'systemone-mock', latencyMs: 2000, timeoutMs: 5000 },
+      { kind: 'decisions-mock', latencyMs: 2000, timeoutMs: 5000 },
       timed(`const controller = new AbortController(); setTimeout(() => controller.abort(), 30);`),
     );
     assert.equal(result.error, 'ABORTED');
@@ -340,7 +340,7 @@ describe('latency', () => {
 
   test('an already aborted signal gives ABORTED at once, with the reason as cause', async () => {
     const result = await inApp(
-      { kind: 'systemone-mock', latencyMs: 2000 },
+      { kind: 'decisions-mock', latencyMs: 2000 },
       `${connect}
        const reason = new Error('stop');
        try { await srv.decide(request, { signal: AbortSignal.abort(reason) }); out({ ok: true }); }
@@ -390,7 +390,7 @@ describe('base class behaviour', () => {
 
   test('an invalid request fails with INVALID_REQUEST before the mock answers or fails', async () => {
     const result = await inApp(
-      { kind: 'systemone-mock', fail: 'PROVIDER_ERROR', latencyMs: 2000 },
+      { kind: 'decisions-mock', fail: 'PROVIDER_ERROR', latencyMs: 2000 },
       `${connect} await srv.decide({ state: 'x', questions: {} }); out({ ok: true });`,
     );
     expectError(result, 'INVALID_REQUEST');
@@ -398,7 +398,7 @@ describe('base class behaviour', () => {
 
   test('limits apply to the mock', async () => {
     const result = await inApp(
-      { kind: 'systemone-mock', limits: { questions: 1 } },
+      { kind: 'decisions-mock', limits: { questions: 1 } },
       `${connect} await srv.decide(request); out({ ok: true });`,
     );
     expectError(result, 'INVALID_REQUEST', /At most 1/);
@@ -407,19 +407,19 @@ describe('base class behaviour', () => {
 
 describe('startup warning', () => {
   const warned = `const warnings = [];
-    cds.log('systemone').warn = (...args) => warnings.push(args.join(' '));`;
+    cds.log('decisions').warn = (...args) => warnings.push(args.join(' '));`;
 
   test('logs exactly one warning on connect', async () => {
     const result = await inApp(undefined, `${warned} ${connect} await srv.decide(request); out({ warnings });`);
     assert.deepEqual(result.warnings, [
-      'Using the mock provider: answers are simulated. Set a kind such as systemone-laya to use a real endpoint in development.',
+      'Using the mock provider: answers are simulated. Set a kind such as decisions-laya to use a real endpoint in development.',
     ]);
   });
 
   test('the mock settings keys are not reported as unknown', async () => {
     const result = await inApp(
       {
-        kind: 'systemone-mock',
+        kind: 'decisions-mock',
         fixtures: 'srv/rules.json',
         strategy: 'seeded',
         latencyMs: 1,
@@ -434,7 +434,7 @@ describe('startup warning', () => {
   });
 
   test('an unknown setting is still reported', async () => {
-    const result = await inApp({ kind: 'systemone-mock', bogus: 1 }, `${warned} ${connect} out({ warnings });`);
+    const result = await inApp({ kind: 'decisions-mock', bogus: 1 }, `${warned} ${connect} out({ warnings });`);
     assert.equal(result.warnings.length, 2);
     assert.ok(result.warnings.some((warning) => /bogus/.test(warning)));
   });
@@ -442,7 +442,7 @@ describe('startup warning', () => {
 
 test('a signal that is never aborted does not disturb the delay', async () => {
   const result = await inApp(
-    { kind: 'systemone-mock', latencyMs: 40, timeoutMs: 1000 },
+    { kind: 'decisions-mock', latencyMs: 40, timeoutMs: 1000 },
     `${connect}
      const controller = new AbortController();
      const started = performance.now();

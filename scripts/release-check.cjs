@@ -135,12 +135,17 @@ function checkRelease({ root, tag }) {
 
   const example = readJson('examples/cap-app/package.json');
   if (example)
-    expect('examples/cap-app/package.json', 'dependency cap-jev', `^${version}`, example.dependencies?.['cap-jev']);
+    expect(
+      'examples/cap-app/package.json',
+      'dependency cap-decisions',
+      `^${version}`,
+      example.dependencies?.['cap-decisions'],
+    );
 
-  // The example provider package README quotes the range of an application that installs cap-jev.
+  // The example provider package README quotes the range of an application that installs cap-decisions.
   const providerReadme = read('examples/provider-package/README.md');
-  for (const [, range] of providerReadme?.matchAll(/"cap-jev":\s*"([^"]*)"/g) ?? []) {
-    expect('examples/provider-package/README.md', 'dependency cap-jev', `^${version}`, range);
+  for (const [, range] of providerReadme?.matchAll(/"cap-decisions":\s*"([^"]*)"/g) ?? []) {
+    expect('examples/provider-package/README.md', 'dependency cap-decisions', `^${version}`, range);
   }
 
   // docs/providers.md quotes the peer range of a provider package.

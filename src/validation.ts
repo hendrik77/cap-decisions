@@ -73,7 +73,7 @@ export class DecisionsError extends Error {
   }
 
   /**
-   * `instanceof DecisionsError` also holds for an error of another copy of `cap-jev`, as when an application and
+   * `instanceof DecisionsError` also holds for an error of another copy of `cap-decisions`, as when an application and
    * CAP load the package through different paths (seen on Windows) or a provider package brings its own copy.
    * Subclasses keep the usual check.
    */
@@ -84,7 +84,7 @@ export class DecisionsError extends Error {
 }
 
 // A global symbol, so that every copy of the module marks its errors the same way.
-const brand = Symbol.for('cap-jev.DecisionsError');
+const brand = Symbol.for('cap-decisions.DecisionsError');
 Object.defineProperty(DecisionsError.prototype, brand, { value: true });
 
 // Accepts a provider code only when it is a safe integer or a short token, so no message text leaks into `providerCode`.
@@ -187,14 +187,14 @@ function validateLimits(limits: unknown): void {
   }
 }
 
-// Checks `cds.requires.systemone`; returns warnings for unknown keys, which providers may extend.
+// Checks `cds.requires.decisions`; returns warnings for unknown keys, which providers may extend.
 export function validateSettings(
   settings: unknown,
   extraKeys: readonly string[] = [],
   extraCredentialKeys: readonly string[] = [],
 ): string[] {
   const values = settings === undefined ? {} : settings;
-  if (!plain(values)) throw invalidConfig('cds.requires.systemone must be an object');
+  if (!plain(values)) throw invalidConfig('cds.requires.decisions must be an object');
   if (Object.hasOwn(values, 'model')) {
     throw invalidConfig('The model setting was renamed to modelId; CAP reads model as the CDS model of a service');
   }
@@ -219,7 +219,7 @@ export function validateSettings(
   for (const key of ['queued', 'outboxed', 'outbox']) {
     if (values[key]) {
       throw invalidConfig(
-        `${key} is not supported: a decision needs an answer, so the systemone service cannot be queued`,
+        `${key} is not supported: a decision needs an answer, so the decisions service cannot be queued`,
       );
     }
   }
@@ -236,7 +236,7 @@ export function validateSettings(
   const known = new Set([...SETTINGS_KEYS, ...CAP_SETTINGS_KEYS, ...extraKeys]);
   return Object.keys(values)
     .filter((key) => !known.has(key))
-    .map((key) => `Unknown setting "${key}" for cds.requires.systemone is ignored`);
+    .map((key) => `Unknown setting "${key}" for cds.requires.decisions is ignored`);
 }
 
 // True when the probabilities cover exactly the labels and add up to 1 (within 0.02).

@@ -8,7 +8,8 @@ const { mockDecision } = require('../dist/providers/mock-core');
 const { DecisionsError } = require('../dist/validation');
 
 const realKinds = require('../package.json').cds.requires.kinds;
-const PKG = JSON.stringify({ name: 'app', version: '1.0.0', dependencies: { 'cap-jev': '^0.8.0' } }, null, 2) + '\n';
+const PKG =
+  JSON.stringify({ name: 'app', version: '1.0.0', dependencies: { 'cap-decisions': '^0.8.0' } }, null, 2) + '\n';
 
 const plan = (input = {}, options = {}) =>
   planDecisions({ packageJsonText: PKG, fixturesExist: false, kinds: realKinds, ...input, options });
@@ -23,17 +24,17 @@ function apply(input, result) {
     if (file === 'package.json') next.packageJsonText = content;
     else if (file === '.cdsrc-private.json') next.cdsrcPrivateText = content;
     else if (file === '.gitignore') next.gitignore = content;
-    else if (file === 'test/data/systemone.json') next.fixturesExist = true;
+    else if (file === 'test/data/decisions.json') next.fixturesExist = true;
   }
   return next;
 }
 
 describe('planDecisions: options and package.json', () => {
-  test('writes systemone-laya into the production profile by default', () => {
+  test('writes decisions-laya into the production profile by default', () => {
     const result = plan();
     assert.deepEqual(files(result), ['package.json']);
     const pkg = jsonOf(result, 'package.json');
-    assert.deepEqual(pkg.cds, { requires: { systemone: { '[production]': { kind: 'systemone-laya' } } } });
+    assert.deepEqual(pkg.cds, { requires: { decisions: { '[production]': { kind: 'decisions-laya' } } } });
     assert.equal(pkg.name, 'app');
     assert.ok(writeOf(result, 'package.json').content.endsWith('}\n'));
   });
@@ -42,7 +43,7 @@ describe('planDecisions: options and package.json', () => {
     const text = JSON.stringify(
       {
         name: 'app',
-        cds: { requires: { db: { kind: 'sqlite' }, systemone: { strategy: 'seeded' } }, odata: { version: 'v4' } },
+        cds: { requires: { db: { kind: 'sqlite' }, decisions: { strategy: 'seeded' } }, odata: { version: 'v4' } },
         scripts: { start: 'cds-serve' },
       },
       null,
@@ -52,27 +53,27 @@ describe('planDecisions: options and package.json', () => {
     const pkg = jsonOf(result, 'package.json');
     assert.deepEqual(Object.keys(pkg), ['name', 'cds', 'scripts']);
     assert.deepEqual(Object.keys(pkg.cds), ['requires', 'odata']);
-    assert.deepEqual(Object.keys(pkg.cds.requires), ['db', 'systemone']);
-    assert.deepEqual(pkg.cds.requires.systemone, { strategy: 'seeded', '[production]': { kind: 'systemone-laya' } });
+    assert.deepEqual(Object.keys(pkg.cds.requires), ['db', 'decisions']);
+    assert.deepEqual(pkg.cds.requires.decisions, { strategy: 'seeded', '[production]': { kind: 'decisions-laya' } });
     assert.deepEqual(pkg.cds.requires.db, { kind: 'sqlite' });
   });
 
   test('--kind selects the kind', () => {
-    const pkg = jsonOf(plan({}, { kind: 'systemone-cloudflare' }), 'package.json');
-    assert.equal(pkg.cds.requires.systemone['[production]'].kind, 'systemone-cloudflare');
+    const pkg = jsonOf(plan({}, { kind: 'decisions-cloudflare' }), 'package.json');
+    assert.equal(pkg.cds.requires.decisions['[production]'].kind, 'decisions-cloudflare');
   });
 
   test('--for selects the profile', () => {
-    const result = plan({}, { kind: 'systemone-typesafe', for: 'hybrid' });
+    const result = plan({}, { kind: 'decisions-typesafe', for: 'hybrid' });
     const pkg = jsonOf(result, 'package.json');
-    assert.deepEqual(pkg.cds.requires.systemone, { '[hybrid]': { kind: 'systemone-typesafe' } });
+    assert.deepEqual(pkg.cds.requires.decisions, { '[hybrid]': { kind: 'decisions-typesafe' } });
     const cdsrc = jsonOf(result, '.cdsrc-private.json');
-    assert.deepEqual(cdsrc, { requires: { systemone: { '[hybrid]': { credentials: { token: '' } } } } });
+    assert.deepEqual(cdsrc, { requires: { decisions: { '[hybrid]': { credentials: { token: '' } } } } });
     assert.ok(result.messages.some((message) => message.includes('[hybrid]')));
   });
 
   test('the same kind is already configured and changes nothing', () => {
-    const text = JSON.stringify({ cds: { requires: { systemone: { '[production]': { kind: 'systemone-laya' } } } } });
+    const text = JSON.stringify({ cds: { requires: { decisions: { '[production]': { kind: 'decisions-laya' } } } } });
     const result = plan({ packageJsonText: text });
     assert.deepEqual(result.writes, []);
     assert.ok(result.messages.some((message) => /already configured/.test(message)));
@@ -80,36 +81,36 @@ describe('planDecisions: options and package.json', () => {
 
   test('a different kind is kept and --force is mentioned', () => {
     const text = JSON.stringify({
-      cds: { requires: { systemone: { '[production]': { kind: 'systemone-typesafe' } } } },
+      cds: { requires: { decisions: { '[production]': { kind: 'decisions-typesafe' } } } },
     });
-    const result = plan({ packageJsonText: text }, { kind: 'systemone-laya' });
+    const result = plan({ packageJsonText: text }, { kind: 'decisions-laya' });
     assert.deepEqual(result.writes, []);
     const message = result.messages.find((line) => line.includes('--force'));
     assert.ok(message);
-    assert.match(message, /systemone-typesafe/);
-    assert.match(message, /systemone-laya/);
+    assert.match(message, /decisions-typesafe/);
+    assert.match(message, /decisions-laya/);
   });
 
   test('a different kind that needs a token writes nothing without --force', () => {
-    const text = JSON.stringify({ cds: { requires: { systemone: { '[production]': { kind: 'systemone-laya' } } } } });
-    const result = plan({ packageJsonText: text }, { kind: 'systemone-typesafe' });
+    const text = JSON.stringify({ cds: { requires: { decisions: { '[production]': { kind: 'decisions-laya' } } } } });
+    const result = plan({ packageJsonText: text }, { kind: 'decisions-typesafe' });
     assert.deepEqual(result.writes, []);
   });
 
   test('--force replaces a different kind', () => {
-    const text = JSON.stringify({ cds: { requires: { systemone: { '[production]': { kind: 'systemone-laya' } } } } });
-    const result = plan({ packageJsonText: text }, { kind: 'systemone-typesafe', force: true });
+    const text = JSON.stringify({ cds: { requires: { decisions: { '[production]': { kind: 'decisions-laya' } } } } });
+    const result = plan({ packageJsonText: text }, { kind: 'decisions-typesafe', force: true });
     const pkg = jsonOf(result, 'package.json');
-    assert.equal(pkg.cds.requires.systemone['[production]'].kind, 'systemone-typesafe');
+    assert.equal(pkg.cds.requires.decisions['[production]'].kind, 'decisions-typesafe');
     assert.deepEqual(files(result), ['.cdsrc-private.json', '.gitignore', 'package.json']);
   });
 
   test('a base-level kind is never changed, and the profile kind is still written', () => {
-    const text = JSON.stringify({ cds: { requires: { systemone: { kind: 'systemone-laya' } } } });
+    const text = JSON.stringify({ cds: { requires: { decisions: { kind: 'decisions-laya' } } } });
     const result = plan({ packageJsonText: text });
-    const systemone = jsonOf(result, 'package.json').cds.requires.systemone;
-    assert.equal(systemone.kind, 'systemone-laya');
-    assert.equal(systemone['[production]'].kind, 'systemone-laya');
+    const decisions = jsonOf(result, 'package.json').cds.requires.decisions;
+    assert.equal(decisions.kind, 'decisions-laya');
+    assert.equal(decisions['[production]'].kind, 'decisions-laya');
     const message = result.messages.find((line) => /every profile/.test(line));
     assert.ok(message);
     assert.match(message, /mock/);
@@ -119,14 +120,14 @@ describe('planDecisions: options and package.json', () => {
   });
 
   test('a base-level kind is not changed with --force either', () => {
-    const text = JSON.stringify({ cds: { requires: { systemone: { kind: 'systemone-cloudflare' } } } });
-    const systemone = jsonOf(plan({ packageJsonText: text }, { force: true }), 'package.json').cds.requires.systemone;
-    assert.equal(systemone.kind, 'systemone-cloudflare');
+    const text = JSON.stringify({ cds: { requires: { decisions: { kind: 'decisions-cloudflare' } } } });
+    const decisions = jsonOf(plan({ packageJsonText: text }, { force: true }), 'package.json').cds.requires.decisions;
+    assert.equal(decisions.kind, 'decisions-cloudflare');
   });
 
   test('a base-level kind with the profile kind already set only prints messages', () => {
     const text = JSON.stringify({
-      cds: { requires: { systemone: { kind: 'systemone-laya', '[production]': { kind: 'systemone-laya' } } } },
+      cds: { requires: { decisions: { kind: 'decisions-laya', '[production]': { kind: 'decisions-laya' } } } },
     });
     const result = plan({ packageJsonText: text });
     assert.deepEqual(result.writes, []);
@@ -135,10 +136,10 @@ describe('planDecisions: options and package.json', () => {
   });
 
   test('every message is one line with the prefix', () => {
-    const result = plan({}, { kind: 'systemone-generic', withFixtures: true });
+    const result = plan({}, { kind: 'decisions-generic', withFixtures: true });
     assert.ok(result.messages.length > 0);
     for (const message of result.messages) {
-      assert.match(message, /^\[systemone\] \S/);
+      assert.match(message, /^\[decisions\] \S/);
       assert.ok(!message.includes('\n'));
     }
   });
@@ -146,15 +147,15 @@ describe('planDecisions: options and package.json', () => {
 
 describe('planDecisions: .cdsrc-private.json', () => {
   test('a kind without requiresToken does not touch the file', () => {
-    const result = plan({}, { kind: 'systemone-laya' });
+    const result = plan({}, { kind: 'decisions-laya' });
     assert.equal(writeOf(result, '.cdsrc-private.json'), undefined);
     assert.equal(writeOf(result, '.gitignore'), undefined);
   });
 
   test('creates the file with an empty token for a kind with requiresToken', () => {
-    const result = plan({}, { kind: 'systemone-typesafe' });
+    const result = plan({}, { kind: 'decisions-typesafe' });
     assert.deepEqual(jsonOf(result, '.cdsrc-private.json'), {
-      requires: { systemone: { '[production]': { credentials: { token: '' } } } },
+      requires: { decisions: { '[production]': { credentials: { token: '' } } } },
     });
     assert.ok(writeOf(result, '.cdsrc-private.json').content.endsWith('\n'));
     const next = result.messages.find((line) => /credentials\.token/.test(line) && /\.cdsrc-private\.json/.test(line));
@@ -162,64 +163,64 @@ describe('planDecisions: .cdsrc-private.json', () => {
     assert.match(next, /\[production\]/);
   });
 
-  test('systemone-subq gets the token placeholder and no URL reminder', () => {
-    const result = plan({}, { kind: 'systemone-subq' });
+  test('decisions-subq gets the token placeholder and no URL reminder', () => {
+    const result = plan({}, { kind: 'decisions-subq' });
     assert.deepEqual(files(result), ['.cdsrc-private.json', '.gitignore', 'package.json']);
-    assert.equal(jsonOf(result, '.cdsrc-private.json').requires.systemone['[production]'].credentials.token, '');
+    assert.equal(jsonOf(result, '.cdsrc-private.json').requires.decisions['[production]'].credentials.token, '');
     assert.ok(!result.messages.some((line) => line.includes('credentials.url')));
   });
 
   test('adds the token to an existing file and keeps its other keys', () => {
     const existing = JSON.stringify({ requires: { db: { credentials: { url: 'x' } } } }, null, 4) + '\n';
-    const result = plan({ cdsrcPrivateText: existing }, { kind: 'systemone-typesafe' });
+    const result = plan({ cdsrcPrivateText: existing }, { kind: 'decisions-typesafe' });
     const cdsrc = jsonOf(result, '.cdsrc-private.json');
     assert.deepEqual(cdsrc.requires.db, { credentials: { url: 'x' } });
-    assert.equal(cdsrc.requires.systemone['[production]'].credentials.token, '');
+    assert.equal(cdsrc.requires.decisions['[production]'].credentials.token, '');
     assert.ok(writeOf(result, '.cdsrc-private.json').content.includes('\n    "requires"'));
   });
 
   test('keeps existing credentials of the profile, only adding the token', () => {
     const existing = JSON.stringify({
-      requires: { systemone: { '[production]': { credentials: { url: 'https://x.example' } } } },
+      requires: { decisions: { '[production]': { credentials: { url: 'https://x.example' } } } },
     });
-    const cdsrc = jsonOf(plan({ cdsrcPrivateText: existing }, { kind: 'systemone-typesafe' }), '.cdsrc-private.json');
-    assert.deepEqual(cdsrc.requires.systemone['[production]'].credentials, { url: 'https://x.example', token: '' });
+    const cdsrc = jsonOf(plan({ cdsrcPrivateText: existing }, { kind: 'decisions-typesafe' }), '.cdsrc-private.json');
+    assert.deepEqual(cdsrc.requires.decisions['[production]'].credentials, { url: 'https://x.example', token: '' });
   });
 
   test('never replaces an existing token, also with --force', () => {
     const existing = JSON.stringify({
-      requires: { systemone: { '[production]': { credentials: { token: 'secret' } } } },
+      requires: { decisions: { '[production]': { credentials: { token: 'secret' } } } },
     });
     for (const force of [false, true]) {
-      const result = plan({ cdsrcPrivateText: existing }, { kind: 'systemone-typesafe', force });
+      const result = plan({ cdsrcPrivateText: existing }, { kind: 'decisions-typesafe', force });
       assert.equal(writeOf(result, '.cdsrc-private.json'), undefined);
       assert.ok(!result.messages.some((line) => line.includes('secret')));
     }
   });
 
   test('an existing empty token is kept and still reminds', () => {
-    const existing = JSON.stringify({ requires: { systemone: { '[production]': { credentials: { token: '' } } } } });
-    const result = plan({ cdsrcPrivateText: existing }, { kind: 'systemone-typesafe', force: true });
+    const existing = JSON.stringify({ requires: { decisions: { '[production]': { credentials: { token: '' } } } } });
+    const result = plan({ cdsrcPrivateText: existing }, { kind: 'decisions-typesafe', force: true });
     assert.equal(writeOf(result, '.cdsrc-private.json'), undefined);
     assert.ok(result.messages.some((line) => /credentials\.token/.test(line)));
   });
 
   test('a token in another profile does not count', () => {
-    const existing = JSON.stringify({ requires: { systemone: { '[hybrid]': { credentials: { token: 'secret' } } } } });
-    const cdsrc = jsonOf(plan({ cdsrcPrivateText: existing }, { kind: 'systemone-typesafe' }), '.cdsrc-private.json');
-    assert.equal(cdsrc.requires.systemone['[hybrid]'].credentials.token, 'secret');
-    assert.equal(cdsrc.requires.systemone['[production]'].credentials.token, '');
+    const existing = JSON.stringify({ requires: { decisions: { '[hybrid]': { credentials: { token: 'secret' } } } } });
+    const cdsrc = jsonOf(plan({ cdsrcPrivateText: existing }, { kind: 'decisions-typesafe' }), '.cdsrc-private.json');
+    assert.equal(cdsrc.requires.decisions['[hybrid]'].credentials.token, 'secret');
+    assert.equal(cdsrc.requires.decisions['[production]'].credentials.token, '');
   });
 
   test('a kept different kind does not add a token placeholder', () => {
-    const text = JSON.stringify({ cds: { requires: { systemone: { '[production]': { kind: 'systemone-laya' } } } } });
-    const result = plan({ packageJsonText: text }, { kind: 'systemone-typesafe' });
+    const text = JSON.stringify({ cds: { requires: { decisions: { '[production]': { kind: 'decisions-laya' } } } } });
+    const result = plan({ packageJsonText: text }, { kind: 'decisions-typesafe' });
     assert.equal(writeOf(result, '.cdsrc-private.json'), undefined);
   });
 });
 
 describe('planDecisions: .gitignore', () => {
-  const typesafe = { kind: 'systemone-typesafe' };
+  const typesafe = { kind: 'decisions-typesafe' };
 
   test('creates the file when it is missing', () => {
     const result = plan({}, typesafe);
@@ -262,56 +263,56 @@ describe('planDecisions: .gitignore', () => {
   });
 
   test('is also written when the file exists and no token is needed', () => {
-    const result = plan({ cdsrcPrivateText: '{}', gitignore: 'dist\n' }, { kind: 'systemone-laya' });
+    const result = plan({ cdsrcPrivateText: '{}', gitignore: 'dist\n' }, { kind: 'decisions-laya' });
     assert.equal(writeOf(result, '.gitignore').content, 'dist\n.cdsrc-private.json\n');
     assert.equal(writeOf(result, '.cdsrc-private.json'), undefined);
   });
 
   test('is not written without the private file and without a token', () => {
-    assert.equal(writeOf(plan({ gitignore: 'dist\n' }, { kind: 'systemone-laya' }), '.gitignore'), undefined);
+    assert.equal(writeOf(plan({ gitignore: 'dist\n' }, { kind: 'decisions-laya' }), '.gitignore'), undefined);
   });
 });
 
 describe('planDecisions: fixtures', () => {
   test('--with-fixtures writes the example fixtures', () => {
     const result = plan({}, { withFixtures: true });
-    assert.equal(writeOf(result, 'test/data/systemone.json').content, exampleFixtures());
+    assert.equal(writeOf(result, 'test/data/decisions.json').content, exampleFixtures());
   });
 
   test('no fixtures without the option', () => {
-    assert.equal(writeOf(plan(), 'test/data/systemone.json'), undefined);
+    assert.equal(writeOf(plan(), 'test/data/decisions.json'), undefined);
   });
 
   test('an existing fixture file is kept and --force is mentioned', () => {
     const result = plan({ fixturesExist: true }, { withFixtures: true });
-    assert.equal(writeOf(result, 'test/data/systemone.json'), undefined);
-    const message = result.messages.find((line) => /test\/data\/systemone\.json/.test(line));
+    assert.equal(writeOf(result, 'test/data/decisions.json'), undefined);
+    const message = result.messages.find((line) => /test\/data\/decisions\.json/.test(line));
     assert.ok(message);
     assert.match(message, /--force/);
   });
 
   test('--force replaces an existing fixture file', () => {
     const result = plan({ fixturesExist: true }, { withFixtures: true, force: true });
-    assert.equal(writeOf(result, 'test/data/systemone.json').content, exampleFixtures());
+    assert.equal(writeOf(result, 'test/data/decisions.json').content, exampleFixtures());
   });
 });
 
 describe('planDecisions: next steps', () => {
   test('a kind with a local URL gets the mock server hint', () => {
-    const result = plan({}, { kind: 'systemone-laya', for: 'staging' });
-    const hint = result.messages.find((line) => line.includes('npx cap-jev-mock'));
+    const result = plan({}, { kind: 'decisions-laya', for: 'staging' });
+    const hint = result.messages.find((line) => line.includes('npx cap-decisions-mock'));
     assert.ok(hint);
     assert.match(hint, /CDS_ENV=staging/);
   });
 
   test('a kind with a remote URL gets neither hint nor URL step', () => {
-    const result = plan({}, { kind: 'systemone-typesafe' });
-    assert.ok(!result.messages.some((line) => line.includes('cap-jev-mock')));
+    const result = plan({}, { kind: 'decisions-typesafe' });
+    assert.ok(!result.messages.some((line) => line.includes('cap-decisions-mock')));
     assert.ok(!result.messages.some((line) => line.includes('credentials.url')));
   });
 
   test('a kind without a URL asks for credentials.url', () => {
-    const result = plan({}, { kind: 'systemone-generic' });
+    const result = plan({}, { kind: 'decisions-generic' });
     const step = result.messages.find((line) => line.includes('credentials.url'));
     assert.ok(step);
     assert.match(step, /\[production\]/);
@@ -319,26 +320,26 @@ describe('planDecisions: next steps', () => {
 
   test('next steps are also printed when the kind is already configured', () => {
     const text = JSON.stringify({
-      cds: { requires: { systemone: { '[production]': { kind: 'systemone-generic' } } } },
+      cds: { requires: { decisions: { '[production]': { kind: 'decisions-generic' } } } },
     });
-    const result = plan({ packageJsonText: text }, { kind: 'systemone-generic' });
+    const result = plan({ packageJsonText: text }, { kind: 'decisions-generic' });
     assert.deepEqual(result.writes, []);
     assert.ok(result.messages.some((line) => line.includes('credentials.url')));
   });
 
-  for (const [where, systemone] of [
+  for (const [where, decisions] of [
     [
       'in the profile',
-      { '[production]': { kind: 'systemone-generic', credentials: { url: 'https://jev.example/v1' } } },
+      { '[production]': { kind: 'decisions-generic', credentials: { url: 'https://jev.example/v1' } } },
     ],
     [
       'at service level',
-      { credentials: { url: 'https://jev.example/v1' }, '[production]': { kind: 'systemone-generic' } },
+      { credentials: { url: 'https://jev.example/v1' }, '[production]': { kind: 'decisions-generic' } },
     ],
   ]) {
     test(`a URL the application sets ${where} needs no reminder`, () => {
-      const text = JSON.stringify({ cds: { requires: { systemone } } });
-      const result = plan({ packageJsonText: text }, { kind: 'systemone-generic' });
+      const text = JSON.stringify({ cds: { requires: { decisions } } });
+      const result = plan({ packageJsonText: text }, { kind: 'decisions-generic' });
       assert.deepEqual(result.writes, []);
       assert.ok(!result.messages.some((line) => line.includes('credentials.url')));
     });
@@ -346,47 +347,47 @@ describe('planDecisions: next steps', () => {
 });
 
 describe('planDecisions: provider-package kinds', () => {
-  const own = { kind: 'systemone-generic', credentials: { url: 'https://x.example/v1' } };
+  const own = { kind: 'decisions-generic', credentials: { url: 'https://x.example/v1' } };
 
-  test('a kind that extends systemone-generic is selectable', () => {
-    const kinds = { ...realKinds, 'systemone-acme': own };
-    const result = plan({ kinds }, { kind: 'systemone-acme' });
+  test('a kind that extends decisions-generic is selectable', () => {
+    const kinds = { ...realKinds, 'decisions-acme': own };
+    const result = plan({ kinds }, { kind: 'decisions-acme' });
     const pkg = jsonOf(result, 'package.json');
-    assert.equal(pkg.cds.requires.systemone['[production]'].kind, 'systemone-acme');
+    assert.equal(pkg.cds.requires.decisions['[production]'].kind, 'decisions-acme');
     assert.deepEqual(files(result), ['package.json']);
     assert.ok(!result.messages.some((line) => line.includes('credentials.url')));
-    assert.ok(!result.messages.some((line) => line.includes('cap-jev-mock')));
+    assert.ok(!result.messages.some((line) => line.includes('cap-decisions-mock')));
   });
 
   test('with requiresToken it gets the token placeholder and .gitignore', () => {
-    const kinds = { ...realKinds, 'systemone-acme': { ...own, requiresToken: true } };
-    const result = plan({ kinds }, { kind: 'systemone-acme' });
+    const kinds = { ...realKinds, 'decisions-acme': { ...own, requiresToken: true } };
+    const result = plan({ kinds }, { kind: 'decisions-acme' });
     assert.deepEqual(files(result), ['.cdsrc-private.json', '.gitignore', 'package.json']);
-    assert.equal(jsonOf(result, '.cdsrc-private.json').requires.systemone['[production]'].credentials.token, '');
+    assert.equal(jsonOf(result, '.cdsrc-private.json').requires.decisions['[production]'].credentials.token, '');
   });
 
   test('a provider kind extending another kind of the same package resolves through the chain', () => {
     const kinds = {
       ...realKinds,
-      'systemone-acme': { ...own, requiresToken: true },
-      'systemone-acme-eu': { kind: 'systemone-acme', credentials: { url: 'https://eu.x.example/v1' } },
+      'decisions-acme': { ...own, requiresToken: true },
+      'decisions-acme-eu': { kind: 'decisions-acme', credentials: { url: 'https://eu.x.example/v1' } },
     };
-    const result = plan({ kinds }, { kind: 'systemone-acme-eu' });
+    const result = plan({ kinds }, { kind: 'decisions-acme-eu' });
     assert.ok(writeOf(result, '.cdsrc-private.json'));
   });
 
   test('a provider kind with a local URL gets the mock server hint', () => {
     const kinds = {
       ...realKinds,
-      'systemone-acme': { kind: 'systemone-generic', credentials: { url: 'http://localhost:9/x' } },
+      'decisions-acme': { kind: 'decisions-generic', credentials: { url: 'http://localhost:9/x' } },
     };
-    assert.ok(plan({ kinds }, { kind: 'systemone-acme' }).messages.some((line) => line.includes('cap-jev-mock')));
+    assert.ok(plan({ kinds }, { kind: 'decisions-acme' }).messages.some((line) => line.includes('cap-decisions-mock')));
   });
 
   test('any 127.x.x.x address counts as local, a lookalike host does not', () => {
     const hint = (url) => {
-      const kinds = { ...realKinds, 'systemone-acme': { kind: 'systemone-generic', credentials: { url } } };
-      return plan({ kinds }, { kind: 'systemone-acme' }).messages.some((line) => line.includes('cap-jev-mock'));
+      const kinds = { ...realKinds, 'decisions-acme': { kind: 'decisions-generic', credentials: { url } } };
+      return plan({ kinds }, { kind: 'decisions-acme' }).messages.some((line) => line.includes('cap-decisions-mock'));
     };
     assert.equal(hint('http://127.0.0.2:9/x'), true);
     assert.equal(hint('http://127.0.0.1.example.com/x'), false);
@@ -394,7 +395,7 @@ describe('planDecisions: provider-package kinds', () => {
 });
 
 describe('planDecisions: errors', () => {
-  const selectable = 'systemone-cloudflare, systemone-generic, systemone-laya, systemone-subq, systemone-typesafe';
+  const selectable = 'decisions-cloudflare, decisions-generic, decisions-laya, decisions-subq, decisions-typesafe';
   const fails = (input, options, pattern, message) => assert.throws(() => plan(input, options), pattern, message);
 
   test('an unknown kind lists the selectable kinds', () => {
@@ -406,17 +407,17 @@ describe('planDecisions: errors', () => {
     });
   });
 
-  test('systemone-defaults is refused', () => {
-    fails({}, { kind: 'systemone-defaults' }, (error) => {
-      assert.match(error.message, /systemone-defaults/);
+  test('decisions-defaults is refused', () => {
+    fails({}, { kind: 'decisions-defaults' }, (error) => {
+      assert.match(error.message, /decisions-defaults/);
       assert.ok(error.message.includes(selectable), error.message);
       return true;
     });
   });
 
   test('the mock is refused, also under another name', () => {
-    const kinds = { ...realKinds, 'systemone-mine': { kind: 'systemone-mock' } };
-    for (const kind of ['systemone-mock', 'systemone-mine']) {
+    const kinds = { ...realKinds, 'decisions-mine': { kind: 'decisions-mock' } };
+    for (const kind of ['decisions-mock', 'decisions-mine']) {
       fails({ kinds }, { kind }, (error) => {
         assert.match(error.message, new RegExp(kind));
         assert.match(error.message, /mock/);
@@ -426,7 +427,7 @@ describe('planDecisions: errors', () => {
     }
   });
 
-  test('a kind that does not reach systemone-defaults is not selectable', () => {
+  test('a kind that does not reach decisions-defaults is not selectable', () => {
     const kinds = { ...realKinds, rest: { impl: 'rest' }, loop: { kind: 'loop' } };
     for (const kind of ['rest', 'loop']) {
       fails({ kinds }, { kind }, (error) => {
@@ -442,11 +443,11 @@ describe('planDecisions: errors', () => {
 
   test('provider kinds appear in the list, and the list is sorted', () => {
     const kinds = {
-      'systemone-defaults': realKinds['systemone-defaults'],
-      zeta: { kind: 'systemone-defaults' },
-      'systemone-alpha': { kind: 'systemone-defaults' },
+      'decisions-defaults': realKinds['decisions-defaults'],
+      zeta: { kind: 'decisions-defaults' },
+      'decisions-alpha': { kind: 'decisions-defaults' },
     };
-    fails({ kinds }, { kind: 'x' }, /systemone-alpha, zeta\./);
+    fails({ kinds }, { kind: 'x' }, /decisions-alpha, zeta\./);
   });
 
   test('invalid profile names are refused', () => {
@@ -462,8 +463,8 @@ describe('planDecisions: errors', () => {
 
   test('invalid JSON names the file', () => {
     fails({ packageJsonText: '{ nope' }, {}, /package\.json/);
-    fails({ cdsrcPrivateText: '{ nope' }, { kind: 'systemone-typesafe' }, /\.cdsrc-private\.json/);
-    fails({ cdsrcPrivateText: '{ nope' }, { kind: 'systemone-laya' }, /\.cdsrc-private\.json/);
+    fails({ cdsrcPrivateText: '{ nope' }, { kind: 'decisions-typesafe' }, /\.cdsrc-private\.json/);
+    fails({ cdsrcPrivateText: '{ nope' }, { kind: 'decisions-laya' }, /\.cdsrc-private\.json/);
   });
 
   test('JSON that is not an object is an error', () => {
@@ -471,21 +472,21 @@ describe('planDecisions: errors', () => {
     fails({ cdsrcPrivateText: '[]' }, {}, /\.cdsrc-private\.json/);
   });
 
-  test('cds.requires.systemone that is not an object', () => {
-    for (const value of ['systemone-laya', 5, null, ['a']]) {
-      const text = JSON.stringify({ cds: { requires: { systemone: value } } });
-      fails({ packageJsonText: text }, {}, /cds\.requires\.systemone/, JSON.stringify(value));
+  test('cds.requires.decisions that is not an object', () => {
+    for (const value of ['decisions-laya', 5, null, ['a']]) {
+      const text = JSON.stringify({ cds: { requires: { decisions: value } } });
+      fails({ packageJsonText: text }, {}, /cds\.requires\.decisions/, JSON.stringify(value));
     }
   });
 
   test('a profile section that is not an object', () => {
-    const text = JSON.stringify({ cds: { requires: { systemone: { '[production]': 'x' } } } });
+    const text = JSON.stringify({ cds: { requires: { decisions: { '[production]': 'x' } } } });
     fails({ packageJsonText: text }, {}, /\[production\]/);
   });
 
   test('a structure in .cdsrc-private.json that is not an object', () => {
-    const text = JSON.stringify({ requires: { systemone: 'x' } });
-    fails({ cdsrcPrivateText: text }, { kind: 'systemone-typesafe' }, /\.cdsrc-private\.json/);
+    const text = JSON.stringify({ requires: { decisions: 'x' } });
+    fails({ cdsrcPrivateText: text }, { kind: 'decisions-typesafe' }, /\.cdsrc-private\.json/);
   });
 });
 
@@ -500,7 +501,7 @@ describe('planDecisions: indentation', () => {
     test(`keeps ${name} in package.json and .cdsrc-private.json`, () => {
       const result = plan(
         { packageJsonText: pkgWith(indent), cdsrcPrivateText: JSON.stringify({ requires: {} }, null, indent) },
-        { kind: 'systemone-typesafe' },
+        { kind: 'decisions-typesafe' },
       );
       assert.ok(writeOf(result, 'package.json').content.includes(`\n${unit}"name"`));
       assert.ok(writeOf(result, 'package.json').content.endsWith('}\n'));
@@ -514,8 +515,8 @@ describe('planDecisions: indentation', () => {
   });
 
   test('a new .cdsrc-private.json uses 2 spaces', () => {
-    const content = writeOf(plan({}, { kind: 'systemone-typesafe' }), '.cdsrc-private.json').content;
-    assert.ok(content.startsWith('{\n  "requires": {\n    "systemone"'));
+    const content = writeOf(plan({}, { kind: 'decisions-typesafe' }), '.cdsrc-private.json').content;
+    assert.ok(content.startsWith('{\n  "requires": {\n    "decisions"'));
   });
 
   test('a single-line file falls back to 2 spaces', () => {
@@ -527,10 +528,10 @@ describe('planDecisions: indentation', () => {
 describe('planDecisions: idempotency', () => {
   const cases = [
     {},
-    { kind: 'systemone-typesafe' },
-    { kind: 'systemone-typesafe', for: 'hybrid', withFixtures: true },
-    { kind: 'systemone-generic', withFixtures: true },
-    { kind: 'systemone-cloudflare', withFixtures: true },
+    { kind: 'decisions-typesafe' },
+    { kind: 'decisions-typesafe', for: 'hybrid', withFixtures: true },
+    { kind: 'decisions-generic', withFixtures: true },
+    { kind: 'decisions-cloudflare', withFixtures: true },
   ];
   for (const options of cases) {
     test(`a second plan writes nothing: ${JSON.stringify(options)}`, () => {
@@ -544,12 +545,12 @@ describe('planDecisions: idempotency', () => {
 
   test('also with existing files, a base-level kind and --force', () => {
     const input = {
-      packageJsonText: JSON.stringify({ cds: { requires: { systemone: { kind: 'systemone-laya' } } } }, null, '\t'),
+      packageJsonText: JSON.stringify({ cds: { requires: { decisions: { kind: 'decisions-laya' } } } }, null, '\t'),
       cdsrcPrivateText: '{}',
       gitignore: 'dist',
       fixturesExist: false,
       kinds: realKinds,
-      options: { kind: 'systemone-typesafe', force: true },
+      options: { kind: 'decisions-typesafe', force: true },
     };
     const result = planDecisions(input);
     assert.deepEqual(planDecisions(apply(input, result)).writes, []);
@@ -558,9 +559,9 @@ describe('planDecisions: idempotency', () => {
 
 describe('resolveKind', () => {
   test('merges the chain, child wins', () => {
-    const resolved = resolveKind(realKinds, 'systemone-typesafe');
+    const resolved = resolveKind(realKinds, 'decisions-typesafe');
     assert.equal(resolved.requiresToken, true);
-    assert.equal(resolved.impl, 'cap-jev');
+    assert.equal(resolved.impl, 'cap-decisions');
     assert.equal(resolved.timeoutMs, 10000);
     assert.equal(resolved.credentials.url, 'https://api.typesafe.ai/v1/systemone');
     assert.deepEqual(resolved.limits.scoreCriteria, { min: 2, max: 10 });
@@ -579,20 +580,20 @@ describe('resolveKind', () => {
 
   test('does not change its input', () => {
     const before = JSON.stringify(realKinds);
-    resolveKind(realKinds, 'systemone-laya').credentials.url = 'changed';
+    resolveKind(realKinds, 'decisions-laya').credentials.url = 'changed';
     assert.equal(JSON.stringify(realKinds), before);
   });
 
-  test('follows a provider kind through systemone-generic', () => {
-    const kinds = { ...realKinds, own: { kind: 'systemone-generic', credentials: { url: 'https://x.example/v1' } } };
+  test('follows a provider kind through decisions-generic', () => {
+    const kinds = { ...realKinds, own: { kind: 'decisions-generic', credentials: { url: 'https://x.example/v1' } } };
     const resolved = resolveKind(kinds, 'own');
-    assert.equal(resolved.impl, 'cap-jev');
+    assert.equal(resolved.impl, 'cap-decisions');
     assert.equal(resolved.credentials.url, 'https://x.example/v1');
     assert.equal(resolved.requiresToken, undefined);
   });
 
   test('the mock resolves to the mock implementation', () => {
-    assert.equal(resolveKind(realKinds, 'systemone-mock').impl, 'cap-jev/providers/mock');
+    assert.equal(resolveKind(realKinds, 'decisions-mock').impl, 'cap-decisions/providers/mock');
   });
 
   test('a cycle terminates', () => {

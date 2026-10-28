@@ -7,8 +7,8 @@ import type { MockStrategy } from './mock-engine';
 import { FAIL_CODES, findRule, parseFailure, parseFixtures, ruleAnswer, ruleError } from './mock-fixtures';
 import type { MockRule } from './mock-fixtures';
 
-export const DEFAULT_FIXTURES = 'test/data/systemone.json';
-const FAIL_SOURCE = 'cds.requires.systemone.fail';
+export const DEFAULT_FIXTURES = 'test/data/decisions.json';
+const FAIL_SOURCE = 'cds.requires.decisions.fail';
 
 export interface MockOptions {
   strategy: MockStrategy;

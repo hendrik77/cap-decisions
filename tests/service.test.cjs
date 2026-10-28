@@ -15,9 +15,9 @@ const reset = () => {
 };
 
 // Runs `body` inside an async function of a temporary app; the body prints one JSON line through out().
-async function inApp(systemone, body, { files, env, extra } = {}) {
+async function inApp(decisions, body, { files, env, extra } = {}) {
   const dir = createApp(
-    { name: 'service-app', private: true, cds: systemone === undefined ? {} : { requires: { systemone } }, ...extra },
+    { name: 'service-app', private: true, cds: decisions === undefined ? {} : { requires: { decisions } }, ...extra },
     files,
   );
   const script = `
@@ -38,7 +38,7 @@ async function inApp(systemone, body, { files, env, extra } = {}) {
   }
 }
 
-const connect = `const srv = await cds.connect.to('systemone');`;
+const connect = `const srv = await cds.connect.to('decisions');`;
 const invalidConfig = (message) => ({ error: 'INVALID_CONFIG', message: message ?? /./ });
 const expectError = (actual, expected) => {
   assert.equal(actual.error, expected.error);
@@ -47,28 +47,28 @@ const expectError = (actual, expected) => {
 
 describe('connecting', () => {
   test('TypeSafe without a token fails with INVALID_CONFIG', async () => {
-    expectError(await inApp({ kind: 'systemone-typesafe' }, connect + `out({ ok: true });`), invalidConfig(/token/));
+    expectError(await inApp({ kind: 'decisions-typesafe' }, connect + `out({ ok: true });`), invalidConfig(/token/));
   });
 
   test('Cloudflare without a token fails with INVALID_CONFIG', async () => {
-    const result = await inApp({ kind: 'systemone-cloudflare', credentials: { accountId: 'a' } }, connect);
+    const result = await inApp({ kind: 'decisions-cloudflare', credentials: { accountId: 'a' } }, connect);
     expectError(result, invalidConfig(/token/));
   });
 
   test('Cloudflare with a token but no accountId and no url fails with INVALID_CONFIG', async () => {
-    const result = await inApp({ kind: 'systemone-cloudflare', credentials: { token: 't' } }, connect);
+    const result = await inApp({ kind: 'decisions-cloudflare', credentials: { token: 't' } }, connect);
     expectError(result, invalidConfig(/accountId/));
   });
 
   test('a token over non-loopback HTTP fails with INVALID_CONFIG', async () => {
     const result = await inApp(
-      { kind: 'systemone-generic', credentials: { url: 'http://example.com/x', token: 't' } },
+      { kind: 'decisions-generic', credentials: { url: 'http://example.com/x', token: 't' } },
       connect,
     );
     expectError(result, invalidConfig(/HTTPS or a loopback/));
   });
 
-  test('an application without systemone configuration fails in production (no URL)', async () => {
+  test('an application without decisions configuration fails in production (no URL)', async () => {
     const result = await inApp(undefined, connect, { env: { CDS_ENV: 'production' } });
     expectError(result, invalidConfig(/endpoint URL/));
   });
@@ -76,12 +76,12 @@ describe('connecting', () => {
   test('the model setting does not connect', async () => {
     // CAP reads model as a CDS model and fails first (MODEL_NOT_FOUND); the settings check names modelId when
     // the service is created without that lookup, see tests/validation.test.cjs.
-    const result = await inApp({ kind: 'systemone-generic', model: 'x', credentials: { url: server.url } }, connect);
+    const result = await inApp({ kind: 'decisions-generic', model: 'x', credentials: { url: server.url } }, connect);
     assert.ok(result.error);
     const direct = await inApp(
-      { kind: 'systemone-generic', credentials: { url: server.url } },
-      `const { DecisionsService } = require('cap-jev');
-       const srv = new DecisionsService('systemone', undefined, { model: 'x', timeoutMs: 1000, credentials: { url: ${JSON.stringify(server.url)} } });
+      { kind: 'decisions-generic', credentials: { url: server.url } },
+      `const { DecisionsService } = require('cap-decisions');
+       const srv = new DecisionsService('decisions', undefined, { model: 'x', timeoutMs: 1000, credentials: { url: ${JSON.stringify(server.url)} } });
        await srv.init();
        out({ ok: true });`,
     );
@@ -89,23 +89,23 @@ describe('connecting', () => {
   });
 
   test('misplaced secrets fail with INVALID_CONFIG', async () => {
-    const result = await inApp({ kind: 'systemone-generic', token: 'x', credentials: { url: server.url } }, connect);
+    const result = await inApp({ kind: 'decisions-generic', token: 'x', credentials: { url: server.url } }, connect);
     expectError(result, invalidConfig(/credentials/));
   });
 
   test('Laya and generic with a url connect without a token', async () => {
-    assert.deepEqual(await inApp({ kind: 'systemone-laya' }, connect + `out({ ok: true });`), { ok: true });
+    assert.deepEqual(await inApp({ kind: 'decisions-laya' }, connect + `out({ ok: true });`), { ok: true });
     assert.deepEqual(
-      await inApp({ kind: 'systemone-generic', credentials: { url: server.url } }, connect + `out({ ok: true });`),
+      await inApp({ kind: 'decisions-generic', credentials: { url: server.url } }, connect + `out({ ok: true });`),
       { ok: true },
     );
   });
 
   test('an unknown setting logs a warning and the connection still succeeds', async () => {
     const result = await inApp(
-      { kind: 'systemone-generic', bogus: 1, credentials: { url: server.url } },
+      { kind: 'decisions-generic', bogus: 1, credentials: { url: server.url } },
       `const warnings = [];
-       cds.log('systemone').warn = (...args) => warnings.push(args.join(' '));
+       cds.log('decisions').warn = (...args) => warnings.push(args.join(' '));
        ${connect}
        out({ connected: srv instanceof cds.Service, warnings });`,
     );
@@ -119,7 +119,7 @@ describe('decision flow', () => {
   test('limits reject before any request reaches the server', async () => {
     reset();
     const result = await inApp(
-      { kind: 'systemone-laya', credentials: { url: server.url } },
+      { kind: 'decisions-laya', credentials: { url: server.url } },
       `${connect}
        const criteria = Object.fromEntries(Array.from({ length: 101 }, (_, i) => ['option' + i, 'x']));
        await srv.decide({ state: 'x', questions: { q: { type: 'choice', instructions: 'Choose', criteria } } });
@@ -133,19 +133,19 @@ describe('decision flow', () => {
     reset();
     const call = `${connect} const result = await srv.decide(request); out({ model: result.model });`;
     const withModel = await inApp(
-      { kind: 'systemone-generic', modelId: 'jev-latest', credentials: { url: server.url } },
+      { kind: 'decisions-generic', modelId: 'jev-latest', credentials: { url: server.url } },
       call,
     );
     assert.deepEqual(withModel, { model: 'fake-model' });
     assert.equal(server.received[0].model, 'jev-latest');
-    await inApp({ kind: 'systemone-generic', credentials: { url: server.url } }, call);
+    await inApp({ kind: 'decisions-generic', credentials: { url: server.url } }, call);
     assert.equal('model' in server.received[1], false);
   });
 
   test('a token is sent as bearer authorization', async () => {
     reset();
     await inApp(
-      { kind: 'systemone-generic', requiresToken: true, credentials: { url: server.url, token: 'secret' } },
+      { kind: 'decisions-generic', requiresToken: true, credentials: { url: server.url, token: 'secret' } },
       `${connect} await srv.decide(request); out({});`,
     );
     assert.equal(server.requests[0].headers.authorization, 'Bearer secret');
@@ -154,7 +154,7 @@ describe('decision flow', () => {
   test('before and after handlers run on decide', async () => {
     reset();
     const result = await inApp(
-      { kind: 'systemone-generic', credentials: { url: server.url } },
+      { kind: 'decisions-generic', credentials: { url: server.url } },
       `${connect}
        const seen = [];
        srv.before('decide', (req) => { seen.push('before'); req.data.state = 'modified state'; });
@@ -170,7 +170,7 @@ describe('decision flow', () => {
     reset();
     server.setHandler((_req, res) => setTimeout(() => res.end(JSON.stringify(noulResult)), 300));
     const result = await inApp(
-      { kind: 'systemone-generic', credentials: { url: server.url } },
+      { kind: 'decisions-generic', credentials: { url: server.url } },
       `${connect}
        const controller = new AbortController();
        const pending = srv.decide(request, { signal: controller.signal });
@@ -184,10 +184,10 @@ describe('decision flow', () => {
   test('the debug log has attempts, model and usage but no request data', async () => {
     reset();
     const result = await inApp(
-      { kind: 'systemone-generic', credentials: { url: server.url } },
+      { kind: 'decisions-generic', credentials: { url: server.url } },
       `${connect}
        const logs = [];
-       cds.log('systemone').debug = (...args) => logs.push(args);
+       cds.log('decisions').debug = (...args) => logs.push(args);
        await srv.decide({ state: 'private state', questions: { answer: { type: 'noul', instructions: 'Secret question?' } } });
        out({ logs });`,
     );
@@ -207,7 +207,7 @@ describe('decision flow', () => {
       res.end(JSON.stringify({ ...noulResult, answers: { answer: { type: 'noul', noul: 2 } } })),
     );
     const result = await inApp(
-      { kind: 'systemone-generic', credentials: { url: server.url } },
+      { kind: 'decisions-generic', credentials: { url: server.url } },
       `${connect} await srv.decide(request); out({ ok: true });`,
     );
     assert.equal(result.error, 'INVALID_RESPONSE');
@@ -220,7 +220,7 @@ describe('decision flow', () => {
       res.end(JSON.stringify({ error: { type: 'invalid_request', message: 'secret details' } }));
     });
     const result = await inApp(
-      { kind: 'systemone-generic', credentials: { url: server.url } },
+      { kind: 'decisions-generic', credentials: { url: server.url } },
       `${connect} await srv.decide(request); out({ ok: true });`,
     );
     assert.equal(result.error, 'HTTP_ERROR');
@@ -231,7 +231,7 @@ describe('decision flow', () => {
 });
 
 describe('subclass contract', () => {
-  const custom = `const { DecisionsService } = require('cap-jev');
+  const custom = `const { DecisionsService } = require('cap-decisions');
 module.exports = class extends DecisionsService {
   async call() {
     globalThis.__calls = (globalThis.__calls || 0) + 1;
@@ -242,7 +242,7 @@ module.exports = class extends DecisionsService {
     };
   }
 };`;
-  const config = () => ({ kind: 'systemone-generic', impl: 'srv/custom.js', credentials: { url: server.url } });
+  const config = () => ({ kind: 'decisions-generic', impl: 'srv/custom.js', credentials: { url: server.url } });
 
   test('a result returned by call() is validated by the base class', async () => {
     const files = { 'srv/custom.js': custom };
@@ -269,7 +269,7 @@ module.exports = class extends DecisionsService {
 
   test('a subclass overriding endpoint, unwrap and errorCode is used for HTTP', async () => {
     reset();
-    const envelope = `const { DecisionsService } = require('cap-jev');
+    const envelope = `const { DecisionsService } = require('cap-decisions');
 module.exports = class extends DecisionsService {
   endpoint(credentials) { return credentials.url + '/wrapped'; }
   unwrap(payload) { return payload.data; }
