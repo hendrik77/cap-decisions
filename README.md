@@ -2,7 +2,7 @@
 
 `cap-decisions` adds an internal decision service to SAP CAP Node.js applications. It evaluates `choice`, `score`, and `noul` questions against one text or JSON state, using a decision model such as Jev, Laya or Clef. It works with any HTTP endpoint that speaks the Jev protocol (the request and response schema of TypeSafe's System One API), and with providers whose protocol differs through a subclass.
 
-The package was called `cap-jev` up to 0.9.2; see [Migrating from cap-jev](#migrating-from-cap-jev). It is a community project and not affiliated with SAP or TypeSafe. The package creates no OData endpoint and produces no text.
+The package was called `cap-jev` up to 0.9.2. It is a community project and not affiliated with SAP or TypeSafe. The package creates no OData endpoint and produces no text.
 
 Requirements: Node.js 22 or newer and `@sap/cds` 9 or 10 (the peer range is `^9 || ^10`). CI tests Node.js 22, 24 and 26 against CAP 9 and CAP 10. `cap-decisions` supports the last two stable CAP major versions, currently CAP 9 and CAP 10; when a new CAP major is released, the oldest is dropped in the release that adds it. The `cds add decisions` command (see below) needs `@sap/cds-dk` 9 or 10, like every `cds add`; the package itself does not depend on it.
 
@@ -98,38 +98,6 @@ Request state, instructions, and criteria must contain plain JSON data: strings,
 The [example CAP application](examples/cap-app) shows a TypeScript action handler with exhaustive label handling and error mapping, and explains how to run it. Its CDS action belongs to the application; the plugin registers no annotations or handlers for application actions.
 
 `decide()` sends an internal CAP `decide` event. Applications can register `before` and `after` handlers on the connected service. Configuration is checked when `cds.connect.to('decisions')` runs; invalid settings or a missing endpoint reject that connection with `INVALID_CONFIG`. Pass `{ signal }` (type `DecideOptions`) as the second argument to cancel a call. Successful calls emit a `decisions` debug log with latency, attempt count, model and input/output token counts.
-
-## Migrating from cap-jev
-
-In 0.10.0 the package `cap-jev` was renamed to `cap-decisions`, because it serves decision models of several providers, not only Jev. The protocol is unchanged: requests, responses, the question types and the default path `/v1/systemone` of the mock server stay as they were, so no provider or server needs a change. The names in an application do change:
-
-| Before (cap-jev 0.9.x) | Since cap-decisions 0.10.0 |
-| --- | --- |
-| package `cap-jev`, archive `cap-jev-<version>.tgz` | package `cap-decisions`, archive `cap-decisions-<version>.tgz` |
-| service `cds.requires.systemone`, `cds.connect.to('systemone')` | service `cds.requires.decisions`, `cds.connect.to('decisions')` |
-| `cds add systemone` | `cds add decisions` |
-| kinds `systemone-<x>`, such as `systemone-laya` | kinds `decisions-<x>`, such as `decisions-laya` |
-| environment variables `CDS_REQUIRES_SYSTEMONE_*` | `CDS_REQUIRES_DECISIONS_*` |
-| mock token variable `CAP_JEV_MOCK_TOKEN` | `CAP_DECISIONS_MOCK_TOKEN` (the old name is not read) |
-| log channel `systemone` | `decisions` |
-| `SystemOneService`, `SystemOneError`, `SystemOneErrorCode` | `DecisionsService`, `DecisionsError`, `DecisionsErrorCode` |
-| `SystemOneSettings`, `SystemOneCredentials` | `DecisionsSettings`, `DecisionsCredentials` |
-| bin `cap-jev-mock` | `cap-decisions-mock` |
-| entry points `cap-jev/mock-server`, `cap-jev/testing`, `cap-jev/providers/*` | `cap-decisions/mock-server`, `cap-decisions/testing`, `cap-decisions/providers/*` |
-| mock fixtures `test/data/systemone.json` | `test/data/decisions.json` |
-
-`DecisionRequest`, `DecisionResult`, `DecisionOptions`, `DecideOptions`, `decide()` and the error codes keep their names.
-
-To migrate an application:
-
-1. Uninstall `cap-jev` and install `cap-decisions` (see [Install and use](#install-and-use)).
-2. Rename `systemone` to `decisions` under `cds.requires` in `package.json`, `.cdsrc.json` and `.cdsrc-private.json`, including the profile sections, and rename the kinds from `systemone-<x>` to `decisions-<x>`.
-3. Rename the environment variables, the imports, the types and the `cds.connect.to` argument as in the table.
-4. Rename `test/data/systemone.json` to `test/data/decisions.json`, or set `fixtures` to the old path.
-
-`cds.requires.systemone` is no longer read. When it is still set, `cap-decisions` logs an error on the `decisions` channel at start-up that points here, so an old configuration does not silently fall back to the defaults.
-
-A provider package built against `cap-jev` must update its peer dependency to `"cap-decisions": ">=0.10.0"`, its imports, the base class (`DecisionsService`) and its kind names (`decisions-<x>`, extending `decisions-defaults` or `decisions-generic`). Install it together with `cap-decisions` only: `DecisionsError` recognises its instances across copies of `cap-decisions` through a global symbol, and that symbol changed with the rename, so an error thrown by a `cap-jev` copy is not an instance of `DecisionsError`, and the other way round.
 
 ## Set up with `cds add decisions`
 

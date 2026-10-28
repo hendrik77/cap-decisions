@@ -30,12 +30,12 @@ The package is not published on npm and has no known users outside its maintaine
 2. **The configuration**: the service `decisions` (`cds.requires.decisions`, `cds.connect.to('decisions')`), the facet `cds add decisions`, the kinds `decisions-<provider>`, the environment variables `CDS_REQUIRES_DECISIONS_*` and `CAP_DECISIONS_MOCK_TOKEN`, the log channel `decisions` and the mock's default fixture file `test/data/decisions.json`.
 3. **The TypeScript names**: `DecisionsService`, `DecisionsError`, `DecisionsErrorCode`, `DecisionsSettings`, `DecisionsCredentials`. `DecisionsError` carries the brand `Symbol.for('cap-decisions.DecisionsError')`.
 4. **What stays**: the wire format, called the Jev protocol: the request and response schema, the question types `noul`, `choice` and `score`, and the default path `/v1/systemone` of the mock server, which matches TypeSafe's and SubQ's endpoints. The names `DecisionRequest`, `DecisionResult`, `DecisionOptions`, `DecideOptions`, `decide()` and the error codes were already neutral and stay. "Jev" and "System One" remain in the documentation where they mean the protocol, the model or TypeSafe's product.
-5. **No aliases.** The old names are not read. `cds-plugin.js` logs an error on the `decisions` channel when `cds.requires.systemone` is set, pointing to the migration section of the README, so an old configuration does not silently fall back to the defaults.
+5. **No aliases.** The old names are not read. `cds-plugin.js` logs an error on the `decisions` channel when `cds.requires.systemone` is set, pointing to the 0.10.0 entry of the changelog, so an old configuration does not silently fall back to the defaults.
 6. **History stays.** ADRs 0001 to 0007, the completed plans and the changelog entries up to 0.9.2 keep the names of their time; only links that the rename would break are fixed.
 
 ## Consequences
 
-- Applications on `cap-jev` 0.9.x migrate by hand, following "Migrating from cap-jev" in the README and the table in the 0.10.0 changelog entry.
+- Applications on `cap-jev` 0.9.x migrate by hand, following the table in the 0.10.0 changelog entry. The package has no known users, so the README has no migration section.
 - Provider packages built against `cap-jev` update their peer dependency to `"cap-decisions": ">=0.10.0"`, their imports, their base class and their kind names. Because the brand symbol changed, a `cap-jev` copy and a `cap-decisions` copy in one app do not recognise each other's errors with `instanceof`; such a mix is not supported.
 - The maintainer renames the GitHub repository; GitHub redirects the old URLs, including the archives of the `cap-jev` releases. The npm name `cap-decisions` is reserved with the publication method of ADR 0009 (formerly planned as ADR 0008).
 - ADR 0006 lists the public names for 1.0.0; when it is accepted, it uses the new names.
