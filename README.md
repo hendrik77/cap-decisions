@@ -1,12 +1,14 @@
-# cap-jev
+# cap-decisions
 
-`cap-jev` adds an internal System One decision service to SAP CAP Node.js applications. It evaluates `choice`, `score`, and `noul` questions against one text or JSON state. It works with any Jev-compatible System One HTTP endpoint that accepts the same request and response schema. The package creates no OData endpoint and produces no text.
+`cap-decisions` adds an internal decision service to SAP CAP Node.js applications. It evaluates `choice`, `score`, and `noul` questions against one text or JSON state, using a decision model such as Jev, Laya or Clef. It works with any HTTP endpoint that speaks the Jev protocol (the request and response schema of TypeSafe's System One API), and with providers whose protocol differs through a subclass.
 
-Requirements: Node.js 22 or newer and `@sap/cds` 9 or 10 (the peer range is `^9 || ^10`). CI tests Node.js 22, 24 and 26 against CAP 9 and CAP 10. `cap-jev` supports the last two stable CAP major versions, currently CAP 9 and CAP 10; when a new CAP major is released, the oldest is dropped in the release that adds it. The `cds add systemone` command (see below) needs `@sap/cds-dk` 9 or 10, like every `cds add`; the package itself does not depend on it.
+The package was called `cap-jev` up to 0.9.2; see [Migrating from cap-jev](#migrating-from-cap-jev). It is a community project and not affiliated with SAP or TypeSafe. The package creates no OData endpoint and produces no text.
+
+Requirements: Node.js 22 or newer and `@sap/cds` 9 or 10 (the peer range is `^9 || ^10`). CI tests Node.js 22, 24 and 26 against CAP 9 and CAP 10. `cap-decisions` supports the last two stable CAP major versions, currently CAP 9 and CAP 10; when a new CAP major is released, the oldest is dropped in the release that adds it. The `cds add decisions` command (see below) needs `@sap/cds-dk` 9 or 10, like every `cds add`; the package itself does not depend on it.
 
 ## Install and use
 
-The package is not yet published to npm. Install a release archive from [GitHub releases](https://github.com/hendrik77/cap-jev/releases) in your CAP application. Since npm 12, `npm install` refuses tarball URLs unless the project allows them (the `allow-remote` setting), so either allow URLs listed in your `package.json`:
+The package is not yet published to npm. Install a release archive from [GitHub releases](https://github.com/hendrik77/cap-decisions/releases) in your CAP application. Since npm 12, `npm install` refuses tarball URLs unless the project allows them (the `allow-remote` setting), so either allow URLs listed in your `package.json`:
 
 ```sh
 npm config set allow-remote root --location=project
@@ -26,16 +28,16 @@ The first way records the URL in `package.json` and writes `allow-remote=root` t
 
 To use an unreleased build, run `npm install && npm pack` in this repository and install the resulting `cap-jev-<version>.tgz` file.
 
-After npm publication, use `npm install cap-jev`.
+After npm publication, use `npm install cap-decisions`.
 
-CAP loads the package's `cds-plugin.js` and adds the `systemone` required service. Select a provider kind for production, either with [`cds add systemone`](#set-up-with-cds-add-systemone) or by hand (see [Provider configuration](#provider-configuration)), supply its secrets through a runtime configuration source, then connect from a service handler:
+CAP loads the package's `cds-plugin.js` and adds the `decisions` required service. Select a provider kind for production, either with [`cds add decisions`](#set-up-with-cds-add-decisions) or by hand (see [Provider configuration](#provider-configuration)), supply its secrets through a runtime configuration source, then connect from a service handler:
 
 ```ts
 import cds from '@sap/cds';
-import type { SystemOneService } from 'cap-jev';
+import type { DecisionsService } from 'cap-decisions';
 
-const systemOne = (await cds.connect.to('systemone')) as SystemOneService;
-const result = await systemOne.decide({
+const decisions = (await cds.connect.to('decisions')) as DecisionsService;
+const result = await decisions.decide({
   state: { message: 'I was billed twice. Please refund me.' },
   questions: {
     department: {
@@ -74,7 +76,7 @@ const nextStep = handlers[result.answers.department.choice]();
 For questions held in a variable, use `satisfies Questions` to keep literal question types and choice labels:
 
 ```ts
-import type { Questions } from 'cap-jev';
+import type { Questions } from 'cap-decisions';
 const questions = {
   department: {
     type: 'choice',
@@ -83,7 +85,7 @@ const questions = {
   },
   refund: { type: 'noul', instructions: 'Does the customer request a refund?' },
 } satisfies Questions;
-const decision = await systemOne.decide({ state: 'Please refund me', questions });
+const decision = await decisions.decide({ state: 'Please refund me', questions });
 // decision.answers.department.choice: 'billing' | 'technical'
 ```
 
@@ -95,71 +97,103 @@ Request state, instructions, and criteria must contain plain JSON data: strings,
 
 The [example CAP application](examples/cap-app) shows a TypeScript action handler with exhaustive label handling and error mapping, and explains how to run it. Its CDS action belongs to the application; the plugin registers no annotations or handlers for application actions.
 
-`decide()` sends an internal CAP `decide` event. Applications can register `before` and `after` handlers on the connected service. Configuration is checked when `cds.connect.to('systemone')` runs; invalid settings or a missing endpoint reject that connection with `INVALID_CONFIG`. Pass `{ signal }` (type `DecideOptions`) as the second argument to cancel a call. Successful calls emit a `systemone` debug log with latency, attempt count, model and input/output token counts.
+`decide()` sends an internal CAP `decide` event. Applications can register `before` and `after` handlers on the connected service. Configuration is checked when `cds.connect.to('decisions')` runs; invalid settings or a missing endpoint reject that connection with `INVALID_CONFIG`. Pass `{ signal }` (type `DecideOptions`) as the second argument to cancel a call. Successful calls emit a `decisions` debug log with latency, attempt count, model and input/output token counts.
 
-## Set up with `cds add systemone`
+## Migrating from cap-jev
 
-After installation, `cds add systemone` configures the production kind in your application. It is a facet of CAP's `cds add` command and needs `@sap/cds-dk`, as every `cds add` does. Run it in the root of the application (`npx cds add systemone` if `@sap/cds-dk` is a local dependency):
+In 0.10.0 the package `cap-jev` was renamed to `cap-decisions`, because it serves decision models of several providers, not only Jev. The protocol is unchanged: requests, responses, the question types and the default path `/v1/systemone` of the mock server stay as they were, so no provider or server needs a change. The names in an application do change:
+
+| Before (cap-jev 0.9.x) | Since cap-decisions 0.10.0 |
+| --- | --- |
+| package `cap-jev`, archive `cap-jev-<version>.tgz` | package `cap-decisions`, archive `cap-decisions-<version>.tgz` |
+| service `cds.requires.systemone`, `cds.connect.to('systemone')` | service `cds.requires.decisions`, `cds.connect.to('decisions')` |
+| `cds add systemone` | `cds add decisions` |
+| kinds `systemone-<x>`, such as `systemone-laya` | kinds `decisions-<x>`, such as `decisions-laya` |
+| environment variables `CDS_REQUIRES_SYSTEMONE_*` | `CDS_REQUIRES_DECISIONS_*` |
+| mock token variable `CAP_JEV_MOCK_TOKEN` | `CAP_DECISIONS_MOCK_TOKEN` (the old name is not read) |
+| log channel `systemone` | `decisions` |
+| `SystemOneService`, `SystemOneError`, `SystemOneErrorCode` | `DecisionsService`, `DecisionsError`, `DecisionsErrorCode` |
+| `SystemOneSettings`, `SystemOneCredentials` | `DecisionsSettings`, `DecisionsCredentials` |
+| bin `cap-jev-mock` | `cap-decisions-mock` |
+| entry points `cap-jev/mock-server`, `cap-jev/testing`, `cap-jev/providers/*` | `cap-decisions/mock-server`, `cap-decisions/testing`, `cap-decisions/providers/*` |
+| mock fixtures `test/data/systemone.json` | `test/data/decisions.json` |
+
+`DecisionRequest`, `DecisionResult`, `DecisionOptions`, `DecideOptions`, `decide()` and the error codes keep their names.
+
+To migrate an application:
+
+1. Uninstall `cap-jev` and install `cap-decisions` (see [Install and use](#install-and-use)).
+2. Rename `systemone` to `decisions` under `cds.requires` in `package.json`, `.cdsrc.json` and `.cdsrc-private.json`, including the profile sections, and rename the kinds from `systemone-<x>` to `decisions-<x>`.
+3. Rename the environment variables, the imports, the types and the `cds.connect.to` argument as in the table.
+4. Rename `test/data/systemone.json` to `test/data/decisions.json`, or set `fixtures` to the old path.
+
+`cds.requires.systemone` is no longer read. When it is still set, `cap-decisions` logs an error on the `decisions` channel at start-up that points here, so an old configuration does not silently fall back to the defaults.
+
+A provider package built against `cap-jev` must update its peer dependency to `"cap-decisions": ">=0.10.0"`, its imports, the base class (`DecisionsService`) and its kind names (`decisions-<x>`, extending `decisions-defaults` or `decisions-generic`). Install it together with `cap-decisions` only: `DecisionsError` recognises its instances across copies of `cap-decisions` through a global symbol, and that symbol changed with the rename, so an error thrown by a `cap-jev` copy is not an instance of `DecisionsError`, and the other way round.
+
+## Set up with `cds add decisions`
+
+After installation, `cds add decisions` configures the production kind in your application. It is a facet of CAP's `cds add` command and needs `@sap/cds-dk`, as every `cds add` does. Run it in the root of the application (`npx cds add decisions` if `@sap/cds-dk` is a local dependency):
 
 ```sh
-cds add systemone                                          # systemone-laya in the production profile
-cds add systemone --kind systemone-typesafe               # also a token placeholder
-cds add systemone --kind systemone-laya --with-fixtures   # also example fixtures for the mock
-cds add systemone --kind systemone-typesafe --for hybrid  # another profile
+cds add decisions                                          # decisions-laya in the production profile
+cds add decisions --kind decisions-typesafe               # also a token placeholder
+cds add decisions --kind decisions-laya --with-fixtures   # also example fixtures for the mock
+cds add decisions --kind decisions-typesafe --for hybrid  # another profile
 ```
 
 | Option | Meaning |
 | --- | --- |
-| `--kind <kind>` | The kind for the target profile. Default `systemone-laya`. Any installed kind, including a provider package's (see [docs/providers.md](docs/providers.md)), except `systemone-defaults` and the mock. An unknown or refused kind fails and lists the selectable kinds |
+| `--kind <kind>` | The kind for the target profile. Default `decisions-laya`. Any installed kind, including a provider package's (see [docs/providers.md](docs/providers.md)), except `decisions-defaults` and the mock. An unknown or refused kind fails and lists the selectable kinds |
 | `--for <profile>` | CAP's option. The target profile. Default `production` |
 | `--force` | CAP's option. Replaces a different kind in the target profile and an existing fixture file. It never replaces a token |
-| `--with-fixtures` | Writes an example `test/data/systemone.json` for the mock |
+| `--with-fixtures` | Writes an example `test/data/decisions.json` for the mock |
 
 With `P` the target profile, it writes:
 
 | File | Change |
 | --- | --- |
-| `package.json` | `cds.requires.systemone["[P]"].kind` is the kind. Other keys and the indentation stay as they are |
-| `.cdsrc-private.json` | Only for a kind with `requiresToken`: an empty `credentials.token` under `requires.systemone["[P]"]`, unless a token is set there |
+| `package.json` | `cds.requires.decisions["[P]"].kind` is the kind. Other keys and the indentation stay as they are |
+| `.cdsrc-private.json` | Only for a kind with `requiresToken`: an empty `credentials.token` under `requires.decisions["[P]"]`, unless a token is set there |
 | `.gitignore` | The line `.cdsrc-private.json`, when that file is written or exists and the line is missing |
-| `test/data/systemone.json` | Only with `--with-fixtures`: two rules, a fixed `choice` answer for refund messages and a simulated 503 for the text `simulate outage`. An existing file is kept unless `--force` is set |
+| `test/data/decisions.json` | Only with `--with-fixtures`: two rules, a fixed `choice` answer for refund messages and a simulated 503 for the text `simulate outage`. An existing file is kept unless `--force` is set |
 
-The kind goes into a profile, so the mock stays active in `development` and `test` (see [Local development](#local-development)). Nothing that is already set is overwritten without `--force`. The command prints one line per step, each starting with `[systemone]`, and ends with the next steps: filling in the token, setting `credentials.url` for a kind without a URL, or starting `npx cap-jev-mock` for a kind with a local URL. It warns about a base-level `kind` in `package.json`, which applies to every profile and turns off the mock in development. A second run with the same options changes nothing. Errors, such as a Java project, an unknown kind or an invalid `package.json`, print a message and write nothing.
+The kind goes into a profile, so the mock stays active in `development` and `test` (see [Local development](#local-development)). Nothing that is already set is overwritten without `--force`. The command prints one line per step, each starting with `[decisions]`, and ends with the next steps: filling in the token, setting `credentials.url` for a kind without a URL, or starting `npx cap-decisions-mock` for a kind with a local URL. It warns about a base-level `kind` in `package.json`, which applies to every profile and turns off the mock in development. A second run with the same options changes nothing. Errors, such as a Java project, an unknown kind or an invalid `package.json`, print a message and write nothing.
 
-Without `@sap/cds-dk`, write the same by hand. For `systemone-laya` in production, add this to `package.json`:
+Without `@sap/cds-dk`, write the same by hand. For `decisions-laya` in production, add this to `package.json`:
 
 ```json
-{ "cds": { "requires": { "systemone": { "[production]": { "kind": "systemone-laya" } } } } }
+{ "cds": { "requires": { "decisions": { "[production]": { "kind": "decisions-laya" } } } } }
 ```
 
 For a kind with a token, also set `credentials.token` for the same profile from a secret source, for example `.cdsrc-private.json`, which stays out of Git (see [Provider configuration](#provider-configuration)).
 
 ## Local development
 
-In the `development` and `test` profiles, an application without an explicit `kind` gets the `systemone-mock` kind. It answers in-process, deterministically and without a server, a token or network access, so `cds watch`, `cds serve` and `cds.test` work out of the box.
+In the `development` and `test` profiles, an application without an explicit `kind` gets the `decisions-mock` kind. It answers in-process, deterministically and without a server, a token or network access, so `cds watch`, `cds serve` and `cds.test` work out of the box.
 
-- Fixtures in `test/data/systemone.json` give fixed answers or simulated failures for matching input. `cds add systemone --with-fixtures` writes an example file.
+- Fixtures in `test/data/decisions.json` give fixed answers or simulated failures for matching input. `cds add decisions --with-fixtures` writes an example file.
 - The settings `latencyMs` and `fail` simulate slow and failing providers for error-handling tests.
-- To use a real endpoint in development, set a `kind`, for example `CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya`. An explicit kind always wins.
+- To use a real endpoint in development, set a `kind`, for example `CDS_REQUIRES_DECISIONS_KIND=decisions-laya`. An explicit kind always wins.
 - The mock refuses the `production` profile unless `allowInProduction` is `true`.
-- To exercise the HTTP path (retries, timeouts, tokens, `systemone-laya`, `systemone-cloudflare`) without Laya, run the HTTP mock server: `npx cap-jev-mock`, then `CDS_REQUIRES_SYSTEMONE_KIND=systemone-laya npm start`. It gives the same answers as the in-process mock over HTTP. See [HTTP mock server](docs/local-development.md#http-mock-server).
+- To exercise the HTTP path (retries, timeouts, tokens, `decisions-laya`, `decisions-cloudflare`) without Laya, run the HTTP mock server: `npx cap-decisions-mock`, then `CDS_REQUIRES_DECISIONS_KIND=decisions-laya npm start`. It gives the same answers as the in-process mock over HTTP. See [HTTP mock server](docs/local-development.md#http-mock-server).
 
 [docs/local-development.md](docs/local-development.md) has the activation table, the settings, the fixture format and the HTTP mock server.
 
 ## Provider configuration
 
-Select a provider kind under `cds.requires.systemone` with its full name; `cds add systemone` writes this for a profile (see [Set up with `cds add systemone`](#set-up-with-cds-add-systemone)). Settings sit at service level, except credentials, which sit under `credentials`. If an application sets no `kind`, the plugin uses `systemone-mock` in the `development` and `test` profiles and `systemone-generic` in production. The generic kind has no URL, so a production installation without a kind cannot send data and fails with `INVALID_CONFIG` when it connects. See [Local development](#local-development).
+Select a provider kind under `cds.requires.decisions` with its full name; `cds add decisions` writes this for a profile (see [Set up with `cds add decisions`](#set-up-with-cds-add-decisions)). Settings sit at service level, except credentials, which sit under `credentials`. If an application sets no `kind`, the plugin uses `decisions-mock` in the `development` and `test` profiles and `decisions-generic` in production. The generic kind has no URL, so a production installation without a kind cannot send data and fails with `INVALID_CONFIG` when it connects. See [Local development](#local-development).
 
 | Kind | Endpoint | `modelId` | `requiresToken` | `limits` |
 | --- | --- | --- | --- | --- |
-| `systemone-generic` | None; set `credentials.url` to the full POST URL | None | `false` | Protocol minimums only |
-| `systemone-mock` | None; answers in-process, without network access. The default in `development` and `test`; refuses `production` unless `allowInProduction` is `true` | None | `false` | Protocol minimums only |
-| `systemone-typesafe` | `https://api.typesafe.ai/v1/systemone` | `jev-latest` | `true` | `choiceOptions`: 255; `scoreCriteria`: 2 to 10 |
-| `systemone-cloudflare` | Built from `credentials.accountId`, unless `credentials.url` is set | `clef` | `true` | `questions`: 64 |
-| `systemone-subq` | `https://api.subq.ai/v1/systemone` | `subq-snap-preview` | `true` | `questions`: 16; `choiceOptions`: 255; `scoreCriteria`: 2 to 10 |
-| `systemone-laya` | `http://127.0.0.1:8000/v1/systemone` | None | `false` | `choiceOptions`: 100 |
+| `decisions-generic` | None; set `credentials.url` to the full POST URL | None | `false` | Protocol minimums only |
+| `decisions-mock` | None; answers in-process, without network access. The default in `development` and `test`; refuses `production` unless `allowInProduction` is `true` | None | `false` | Protocol minimums only |
+| `decisions-typesafe` | `https://api.typesafe.ai/v1/systemone` | `jev-latest` | `true` | `choiceOptions`: 255; `scoreCriteria`: 2 to 10 |
+| `decisions-cloudflare` | Built from `credentials.accountId`, unless `credentials.url` is set | `clef` | `true` | `questions`: 64 |
+| `decisions-subq` | `https://api.subq.ai/v1/systemone` | `subq-snap-preview` | `true` | `questions`: 16; `choiceOptions`: 255; `scoreCriteria`: 2 to 10 |
+| `decisions-laya` | `http://127.0.0.1:8000/v1/systemone` | None | `false` | `choiceOptions`: 100 |
 
-`systemone-defaults` is the shared parent of these kinds (the package's service class and `timeoutMs: 10000`). Do not select it.
+`decisions-defaults` is the shared parent of these kinds (the package's service class and `timeoutMs: 10000`). Do not select it.
 
 ### Settings
 
@@ -187,13 +221,13 @@ The protocol minimums always apply: one question, one choice option and one scor
 | --- | --- |
 | `url` | Full POST URL of the endpoint |
 | `token` | Bearer token |
-| `accountId` | Account ID; used by `systemone-cloudflare` to build the URL |
+| `accountId` | Account ID; used by `decisions-cloudflare` to build the URL |
 | `destination` | Name of a BTP Destination service entry (see below) |
 
 Settings are deep-merged over the kind's settings, so an application overrides single values. This keeps the TypeSafe model, token requirement and score limits and raises the choice limit:
 
 ```json
-{ "cds": { "requires": { "systemone": { "kind": "systemone-typesafe", "limits": { "choiceOptions": 300 } } } } }
+{ "cds": { "requires": { "decisions": { "kind": "decisions-typesafe", "limits": { "choiceOptions": 300 } } } } }
 ```
 
 Settings are validated when the service is created. These fail with `INVALID_CONFIG`: `model`; `token`, `url`, `accountId` or `destination` at service level instead of under `credentials`; an unknown `credentials` key; a truthy `queued`, `outboxed` or `outbox` (a decision needs an answer, so the service cannot be queued); a malformed `modelId`, `requiresToken`, `limits` or `timeoutMs`; and a missing token when the kind requires one. An unknown service-level key only logs a warning. Settings are snapshotted when the service is created; restart the application to apply changes.
@@ -201,13 +235,13 @@ Settings are validated when the service is created. These fail with `INVALID_CON
 For a local or other Jev-compatible server, use the generic kind with an explicit endpoint:
 
 ```json
-{ "cds": { "requires": { "systemone": { "kind": "systemone-generic", "credentials": { "url": "http://127.0.0.1:8000/v1/systemone" } } } } }
+{ "cds": { "requires": { "decisions": { "kind": "decisions-generic", "credentials": { "url": "http://127.0.0.1:8000/v1/systemone" } } } } }
 ```
 
 CAP profiles can select different kinds:
 
 ```json
-{ "cds": { "requires": { "systemone": { "kind": "systemone-typesafe", "[development]": { "kind": "systemone-laya" } } } } }
+{ "cds": { "requires": { "decisions": { "kind": "decisions-typesafe", "[development]": { "kind": "decisions-laya" } } } } }
 ```
 
 Keep tokens and account IDs out of committed files. CAP can inject them from these sources:
@@ -215,83 +249,83 @@ Keep tokens and account IDs out of committed files. CAP can inject them from the
 | Environment | Secret source |
 | --- | --- |
 | Local | `.cdsrc-private.json` or `cds bind` |
-| Cloud Foundry | User-provided service named `systemone` |
+| Cloud Foundry | User-provided service named `decisions` |
 | Kyma/Kubernetes | `servicebinding.io` Secret via `SERVICE_BINDING_ROOT` |
-| Any | `CDS_CONFIG` JSON or `CDS_REQUIRES_SYSTEMONE_CREDENTIALS_TOKEN` |
+| Any | `CDS_CONFIG` JSON or `CDS_REQUIRES_DECISIONS_CREDENTIALS_TOKEN` |
 
-`systemone-cloudflare` needs `accountId` and a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS, or over HTTP to a loopback host: `localhost`, an IPv4 address `127.x.x.x`, or `::1`. The Cloudflare adapter requires `success: true` and unwraps `result`.
+`decisions-cloudflare` needs `accountId` and a separate account-owned token with only **Workers AI – Read** and **Workers AI – Edit** permissions. A token is sent only over HTTPS, or over HTTP to a loopback host: `localhost`, an IPv4 address `127.x.x.x`, or `::1`. The Cloudflare adapter requires `success: true` and unwraps `result`.
 
-`systemone-subq` talks to SubQ Snap, which is in public preview: `modelId` (`subq-snap-preview`) will change when SubQ releases the model, and an application can override it. A request without credits fails with `HTTP_ERROR` and status 402. SubQ stores decisions according to its [data retention](https://docs.subq.ai/using-the-api/data-retention/) policy. The kind selects a small subclass that reads SubQ's error type (`detail.error_type`) into `providerCode`. Images in a request are not supported.
+`decisions-subq` talks to SubQ Snap, which is in public preview: `modelId` (`subq-snap-preview`) will change when SubQ releases the model, and an application can override it. A request without credits fails with `HTTP_ERROR` and status 402. SubQ stores decisions according to its [data retention](https://docs.subq.ai/using-the-api/data-retention/) policy. The kind selects a small subclass that reads SubQ's error type (`detail.error_type`) into `providerCode`. Images in a request are not supported.
 
 ### Destinations
 
 On SAP BTP, you can set `credentials.destination` to the name of a Destination service entry instead of supplying `url` and `token`. Install the optional peer package `@sap-cloud-sdk/connectivity` in the CAP application. Set the destination URL to the full POST endpoint and use a `NoAuthentication` destination with a `URL.headers.Authorization` property containing the bearer header. The plugin resolves the destination with `getDestination()` when the service is created and for each call; it uses the SDK's cache. If the resolver throws when the service is created (for example, the Destination service is briefly down), the plugin logs a warning and the connection succeeds; each call resolves the destination again. A destination that is not found, or that has a bad URL or bad headers, still fails the connection. The token transport rule also applies to destination headers. When `requiresToken` is `true`, the destination must supply an `Authorization` header (or a `token` must be set), or the connection fails with `INVALID_CONFIG`. This integration reads the destination URL and static headers; other destination authentication flows are outside its scope.
 
 ```json
-{ "cds": { "requires": { "systemone": { "kind": "systemone-generic", "credentials": { "destination": "systemone-api" } } } } }
+{ "cds": { "requires": { "decisions": { "kind": "decisions-generic", "credentials": { "destination": "decisions-api" } } } } }
 ```
 
 ## Errors
 
-Responses must include a model identifier, one correctly typed answer per question, and usage counts. Failures throw `SystemOneError` with a `code` of type `SystemOneErrorCode`:
+Responses must include a model identifier, one correctly typed answer per question, and usage counts. Failures throw `DecisionsError` with a `code` of type `DecisionsErrorCode`:
 
 | Code | Cause |
 | --- | --- |
-| `INVALID_CONFIG` | Invalid settings (such as `model`, a secret outside `credentials`, an unknown `credentials` key, or a malformed limit or timeout), a missing token when the kind requires one, a token with a character other than visible ASCII, space or tab, or a missing or invalid endpoint (including a URL with a user name or password), reported by `cds.connect.to('systemone')`; also a destination that cannot be resolved for a call |
+| `INVALID_CONFIG` | Invalid settings (such as `model`, a secret outside `credentials`, an unknown `credentials` key, or a malformed limit or timeout), a missing token when the kind requires one, a token with a character other than visible ASCII, space or tab, or a missing or invalid endpoint (including a URL with a user name or password), reported by `cds.connect.to('decisions')`; also a destination that cannot be resolved for a call |
 | `INVALID_REQUEST` | The request does not match the question schema or the provider's limits; nothing is sent |
 | `INVALID_RESPONSE` | The response is malformed JSON or does not match the questions |
 | `HTTP_ERROR` | The endpoint returned an error status; `status` and, when available, `providerCode` are set |
-| `PROVIDER_ERROR` | The provider reported a failure in a successful HTTP response; `systemone-cloudflare` returned `success: false` |
+| `PROVIDER_ERROR` | The provider reported a failure in a successful HTTP response; `decisions-cloudflare` returned `success: false` |
 | `NETWORK_ERROR` | The connection or response body failed after all retries, or a retry would not fit into the remaining call deadline |
 | `TIMEOUT` | The call exceeded `timeoutMs` |
 | `ABORTED` | The caller's `signal` cancelled the call |
 
-`providerCode` is a safe machine-readable provider error code. `error instanceof SystemOneError` holds even when the application and CAP load different copies of `cap-jev`, as can happen on Windows or with a provider package that brings its own copy. Network and parse errors retain their original `cause`; HTTP errors omit the response object.
+`providerCode` is a safe machine-readable provider error code. `error instanceof DecisionsError` holds even when the application and CAP load different copies of `cap-decisions`, as can happen on Windows or with a provider package that brings its own copy. Network and parse errors retain their original `cause`; HTTP errors omit the response object.
 
 HTTP 429, 502, 503, 504 and 529, and network failures (including interrupted response bodies), are retried at most twice, honoring `Retry-After` or using jittered backoff. If the retry delay does not fit into the remaining call deadline, the failure is returned immediately: an HTTP failure as `HTTP_ERROR` with its status and provider code, a network failure as `NETWORK_ERROR` with its cause. Complete malformed JSON responses fail with `INVALID_RESPONSE` without retrying. A successful response body larger than 1 MiB also fails with `INVALID_RESPONSE`, without a retry. A redirect (3xx) is not followed: it fails with `HTTP_ERROR` and its status, without a retry, and nothing is sent to the `location`. Caller cancellation through the `signal` option throws `ABORTED`. Request state and credentials are never logged by this package.
 
 ## Protecting actions that call a provider
 
-`cap-jev` serves no service of its own. An application action that calls `decide()` spends provider quota, so protect it in the application with `@requires` or `@restrict`. The [example application](examples/cap-app) uses `@requires: 'authenticated-user'` on its service.
+`cap-decisions` serves no service of its own. An application action that calls `decide()` spends provider quota, so protect it in the application with `@requires` or `@restrict`. The [example application](examples/cap-app) uses `@requires: 'authenticated-user'` on its service.
 
 ## Adding a provider
 
 You can add a provider at three levels:
 
-- A Jev-compatible server that needs only a URL, limits or a token flag: define a kind in your `package.json` that extends `systemone-generic`.
-- A provider with its own protocol: write a subclass of `SystemOneService` in your application and point a kind's `impl` at it.
-- A provider shared between applications: ship the kind and the subclass in a provider package. Its kind is selectable with `cds add systemone --kind <kind>`.
+- A Jev-compatible server that needs only a URL, limits or a token flag: define a kind in your `package.json` that extends `decisions-generic`.
+- A provider with its own protocol: write a subclass of `DecisionsService` in your application and point a kind's `impl` at it.
+- A provider shared between applications: ship the kind and the subclass in a provider package. Its kind is selectable with `cds add decisions --kind <kind>`.
 
 [docs/providers.md](docs/providers.md) shows each level, the subclass hooks and the rules for subclasses. The subclass hooks are experimental (see [Stability](#stability)).
 
-A provider package tests its kind with one call of `cap-jev/testing` (experimental): `testProviderKind({ kind, encode })` registers the checks every kind must pass as `node:test` tests. See [Testing a provider package](docs/providers.md#testing-a-provider-package).
+A provider package tests its kind with one call of `cap-decisions/testing` (experimental): `testProviderKind({ kind, encode })` registers the checks every kind must pass as `node:test` tests. See [Testing a provider package](docs/providers.md#testing-a-provider-package).
 
 ## Stability
 
 | Area | Status |
 | --- | --- |
-| `cds.connect.to('systemone')`, `decide()` and its options (`DecideOptions`) | Stable |
+| `cds.connect.to('decisions')`, `decide()` and its options (`DecideOptions`) | Stable |
 | The request, question and answer types | Stable |
-| `SystemOneError` and its codes | Stable |
-| The kind names (except `systemone-subq`, see below) and the settings, including the `systemone-mock` kind and its settings (`MockSettings`) | Stable |
-| The kind `systemone-subq`, its settings and its subclass `cap-jev/providers/subq` (`SubqService`), while SubQ's model is in preview | Experimental |
+| `DecisionsError` and its codes | Stable |
+| The kind names (except `decisions-subq`, see below) and the settings, including the `decisions-mock` kind and its settings (`MockSettings`) | Stable |
+| The kind `decisions-subq`, its settings and its subclass `cap-decisions/providers/subq` (`SubqService`), while SubQ's model is in preview | Experimental |
 | The subclass hooks: `setup`, `call`, `endpoint`, `unwrap`, `errorCode`, and the static `settingsKeys` and `credentialKeys` | Experimental until the first npm publication |
-| The HTTP mock server: `cap-jev/mock-server` (`startMockServer`, `MockServerOptions`, `MockServer`) and the `cap-jev-mock` command line | Experimental until the first npm publication |
-| The `cds add systemone` facet and its options (`--kind` and `--with-fixtures`; `--for` and `--force` are CAP's) | Experimental until the first npm publication |
-| The provider test kit: `cap-jev/testing` (`testProviderKind`, `ProviderKindTestOptions`) | Experimental |
+| The HTTP mock server: `cap-decisions/mock-server` (`startMockServer`, `MockServerOptions`, `MockServer`) and the `cap-decisions-mock` command line | Experimental until the first npm publication |
+| The `cds add decisions` facet and its options (`--kind` and `--with-fixtures`; `--for` and `--force` are CAP's) | Experimental until the first npm publication |
+| The provider test kit: `cap-decisions/testing` (`testProviderKind`, `ProviderKindTestOptions`) | Experimental |
 
 The package has these entry points (`exports` in `package.json`):
 
 | Entry | Exports |
 | --- | --- |
-| `cap-jev` | `SystemOneService` (also the default), `SystemOneError`, `DecideOptions` and the types of settings, requests, questions and answers |
-| `cap-jev/providers/cloudflare` | `CloudflareService` (also the default) |
-| `cap-jev/providers/mock` | `MockService` (also the default) |
-| `cap-jev/providers/subq` | `SubqService` (also the default) |
-| `cap-jev/mock-server` | `startMockServer`, `MockServerOptions`, `MockServer` |
-| `cap-jev/testing` | `testProviderKind`, `ProviderKindTestOptions`, `WireError`, `WireErrorInput` |
+| `cap-decisions` | `DecisionsService` (also the default), `DecisionsError`, `DecideOptions` and the types of settings, requests, questions and answers |
+| `cap-decisions/providers/cloudflare` | `CloudflareService` (also the default) |
+| `cap-decisions/providers/mock` | `MockService` (also the default) |
+| `cap-decisions/providers/subq` | `SubqService` (also the default) |
+| `cap-decisions/mock-server` | `startMockServer`, `MockServerOptions`, `MockServer` |
+| `cap-decisions/testing` | `testProviderKind`, `ProviderKindTestOptions`, `WireError`, `WireErrorInput` |
 
-`MockSettings` is exported as a type; `MockServerOptions` and `MockServer` come from `cap-jev/mock-server`. `SystemOneTransport` is internal and not exported.
+`MockSettings` is exported as a type; `MockServerOptions` and `MockServer` come from `cap-decisions/mock-server`. `DecisionsTransport` is internal and not exported.
 
 ## Development
 
@@ -308,27 +342,27 @@ npm run release:check
 
 Tests use Node's built-in test runner and need no external API key; HTTP tests run against local servers. `npm test` builds the package and runs `tests/*.test.cjs` and the test of the example provider package. To run one file: `node --test tests/transport.test.cjs`. `@sap/cds-dk` is a development dependency (`^10`); the `cds add` tests run its real command line.
 
-`npm run coverage` runs the same tests with Node's built-in coverage of `dist/` and fails when the total falls below 98 % of lines, 96 % of branches or 98 % of functions (the thresholds are in the script in `package.json`). CI runs it instead of `npm test` in one job only, Node 24 with CAP 10; all other jobs run `npm test`. A child process is counted when it exits on its own, so the `cds add` facet and the CAP apps of the tests are included. Not counted: a process that a signal stops, so the run-until-stopped part of the `cap-jev-mock` command line (`dist/mock-server-cli.js`) looks weaker than it is; `cds-plugin.js`, which is outside `dist/`; and the CAP side of the test kit (`cap-jev/testing`), which runs from a string in a child process. Those parts are tested in child processes (see below).
+`npm run coverage` runs the same tests with Node's built-in coverage of `dist/` and fails when the total falls below 98 % of lines, 96 % of branches or 98 % of functions (the thresholds are in the script in `package.json`). CI runs it instead of `npm test` in one job only, Node 24 with CAP 10; all other jobs run `npm test`. A child process is counted when it exits on its own, so the `cds add` facet and the CAP apps of the tests are included. Not counted: a process that a signal stops, so the run-until-stopped part of the `cap-decisions-mock` command line (`dist/mock-server-cli.js`) looks weaker than it is; `cds-plugin.js`, which is outside `dist/`; and the CAP side of the test kit (`cap-decisions/testing`), which runs from a string in a child process. Those parts are tested in child processes (see below).
 
-- CAP-level tests create temporary CAP apps with `tests/helpers/app.cjs`. The apps use the repository's `cap-jev` and `@sap/cds`, so one copy of each is loaded.
+- CAP-level tests create temporary CAP apps with `tests/helpers/app.cjs`. The apps use the repository's `cap-decisions` and `@sap/cds`, so one copy of each is loaded.
 - `tests/mock.test.cjs`, `tests/mock-engine.test.cjs` and `tests/mock-fixtures.test.cjs` test the mock provider: activation in each profile, production refusal, fixtures, simulated failures and latency, and the answer engine. `tests/mock.test.ts` checks the `MockSettings` types.
 - `tests/mock-core.test.cjs` tests the mock core that `MockService` and the server share: option checks, fixture loading and the order of `fail`, rules and engine.
-- `tests/mock-server.test.cjs` tests the HTTP mock server with plain `fetch`: the request and failure tables, the Cloudflare format, the token, latency and disconnects, the options, and loading without `@sap/cds`. `tests/mock-server-cap.test.cjs` runs temporary CAP apps in the production profile against it, with the generic and Cloudflare kinds. `tests/mock-server-cli.test.cjs` runs the `cap-jev-mock` command line in child processes. `tests/mock-server.test.ts` checks the `MockServerOptions` types.
-- `tests/add-core.test.cjs` tests the planner of the `cds add systemone` facet (`dist/add-core.js`): the options, the files and messages for each existing configuration, the refused kinds, indentation, a second run that writes nothing, the example fixtures, and loading without `@sap/cds`.
-- `tests/cds-add.test.cjs` runs the real `cds add systemone` of `@sap/cds-dk` in temporary apps: the default run, `--kind`, `--for`, `--force`, `--with-fixtures`, an unknown kind, a Java project, a second run, `cds add --help`, a provider package's kind, and the configured app connecting in development (mock) and production (HTTP mock server). `tests/plugin.test.cjs` checks in child processes with a stubbed `cds.add` that `cds-plugin.js` registers the facet for `cds add` and `cds help` only, and never throws.
-- `tests/testing.test.cjs` runs the provider test kit (`cap-jev/testing`) against the built-in token kinds and Cloudflare, checks that a provider package with a wrong `unwrap` fails it with the name of the failing check, that the kit works in an existing app (`appDir`), that requiring the kit loads no `@sap/cds`, and that `cds-plugin.js` does not load the kit. `examples/provider-package/test/provider.test.cjs` runs the kit for `systemone-acme`; `npm test` runs it too.
+- `tests/mock-server.test.cjs` tests the HTTP mock server with plain `fetch`: the request and failure tables, the Cloudflare format, the token, latency and disconnects, the options, and loading without `@sap/cds`. `tests/mock-server-cap.test.cjs` runs temporary CAP apps in the production profile against it, with the generic and Cloudflare kinds. `tests/mock-server-cli.test.cjs` runs the `cap-decisions-mock` command line in child processes. `tests/mock-server.test.ts` checks the `MockServerOptions` types.
+- `tests/add-core.test.cjs` tests the planner of the `cds add decisions` facet (`dist/add-core.js`): the options, the files and messages for each existing configuration, the refused kinds, indentation, a second run that writes nothing, the example fixtures, and loading without `@sap/cds`.
+- `tests/cds-add.test.cjs` runs the real `cds add decisions` of `@sap/cds-dk` in temporary apps: the default run, `--kind`, `--for`, `--force`, `--with-fixtures`, an unknown kind, a Java project, a second run, `cds add --help`, a provider package's kind, and the configured app connecting in development (mock) and production (HTTP mock server). `tests/plugin.test.cjs` checks in child processes with a stubbed `cds.add` that `cds-plugin.js` registers the facet for `cds add` and `cds help` only, and never throws.
+- `tests/testing.test.cjs` runs the provider test kit (`cap-decisions/testing`) against the built-in token kinds and Cloudflare, checks that a provider package with a wrong `unwrap` fails it with the name of the failing check, that the kit works in an existing app (`appDir`), that requiring the kit loads no `@sap/cds`, and that `cds-plugin.js` does not load the kit. `examples/provider-package/test/provider.test.cjs` runs the kit for `decisions-acme`; `npm test` runs it too.
 - `tests/release-scripts.test.cjs` tests the release scripts `scripts/release-check.cjs` and `scripts/release-notes.cjs` in temporary directories.
 - Because the mock is the default in `development` and `test`, a test that needs a real or fake HTTP endpoint selects a kind explicitly. The HTTP mock server can serve as that endpoint, so a test needs no fake server of its own.
 - `tests/example-app.test.cjs` and `tests/example-app-failure.test.cjs` run `examples/cap-app` with `cds.test` on the mock, without a fake server.
-- `tests/cap-integration.test.cjs` installs the packed package in a copy of the example app, using the npm cache when available and the registry otherwise. It makes its server calls in the production profile and one call in development on the mock, checks that the installed `cap-jev-mock` command runs, and runs `cds add systemone` from the installed package.
+- `tests/cap-integration.test.cjs` installs the packed package in a copy of the example app, using the npm cache when available and the registry otherwise. It makes its server calls in the production profile and one call in development on the mock, checks that the installed `cap-decisions-mock` command runs, and runs `cds add decisions` from the installed package.
 - `npm run typecheck` also checks the types in `tests/*.test.ts`: answer inference, choice labels, exports and the subclass hooks.
 - `npm run build` emits CommonJS JavaScript and declarations in `dist/`.
 
 To test against CAP 9, run `npm install --no-save @sap/cds@^9 @sap/cds-dk@^9` and then `npm test`. Run `npm install` afterwards to restore CAP 10. With npm 12 or later, which blocks install scripts, `@sap/cds-dk` 9 leaves `better-sqlite3` without its native binding; run `npx --no-install prebuild-install` in `node_modules/better-sqlite3`, or the example-app tests hang.
 
-`npm run release:check` checks that the version in `package.json` matches `package-lock.json`, the example app's `cap-jev` range, the `cap-jev` range quoted in `examples/provider-package/README.md`, the `@sap/cds` peer range quoted in `docs/providers.md`, the release archive URLs and archive file names in both READMEs and a heading in `CHANGELOG.md`. It also checks that the `@sap/cds` peer range in `package.json` and in `examples/provider-package/package.json` names exactly the CAP majors in the `cds` matrix of `.github/workflows/ci.yml` (`^9 || ^10` for `cds: [9, 10]`), so the supported and the tested CAP versions cannot differ. `npm run release:check -- --tag v<x.y.z>` also checks the tag. It fails on a machine path (such as a home or temporary directory of a developer) in any tracked text file; `npm run release:check -- --archive <file.tgz>` runs only that check on a packed archive, as the release workflow does.
+`npm run release:check` checks that the version in `package.json` matches `package-lock.json`, the example app's `cap-decisions` range, the `cap-decisions` range quoted in `examples/provider-package/README.md`, the `@sap/cds` peer range quoted in `docs/providers.md`, the release archive URLs and archive file names in both READMEs and a heading in `CHANGELOG.md`. It also checks that the `@sap/cds` peer range in `package.json` and in `examples/provider-package/package.json` names exactly the CAP majors in the `cds` matrix of `.github/workflows/ci.yml` (`^9 || ^10` for `cds: [9, 10]`), so the supported and the tested CAP versions cannot differ. `npm run release:check -- --tag v<x.y.z>` also checks the tag. It fails on a machine path (such as a home or temporary directory of a developer) in any tracked text file; `npm run release:check -- --archive <file.tgz>` runs only that check on a packed archive, as the release workflow does.
 
-[CI](https://github.com/hendrik77/cap-jev/actions/workflows/ci.yml) runs lint, typecheck (CAP 10 only), tests (including the build) and `npm pack --dry-run` on Node.js 22, 24 and 26 with CAP 9 and CAP 10 (and `@sap/cds-dk` 9 and 10, matching CAP), for pushes to `main` and for pull requests (a branch with an open pull request runs once). Pushing a tag `v<x.y.z>` runs the [release workflow](.github/workflows/release.yml), which runs CI on the tagged commit, checks the release with `npm run release:check` and creates the GitHub release with the `npm pack` archive and the changelog section as notes.
+[CI](https://github.com/hendrik77/cap-decisions/actions/workflows/ci.yml) runs lint, typecheck (CAP 10 only), tests (including the build) and `npm pack --dry-run` on Node.js 22, 24 and 26 with CAP 9 and CAP 10 (and `@sap/cds-dk` 9 and 10, matching CAP), for pushes to `main` and for pull requests (a branch with an open pull request runs once). Pushing a tag `v<x.y.z>` runs the [release workflow](.github/workflows/release.yml), which runs CI on the tagged commit, checks the release with `npm run release:check` and creates the GitHub release with the `npm pack` archive and the changelog section as notes.
 
 Design decisions are recorded in [docs/decisions/](docs/decisions/).
 
