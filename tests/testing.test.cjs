@@ -77,10 +77,10 @@ const GOOD_UNWRAP = `if (typeof payload !== 'object' || !payload || !('data' in 
     return payload.data;`;
 
 // A provider package in a temporary directory, with the symlinks a development install has.
-// `plugin` is the content of its cds-plugin.js; `cds` and `capJev` are 'link' (the real package, as installed),
+// `plugin` is the content of its cds-plugin.js; `cds` and `capDecisions` are 'link' (the real package, as installed),
 // 'fake' (an empty package that is not the real one) or 'none'; `named: false` leaves out the package name.
 function writeProvider({ unwrap, plugin = '// CAP discovers the package through this file.\n', ...layout }) {
-  const { cds = 'link', capJev = 'link', named = true } = layout;
+  const { cds = 'link', capDecisions = 'link', named = true } = layout;
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cap-decisions-provider-')));
   const write = (file, content) => {
     fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
@@ -121,7 +121,7 @@ module.exports = KitTestService;
   );
   fs.mkdirSync(path.join(dir, 'node_modules/@sap'), { recursive: true });
   const fake = (name) => write(`node_modules/${name}/package.json`, JSON.stringify({ name, version: '0.0.0' }));
-  if (capJev === 'link') fs.symlinkSync(root, path.join(dir, 'node_modules/cap-decisions'), 'dir');
+  if (capDecisions === 'link') fs.symlinkSync(root, path.join(dir, 'node_modules/cap-decisions'), 'dir');
   else fake('cap-decisions');
   if (cds === 'link') {
     fs.symlinkSync(
@@ -266,7 +266,7 @@ describe('the kit reports a package that is set up wrongly', () => {
   test('two copies of @sap/cds', () => failsWith({ cds: 'fake' }, /Two copies of @sap\/cds would be loaded/));
 
   test('no @sap/cds anywhere', () =>
-    failsWith({ cds: 'none', capJev: 'fake' }, /@sap\/cds cannot be resolved from .* or from cap-decisions/));
+    failsWith({ cds: 'none', capDecisions: 'fake' }, /@sap\/cds cannot be resolved from .* or from cap-decisions/));
 
   test('a CAP process that crashes while it starts reports its error output', () =>
     failsWith(

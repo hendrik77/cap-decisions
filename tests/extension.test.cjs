@@ -209,13 +209,13 @@ describe('provider package', () => {
        const { DecisionsService } = require('cap-decisions');
        out({
          providerDir,
-         capJev: [fromProvider('cap-decisions'), real(require.resolve('cap-decisions'))],
+         capDecisions: [fromProvider('cap-decisions'), real(require.resolve('cap-decisions'))],
          cds: [fromProvider('@sap/cds'), real(require.resolve('@sap/cds'))],
          instance: srv instanceof DecisionsService,
        });`,
     );
     assert.equal(result.providerDir, providerPackage);
-    assert.equal(result.capJev[0], result.capJev[1]);
+    assert.equal(result.capDecisions[0], result.capDecisions[1]);
     assert.equal(result.cds[0], result.cds[1]);
     assert.equal(result.instance, true);
   });

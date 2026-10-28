@@ -159,17 +159,17 @@ function createTemporaryApp(options: Normalized): string {
   const packageDir = fs.realpathSync(options.packageDir);
   const { name } = readPackageJson(packageDir);
   const own = name === 'cap-decisions';
-  const capJev = own ? packageDir : (packageRoot('cap-decisions', packageDir) ?? path.resolve(__dirname, '..'));
-  const cds = packageRoot('@sap/cds', packageDir) ?? packageRoot('@sap/cds', capJev);
+  const capDecisions = own ? packageDir : (packageRoot('cap-decisions', packageDir) ?? path.resolve(__dirname, '..'));
+  const cds = packageRoot('@sap/cds', packageDir) ?? packageRoot('@sap/cds', capDecisions);
   if (!cds) {
     throw new Error(
-      `@sap/cds cannot be resolved from ${packageDir} or from cap-decisions (${capJev}); install it as a development dependency`,
+      `@sap/cds cannot be resolved from ${packageDir} or from cap-decisions (${capDecisions}); install it as a development dependency`,
     );
   }
-  const cdsOfCapJev = packageRoot('@sap/cds', capJev);
-  if (cdsOfCapJev && cdsOfCapJev !== cds) {
+  const cdsOfCapDecisions = packageRoot('@sap/cds', capDecisions);
+  if (cdsOfCapDecisions && cdsOfCapDecisions !== cds) {
     throw new Error(
-      `Two copies of @sap/cds would be loaded: ${cds} (from the provider package) and ${cdsOfCapJev} (from cap-decisions). ` +
+      `Two copies of @sap/cds would be loaded: ${cds} (from the provider package) and ${cdsOfCapDecisions} (from cap-decisions). ` +
         'Install the same copy for both, for example with a single npm install',
     );
   }
@@ -184,7 +184,7 @@ function createTemporaryApp(options: Normalized): string {
       path.join(dir, 'package.json'),
       JSON.stringify({ name: 'cap-decisions-kit-app', private: true, dependencies }, null, 2),
     );
-    link(capJev, path.join(dir, 'node_modules/cap-decisions'));
+    link(capDecisions, path.join(dir, 'node_modules/cap-decisions'));
     link(cds, path.join(dir, 'node_modules/@sap/cds'));
     if (!own && name) link(packageDir, path.join(dir, 'node_modules', name));
   } catch (error) {
