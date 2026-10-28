@@ -237,7 +237,7 @@ Before 1.0.0, each of the five targets passes a full acceptance run. The maintai
 1. `package.json`: `homepage` and `bugs`; check `files`, `exports`, `bin`, `engines`, the peer range from H1.
 2. The release workflow runs `npm publish --dry-run` after `npm pack`, so the publication step is exercised on every release before 1.0.0.
 3. Decide the publication method in ADR `docs/decisions/0009-npm-publication.md`: npm trusted publishing from GitHub Actions (OIDC, no long-lived token, provenance automatic) or an npm token secret with `npm publish --provenance`. Recommended: trusted publishing.
-4. *user*: create the npm account or organisation, reserve the name with the chosen method, and configure the trusted publisher (repository, workflow file `release.yml`).
+4. *user*: create the npm account or organisation and configure the trusted publisher (repository, workflow file `release.yml`). Reserving the name takes a first publication, so it waits for the user acceptance test (H13) like every other publication.
 
 ### H12 Release candidate 0.10.x (*main*)
 
@@ -245,7 +245,17 @@ The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.10.0 again
 
 ## 1.0.0: npm publication
 
-- All five acceptance runs in `docs/acceptance.md` pass on the release candidate that becomes 1.0.0 (H10).
+### H13 User acceptance test (*user*)
+
+A separate step after the acceptance runs of H10 and before anything is published to npm. The maintainer tests the release candidate that becomes 1.0.0 in their own way and decides the scope; H10's script and checklist are not required for it. The results go into `docs/acceptance.md`, in a section of their own.
+
+1. *user*: run the user acceptance test on the release candidate's GitHub archive, after all five runs of H10 have passed on it.
+2. A failure caused by `cap-decisions` becomes a finding, fixed red-green in a new release candidate; H10's affected runs and the user acceptance test are repeated on it.
+3. Nothing is published to npm, not even to reserve the name, until the maintainer has signed off the user acceptance test in the session. Until then the release workflow only runs `npm publish --dry-run` (H11).
+
+### Publication
+
+- All five acceptance runs in `docs/acceptance.md` pass on the release candidate that becomes 1.0.0 (H10), and the maintainer has signed off the user acceptance test on it (H13).
 - ADRs 0006, 0007, 0008 and 0009 accepted; the README's stability table matches ADR 0006; semantic versioning applies from here.
 - The release workflow publishes with the method from H11, with provenance; the release archives stay attached to GitHub releases.
 - The install instructions switch to `npm add cap-decisions`, or `cds add decisions -p cap-decisions`, which installs and configures in one step; `release:check` checks the npm instructions instead of the archive URLs.
@@ -276,6 +286,7 @@ The release steps, the Markdown review, the smoke tests of 0.7.0 to 0.10.0 again
 | Release 0.9.2 | Feedback of issue #12 (F31–F37) and the Windows CI job (F38), released as 0.9.2 on 2026-10-27. The release candidate and acceptance work of the section [0.10.x](#010x-release-candidate-and-acceptance) moves after the rename to `cap-decisions` (0.10.0), decided by the maintainer on 2026-10-27 |
 | Rename 0.10.0 | `cap-jev` becomes `cap-decisions`: package, service `decisions`, kinds `decisions-<x>`, types `Decisions…`; the wire format stays (ADR 0008). The npm publication ADR becomes 0009 |
 | H10–H12 | Open, on 0.10.x |
+| H13 | Open: user acceptance test before any npm publication, added on 2026-10-28 at the maintainer's request |
 
 ## Blocked tests
 
