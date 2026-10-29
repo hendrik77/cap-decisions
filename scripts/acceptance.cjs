@@ -304,7 +304,7 @@ const BASIC_CHECKS = {
 };
 
 // One request exactly at a limit must work, one beyond it must be refused before sending.
-async function limitCheck(context, atLimit, beyond) {
+async function limitCheck(context, atLimit, beyond, beyondNote = 'one more') {
   const ok = expectAnswers(
     await runCheck(context, { action: 'decide', state: STATE, questions: atLimit }),
     Object.keys(atLimit),
@@ -314,7 +314,7 @@ async function limitCheck(context, atLimit, beyond) {
     await runCheck(context, { action: 'decide', state: STATE, questions: beyond }),
     'INVALID_REQUEST',
   );
-  return problem ? fail(`beyond the limit: ${problem}`, ok.ms) : pass(ok.ms, 'limit accepted, one more refused');
+  return problem ? fail(`beyond the limit: ${problem}`, ok.ms) : pass(ok.ms, `limit accepted, ${beyondNote} refused`);
 }
 
 // The limits the resolved kind sets, as [name, check].
@@ -340,7 +340,7 @@ function limitChecks(context) {
     const beyond = bound === 'min' ? count - 1 : count + 1;
     checks.push([
       `limit scoreCriteria.${bound} ${count}`,
-      () => limitCheck(context, { q: score(count) }, { q: score(beyond) }),
+      () => limitCheck(context, { q: score(count) }, { q: score(beyond) }, bound === 'min' ? 'one fewer' : 'one more'),
     ]);
   }
   return checks;

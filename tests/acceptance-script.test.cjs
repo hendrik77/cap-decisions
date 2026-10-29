@@ -132,6 +132,10 @@ describe('acceptance script against the HTTP mock server', () => {
       assert.match(result.stdout, /- Model: .+, answered as (?!unknown)\S+/);
       assert.match(result.stdout, /\| Check \| Result \| Latency \| Notes \|/);
       assert.ok(!output.includes(TOKEN), 'the token must not appear in the output');
+      if (kind === 'decisions-typesafe') {
+        assert.match(result.stdout, /\| limit scoreCriteria\.min 2 \| pass \| \d+ ms \| limit accepted, one fewer refused \|/);
+        assert.match(result.stdout, /\| limit scoreCriteria\.max 10 \| pass \| \d+ ms \| limit accepted, one more refused \|/);
+      }
     });
   }
 
