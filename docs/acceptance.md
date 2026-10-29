@@ -69,7 +69,9 @@ One table per target, with the columns Date, Archive, CAP, Node.js, Model or ser
 
 ### TypeSafe Jev
 
-No run yet.
+| Date | Archive | CAP | Node.js | Model or server | Result | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-29 | `cap-decisions-0.10.0.tgz` | 10.2.1 | 26.12.1 | `jev-latest`, answered as `jev-1.14.0` | Pass: 12 passed, 0 failed, 1 skipped | `network error` skipped (remote target). All three limits of the kind hold: 255 choice options, 2 and 10 score criteria. A wrong token gives HTTP 401. Latencies 220 to 825 ms; the example handler routed the refund to `accounts` in 320 ms |
 
 ### Cloudflare Clef
 
